@@ -1,0 +1,54 @@
+{
+  "short_name": "CC Wallet",
+  "name": "Community coins wallet",
+  "icons": [
+    {
+      "src": "img/maskable_logo_1024.png",
+      "type": "image/png",
+      "sizes": "1024x1024"
+    },
+    {
+      "src": "img/maskable_logo_512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "img/maskable_logo_192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "img/maskable_logo_64.png",
+      "type": "image/png",
+      "sizes": "64x64"
+    }
+  ],
+  "id": "https://eflslice.communitycoins.org/",
+  "start_url": "https://eflslice.communitycoins.org/",
+  "background_color": "#3367D6",
+  "display": "standalone",
+  "theme_color": "#3367D6",
+  "shortcuts": [
+    {
+      "name": "Community coins wallet",
+      "short_name": "CC WALLET",
+      "description": "Wallet to keep community coins.",
+      "url": "https://eflslice.communitycoins.org/",
+      "icons": [{ "src": "img/maskable_logo_192.png", "sizes": "192x192" }]
+    }],
+  "description": "Wallet to keep community coins..",
+  "screenshots": [
+    {
+      "src": "img/screenshot_narrow.png",
+      "type": "image/png",
+      "sizes": "540x720",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "img/screenshot_wide.png",
+      "type": "image/jpg",
+      "sizes": "720x540",
+      "form_factor": "wide"
+    }
+  ]
+}

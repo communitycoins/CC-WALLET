@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<!-- [EFL-SLICE-054]
+Canonical wallet interface with a compact identity and calculator model.
+Base: - Derived from EFL-SLICE-053
+Changes:
+- [EFL-SLICE-054] Top-align the wallet identity and separate it from the tool row
+- Compact each calculator role, settings action, selector and amount into one row
+- Shorten the third role label from Wallet coin to Wallet
+- [EFL-SLICE-053] Enlarge ROOTY and the wallet name while moving connection status to the upper right
+- Replace the compressed calculator grid with three labeled native-select rows and direct settings actions
+- Move green and red semantics from the wallet-coin selector to Receive and Send
+- Add a concise non-custodial and zero-confirmation disclaimer under Help
+- [EFL-SLICE-052] Present a passive status indicator and three full-target toolbar actions
+- Remove the obsolete video overlay and animation dependencies
+- Place references below Help and keep ROOTY non-interactive
+- Invite for the selected coin through a language-and-coin wallet QR
+- [EFL-SLICE-051] Accept 12, 15, 18, 21 and 24-word recovery seeds
+- Add optional repeated recovery-passphrase fields while retaining seed::passphrase input
+- Keep the readonly wallet-seed view limited to the mnemonic words
+- [EFL-SLICE-050] Add the dynamic amount source for Receive titles
+- Retain the unified backup and seed recovery presentation from the repaired delegated paste route
+- [EFL-SLICE-049] Make the complete Receive confirmation scanner and ROOTY promotion logo clickable
+- Show the Send amount in its title and remove the explanatory amount line
+- Reuse one recovery field for automatic full-backup recognition and explicit seed restoration
+- Keep Community Coins promotion inside a concise, closable wallet dialog
+- [EFL-SLICE-048] Rename payment receipts to payment confirmations in the human interface
+- Replace visible compact receipt data with amount, destination and a short receiver instruction
+- [EFL-SLICE-047] Preserve the history presentation while pending rows become runtime-only
+- Confirm the compact Receive outcome immediately when the exact output reaches wallet state
+- [EFL-SLICE-045] Pair the existing inline Send scanner control with child-safe wallet click routing
+- Keep the visible form unchanged while device-inserted payment-amount spaces are normalized locally
+- [EFL-SLICE-044] Add a normally closed drag handle beneath the wallet for coin-filtered history
+- Show date, signed colored amount and outbound destination in one compact row
+- Reopen an outbound payment receipt by selecting its history row
+- [EFL-SLICE-039] Replace cumulative Send and Receive content with compact phase-specific panels
+- Keep transaction identifiers and observer internals out of the human interface
+- Present the sender receipt immediately as one stable screen-wide QR
+- [EFL-SLICE-038] Replace manual observer retry with automatic five-second observation
+- Add amount to the enlarged Receive QR and add an enlarged sender receipt QR with JSON
+- [EFL-SLICE-037] Add a screen-wide Receive QR overlay without changing the active request
+- Keep the in-page diagnostic line behind Expert mode
+- [EFL-SLICE-036] Restore the remembered Expert mode control and technical presentation
+- Restore distinct state, broadcast and status timing fields
+- Restore the ordinary direct-review flow while retaining the full expert review
+- Remove the obsolete destination Edit control that no longer has a handler
+- [EFL-SLICE-033] Add sender receipt QR, receiver scan observation and wallet-name SET controls
+- [EFL-SLICE-026] Add an inline two-step broadcast confirmation below the verified raw transaction
+- Show acceptance, transaction follow-up and layered roundtrip timings without a modal
+- [EFL-SLICE-025] Distinguish the reviewed plan from the signed result below it
+- State explicitly when an exact-spend transaction has no change output
+- [EFL-SLICE-024] Keep the fee explanation in About and remove it from the Send flow
+- [EFL-SLICE-023] Review, build and sign a checkpoint-bound transaction locally
+- Show the raw transaction and locally calculated txid without any broadcast action
+- State that the sender pays the fee above the full amount received
+- [EFL-SLICE-022] Mark every 5A label and provide English sources for runtime text
+- Translate the Send placeholder and accessibility labels through the same source set
+- [EFL-SLICE-021] Add destination entry, QR scan and an inspectable local transaction plan
+- Keep the plan in the main wallet view and state explicitly that it is not broadcast
+- Make the displayed wallet balance permanently readonly
+- [EFL-SLICE-020] Restore the Balance button and its multi-coin total dialog
+- Give ROOTY and the selected coin stronger visual identity without increasing mobile height
+- Place coin name above its logo and ticker below it
+- [EFL-SLICE-019] Separate wallet identity and tools from the host-coin balance card
+- Move Receive from the modal into the wallet and keep the calculator visible
+- Hide prototype Memo and History from the first release without removing their source
+- [EFL-SLICE-013] Add an explicit field for 12-word and historical 24-word mnemonic recovery
+- Keep complete-backup recovery through the memo field unchanged
+- [EFL-SLICE-012] Give Seed a unique button route and a readonly seed dialog
+- Explain that historical local wallets can contain a valid 24-word seed
+-->
+<html lang="en">
+<head>
+<script>
+  url=document.URL 
+  if (url.substr(0,5)=="http:") {
+    document.location="https:"+url.substr(5)
+  }
+</script>
+
+<meta charset="UTF-8">
+<!--meta name="viewport" content="width=device-width, initial-scale=1.0 shrink-to-fit=yes"-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="img/ico.png">
+
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css'>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+<script type="text/javascript" src="js/qrcode.js"></script>
+<script type="text/javascript" src="js/html5-qrcode.min.js"></script>
+<script type="text/javascript" src="js/pako.1.0.3.min.js"></script>
+
+<title class=T>Community coins wallet</title>
+<link rel='stylesheet' href='rooty.css'>
+</head>
+<body>
+  <div class="splash-screen" id="splashScreen">
+    <h1>ROOTY</h1>
+    <img class=splash-image src='img/rooty.png'>
+    <h1 align=center>Community coins</h1>
+    <h6 class=white align=center>communitycoins.org</h6>
+  </div>
+  <div class="wallet" id="wallet" >  
+    <!--div id="app-container" style="display: none;"-->
+    <div class="wallet-identity">
+      <div class="brand-link" aria-label="Community Coins"><img class=brand-logo src=img/rooty.png alt=ROOTY></div>
+      <div class=identity-content>
+        <div class=identity-top>
+          <div class=wallet-owner>
+            <label class="label T" id=ownerLabel title="A global unique wallet name">Name of this wallet </label>
+            <label class="label click" id=owner>...</label>
+          </div>
+          <div class=wallet-status id=idOnlineStatus role=status aria-live=polite>
+            <span class=wallet-status-dot id=id_online aria-hidden=true>&bull;</span>
+            <span class=wallet-status-text id=idOnlineText>Online</span>
+          </div>
+        </div>
+        <div class="wallet-tools" aria-label="Wallet tools">
+          <button class="wallet-tool" id=id_setting type=button aria-label="Settings"><span class="bi bi-gear" aria-hidden=true></span><span class=T>Settings</span></button>
+          <button class="wallet-tool" id=id_question type=button aria-label="Help"><span class="bi bi-question-circle" aria-hidden=true></span><span class=T>Help</span></button>
+          <button class="wallet-tool wallet-tool-invite" id=id_speak type=button aria-label="Invite"><span class="bi bi-megaphone" aria-hidden=true></span><span class=T>Invite</span></button>
+        </div>
+        <span class=hidden id=idMail aria-hidden=true></span>
+      </div>
+    </div>
+    <div class="panel coin-card" id="panel-header">
+      <div class=host-coin-identity>
+        <div class="host-coin-name" id=idHostCoinName>Community coin</div>
+        <img id=idHostCoinIcon class="host-coin-icon" src=img/rooty.png alt="">
+        <div class="host-coin-ticker" id=idHostCoinTicker></div>
+      </div>
+      <div class="host-coin-copy">
+        <button class="balance-button T" id=balanceButton type=button>BALANCE</button>
+        <input id=inputBalance class="balance-value" type="text" value="0" readonly>
+        <div class="balance-status" id=idBalanceStatus aria-live=polite>Waiting for live state</div>
+        <div class="state-timing expert-only" id=idStateTiming></div>
+        <select class=hidden id=comboBalance aria-hidden=true></select>
+      </div>
+    </div><!-- #panel-header -->
+    <div class="panel" id="panel-calc">
+      <div class=calculator-heading>
+        <img id=idPaymentIcon class=hidden src=img/rooty.png alt="">
+        <div class="div-center"><label class="label T">Calculator</label></div>
+      </div>
+      <div class=calculator-rows>
+        <section class=calculator-row>
+          <div class=calculator-row-heading><label class=T for=comboReference>Reference</label><button class=calculator-settings id=menuCurrenciesReference type=button aria-label="Reference settings"><span class="bi bi-gear" aria-hidden=true></span><span class="visually-hidden T">Reference settings</span></button></div>
+          <div class=calculator-select><select id=comboReference></select></div><input type=text inputmode=decimal autocomplete=off id=inputReference onkeyup="reCalc(this)" onkeypress="return calc(event)">
+        </section>
+        <section class=calculator-row>
+          <div class=calculator-row-heading><label class=T for=comboFiat>Fiat</label><button class=calculator-settings id=menuCurrenciesFiat type=button aria-label="Fiat settings"><span class="bi bi-gear" aria-hidden=true></span><span class="visually-hidden T">Fiat settings</span></button></div>
+          <div class=calculator-select><select id=comboFiat></select></div><input type=text inputmode=decimal autocomplete=off id=inputFiat onkeyup="reCalc(this)" onkeypress="return calc(event)">
+        </section>
+        <section class=calculator-row>
+          <div class=calculator-row-heading><label class=T for=comboSupported>Wallet</label><button class=calculator-settings id=menuCurrenciesSupported type=button aria-label="Wallet coin information"><span class="bi bi-gear" aria-hidden=true></span><span class="visually-hidden T">Wallet coin information</span></button></div>
+          <div class=calculator-select><select id=comboSupported></select></div><input type=text inputmode=decimal autocomplete=off id=inputSupported onkeyup="reCalc(this)" onkeypress="return calc(event)">
+        </section>
+      </div>
+      <div id=id_warning2 class="red small"></div>
+    </div><!-- #panel-calc -->
+    <div class="panel hidden" id="panel-memo" aria-hidden=true>
+      <label class="label T">Memo</label>
+      <button class="btn btn-link"><span class="bi bi-question-circle" id=id_helpMemo title=How to use the Memo field?></span></button>
+      <button class="btn btn-link"><span class="bi bi-trash" id=id_trashMemo title="Erase memo"></span></button>
+      <div class="memo-container"><textarea id="idMemo"></textarea></div>
+    </div><!-- #panel-memo -->
+    <div class="panel" id="panel-buttons">
+      <div class=transaction-actions>
+        <button class="transaction-action transaction-receive" id=idReceive type=button><span class=T>RECEIVE</span><span class=transaction-action-coin id=idReceiveActionCoin>eGulden</span></button>
+        <button class="transaction-action transaction-send" id=idSend type=button><span class=T>PAY</span><span class=transaction-action-coin id=idSendActionCoin>eGulden</span></button>
+        <button class="transaction-action transaction-scan" id=idScan type=button><span class="bi bi-qr-code-scan" aria-hidden=true></span><span class=T>SCAN QR CODE</span></button>
+        <button class="button button-color-gray T hidden" id=idHistory type=button>HISTORY</button>
+      </div>
+    </div>
+    <div class="panel transaction-panel hidden" id=panel-transaction>
+      <div class=transaction-heading>
+        <div>
+          <div class="transaction-kicker T" id=idTransactionKicker>REQUEST</div>
+          <div class="transaction-title T" id=idTransactionTitle>Receive</div>
+        </div>
+        <button class="transaction-close" id=idTransactionClose type=button aria-label="Back to wallet">&times;</button>
+      </div>
+      <div id=idReceiveView>
+        <div id=idReceiveRequestContent>
+          <div class="receive-label T">Receive address</div>
+          <div class=receive-address id=idReceiveAddressMain></div>
+          <div class=receive-qr id=idReceiveQrMain></div>
+          <button class="receive-qr-expand" id=idReceiveQrExpand type=button aria-label="Enlarge QR code">
+            <span class="bi bi-arrows-fullscreen"></span>&nbsp; <span class=T>Enlarge QR</span>
+          </button>
+          <div class=receive-uri id=idReceiveUriMain></div>
+          <button class="button button-color-green receive-share" id=idReceiveShare type=button>
+            <span class="bi bi-share"></span>&nbsp; <span class=T>Share</span>
+          </button>
+          <button class="button receive-receipt-scan" id=idReceiveReceiptScan type=button>
+            <span class="bi bi-qr-code-scan"></span>&nbsp; <span class=T>SCAN PAYMENT CONFIRMATION</span>
+          </button>
+        </div>
+        <section class="payment-observation hidden" id=idReceiveZeroConfirmation aria-live=polite>
+          <div class=payment-observation-title id=idZeroConfirmationTitle>PAYMENT CONFIRMATION SCANNED</div>
+          <dl class=compact-transaction-table>
+            <dt class=T>Coin</dt><dd id=idObservedCoin></dd>
+            <dt class=T>Amount</dt><dd id=idObservedAmount></dd>
+          </dl>
+          <div class=transaction-status-progress id=idZeroConfirmationDetail>TRANSACTION STATUS CHECKING...</div>
+        </section>
+      </div>
+      <div class=hidden id=idSendView>
+        <div id=idSendEditor>
+          <label class="send-label T" for=idSendTo>Destination address</label>
+          <div class=send-destination-row>
+            <input id=idSendTo class=send-destination type=text autocomplete=off spellcheck=false>
+            <button class="send-small-button" id=idSendScan type=button><span class="bi bi-qr-code-scan"></span> <span class=T>Scan</span></button>
+          </div>
+          <button class="button button-color-red send-review T" id=idBuildSendPlan type=button>REVIEW TRANSACTION</button>
+          <div class=send-status id=idSendStatus aria-live=polite></div>
+          <section class="send-plan expert-only hidden" id=idSendPlan>
+            <div class="send-local-warning T" id=idPlanLocalWarning>LOCAL ONLY · NOT SIGNED · NOT BROADCAST</div>
+            <dl class=send-plan-details>
+              <dt class=T>Checkpoint</dt><dd id=idPlanCheckpoint></dd>
+              <dt class=T>Destination</dt><dd class=monospace id=idPlanDestination></dd>
+              <dt class=T>Amount</dt><dd id=idPlanAmount></dd>
+              <dt class=T>Minimum fee</dt><dd id=idPlanFee></dd>
+              <dt class=T>Input total</dt><dd id=idPlanInputTotal></dd>
+              <dt class=T>Change</dt><dd id=idPlanChange></dd>
+              <dt class=T>Change address</dt><dd class=monospace id=idPlanChangeAddress></dd>
+            </dl>
+            <div class="send-input-heading T">Selected confirmed inputs</div>
+            <div class=send-input-scroll>
+              <table class=send-input-table>
+                <thead><tr><th class=T>Index</th><th class=T>Outpoint</th><th id=idPlanCoinTicker></th></tr></thead>
+                <tbody id=idSendInputs></tbody>
+              </table>
+            </div>
+            <button class="button button-color-red send-build T" id=idBuildSignedTransaction type=button>BUILD AND SIGN LOCALLY</button>
+          </section>
+          <section class="signed-transaction expert-only hidden" id=idSignedTransaction>
+            <div class="signed-local-warning T">LOCAL ONLY — NOT BROADCAST</div>
+            <dl class=send-plan-details>
+              <dt class=T>Transaction ID</dt><dd class=monospace id=idSignedTxid></dd>
+              <dt class=T>Serialized size</dt><dd id=idSignedSize></dd>
+              <dt class=T>Verified fee</dt><dd id=idSignedFee></dd>
+              <dt class=T>Signatures</dt><dd id=idSignedSignatures></dd>
+            </dl>
+            <div class="send-input-heading T">Verified outputs</div>
+            <div class=send-input-scroll>
+              <table class=send-input-table>
+                <thead><tr><th class=T>Role</th><th class=T>Address</th><th id=idSignedCoinTicker></th></tr></thead>
+                <tbody id=idSignedOutputs></tbody>
+              </table>
+            </div>
+            <label class="send-input-heading T" for=idSignedRaw>Raw transaction</label>
+            <textarea class="signed-raw monospace" id=idSignedRaw readonly spellcheck=false></textarea>
+            <button class="button broadcast-prepare T" id=idPrepareBroadcast type=button>CONTINUE TO BROADCAST</button>
+          </section>
+        </div>
+        <div class="broadcast-confirmation hidden" id=idBroadcastConfirmation>
+          <div class="broadcast-warning T">Broadcasting submits this transaction to the EFL network. It cannot be recalled.</div>
+          <dl class=compact-transaction-table>
+            <dt class=T>Coin</dt><dd id=idBroadcastConfirmCoin></dd>
+            <dt class=T>Amount</dt><dd id=idBroadcastConfirmAmount></dd>
+            <dt class=T>Destination</dt><dd class=monospace id=idBroadcastConfirmDestination></dd>
+          </dl>
+          <button class="button button-color-red T" id=idBroadcastTransaction type=button>BROADCAST NOW</button>
+        </div>
+        <section class="broadcast-tracking hidden" id=idBroadcastTracking>
+          <div class=broadcast-outcome id=idBroadcastOutcome aria-live=polite></div>
+          <dl class=compact-transaction-table>
+            <dt class=T>Coin</dt><dd id=idBroadcastCoin></dd>
+            <dt class=T>Amount</dt><dd id=idBroadcastAmount></dd>
+            <dt class=T>Destination</dt><dd class=monospace id=idBroadcastDestination></dd>
+          </dl>
+          <button class="button show-payment-receipt hidden T" id=idShowPaymentReceipt type=button>SHOW PAYMENT CONFIRMATION</button>
+        </section>
+      </div>
+    </div>
+    <div class="expert-only wallet-console" id=console></div>
+    <section class=history-drawer id=idHistoryDrawer aria-label="Transaction history">
+      <button class=history-handle id=idHistoryHandle type=button aria-expanded=false aria-controls=idHistoryViewport>
+        <span class=history-handle-line></span>
+        <span class="bi bi-chevron-down history-handle-icon" aria-hidden=true></span>
+      </button>
+      <div class=history-viewport id=idHistoryViewport>
+        <div class=history-list id=idHistoryList></div>
+      </div>
+    </section>
+</div><!-- .wallet -->
+<div class="receive-qr-overlay hidden" id=idReceiveQrOverlay role=dialog aria-modal=true aria-label="Enlarged Receive QR code">
+  <button class=receive-qr-overlay-close id=idReceiveQrOverlayClose type=button aria-label="Close enlarged QR code">&times;</button>
+  <div class=receive-qr-large id=idReceiveQrLarge></div>
+  <div class=receive-qr-large-amount id=idReceiveQrLargeAmount></div>
+  <div class=receive-qr-large-address id=idReceiveQrLargeAddress></div>
+</div>
+<div class="payment-receipt-qr-overlay hidden" id=idPaymentReceiptQrOverlay role=dialog aria-modal=true aria-label="Payment confirmation QR code">
+  <button class=payment-receipt-qr-overlay-close id=idPaymentReceiptQrOverlayClose type=button aria-label="Close payment confirmation QR code">&times;</button>
+  <div class="payment-receipt-qr-title T">PAYMENT CONFIRMATION</div>
+  <div class=payment-receipt-qr-large id=idPaymentReceiptQrLarge></div>
+  <div class=payment-receipt-qr-summary id=idPaymentReceiptQrSummary></div>
+  <div class="payment-receipt-qr-instruction T">Present this QR code to the recipient if desired. A CC wallet will then ask the network nodes whether they have seen the exact payment.</div>
+</div>
+<div class="modal fade" id="Modal" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-start w-100">
+        <div><button type="button" id=buttonHelp><span class="bi bi-question-circle" id=idHelp></span></button></div>
+        <div><h5 class="modal-title m-0 mx-2" id="ModalTitle"></h5></div>
+        <div><button type="button" class="btn btn-secondary" id=exit0>X</button></div>
+        <!--<span id=exit0 aria-hidden="true">&times;</span-->
+      </div>
+      <div class="modal-body" id=id_modalbody></div>
+      <div class="modal-footer">
+        <button id=save type="button" class="btn btn-primary T">OK</button>
+        <button id=exit1 type="button" class="btn btn-secondary T">Quit</button>
+      </div>
+    </div>
+  </div>
+</div><!-- #Modal -->
+<div class="hidden" title="Wallet help" id=en_helpMain>
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <div class="max-width-image">
+          <img src="img/rooty.png" alt="Community coins" class="img-fluid">
+      </div>
+      <div class=div-center>
+        <p class=T>Community Coins wallet</p>
+      </div> 
+    </div>
+    <div class="panel T">Receive: choose an amount, open Receive and show the QR code. Pay: scan a payment request, check the amount and destination, and offer the transaction to the network.</div>
+    <div class="panel T">After payment, the sender can show a payment confirmation. The recipient scans it to see how many network observers have witnessed the exact transaction. Only a blockchain confirmation makes the payment final and spendable.</div>
+    <div class="panel T">Back up the wallet before receiving meaningful amounts. A seed and any recovery passphrase together provide access to the coins; keep them private and offline.</div>
+    <div class="panel T">The entered amount is paid in full to the recipient. The transaction fee is added on top and is paid by the sender; it is never subtracted from the recipient's amount.</div>
+    <div class="panel wallet-disclaimer T">This wallet does not hold funds or store recovery words centrally. You are responsible for backups, addresses, amounts and the selected network. Transactions are irreversible. Software, price information and network observations are provided without warranty. A zero-confirmation observation is not a blockchain confirmation.</div>
+    <div class="panel help-reference"><button class="wallet-help-link T" id=idHelpReferences type=button>About Community Coins and references</button></div>
+  </div> 
+</div>
+
+<!--div class="hidden" id=en_setupx title="Wallet setup">
+  <div class="panel panel-default">
+      <ul>
+      <li id=menuLanguage class=T>Change language </li>
+      <li id=menuOwner class=T>Wallet identity settings</li>
+      <li id=menuCalculator class=T>Select 'Calculator' currencies</li>
+      <li id=idManage2 class=2>Backup and wallet management functions</li>
+      <li id=menuPin class=T>Set Pincode</li>
+    </ul>
+  </div>
+</div-->
+
+<div class="hidden" id=en_setup title="Wallet setup">
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div class="container">
+    <a class="navbar-brand" href="#"><img class="img-fluid max-width-image" src=img/rooty.png></a>
+    <div class="" id="navbarNav"> <!--collapse navbar-collapse-->
+      <ul class="navbar-nav flex-column ml-auto">
+        <li class="nav-item">
+          <a class="nav-link T" href="#" id=menuLanguage class=T>Change language</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link T" href="#" id=menuOwner>Change wallet identity settings</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link T" href="#" id=menuCalculator>Select 'Calculator' currencies</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link T" href="#" id=idManage2>Backup and wallet management functions</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link T" href="#" id=menuPin>Set Pincode</a>
+        </li>
+        <li class="nav-item">
+          <label class="nav-link setup-check"><input type=checkbox id=idExpertMode>&nbsp;<span class=T>Expert mode</span></label>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+</div>
+
+<div class="hidden" id=en_manage title="Wallet management">
+  <div class="panel panel-default" id=idWalletView></div>
+  <div class="panel panel-default">
+    <table class="table table-bordered">
+    <tr><td class="right-align"><button id=walletBackup class="btn btn-primary T">Backup</button></td>
+    <td class="T">Make a copy of the active wallet to transfer it to an external computer or storage device</td></tr>
+    <tr><td class="right-align"><button id=walletRecover class="btn btn-secondary T">Reload</button></td>
+    <td class=T>Recover a backup-wallet</td></tr>
+    <tr><td class="right-align"><button id=walletCreate class="btn btn-success T">New</button></td>
+    <td class="T">Create a new wallet</td></tr>
+    <tr><td class="right-align"><button id=walletDelete class="btn btn-danger T">Delete</button></td>
+    <td class="T">Delete a wallet from your device</td></tr>
+    <tr><td class="right-align"><button id=walletSeed class="btn btn-warning T">Seed</button></td>
+    <td class="T">Extract the wallet seed from the active wallet</td></tr>    
+  </table>
+  <div class="panel panel-default">
+    <p class=T>A wallet can be used to store cryptocurrency and carry it with you. It consists of a bunch of 'receiving addresses',  and a special key known as a <mark>'seed'</mark>. This seed lets you see how much cryptocurrency you have in your wallet and makes it possible to spend it.</p>
+    <p class=T>With a backup you copy everything, the seed, your personal settings and a record of all the money coming in and going out (transactions). When you copy the seed you just copy your money.</p>
+<p class=T>When ROOTY creates a wallet, its seed has twelve words. Imported English BIP39 seeds may contain 12, 15, 18, 21 or 24 words. Keep the seed and any recovery passphrase together with the care normally reserved for money: both are required to reconstruct the same wallet.</p>
+<p class=T>It's also a good idea to have multiple wallets. For instance, you could have one on your mobile phone and another one at home. This way, you can keep larger amounts of cryptocurrency at home for added security.</p>
+<p class=T>Last but not least, you also have the option to store the seed separately in a secure location. For example to write it down in your personal diary or on a piece of paper which you lock away.
+  </div>
+</div>
+
+<div class="hidden" id=en_walletSeed title="Wallet seed">
+  <div class="panel panel-default">
+    <p class=T>These words provide full access to the funds in this wallet. Keep them private and store them offline. Never send them to anyone.</p>
+    <div class="memo-container">
+      <textarea id=walletSeedContent rows=5 readonly autocomplete=off autocapitalize=none spellcheck=false aria-label="Wallet seed"></textarea>
+    </div>
+  </div>
+</div>
+
+<div class="hidden" id=en_balance title="Wallet balance">
+  <div class="panel panel-default" id=id_balance>
+  </div>
+</div>
+
+<div class="hidden" id=en_menuLanguage title="Set wallet language">
+  <div class="panel panel-default radioContainer" id=selectLanguage>
+  </div> 
+</div>
+
+<div class="hidden" id=en_promote title="Community Coins">
+  <div class="panel panel-default promote-intro">
+    <blockquote class="promote-statement T">A currency comes alive when people use it.</blockquote>
+    <h3 id=idPromotionTitle></h3>
+    <p id=idPromotionIntro></p>
+    <div id=idQrcode class="center"></div>
+    <div class="promote-qr-label T">SCAN FOR YOUR OWN COMMUNITY COINS WALLET</div>
+    <div class=promote-benefits>
+      <div class=T>Free wallet and open-source software.</div>
+      <div class=T>No account, login or KYC.</div>
+      <div class=T>Non-custodial: only you control your recovery words.</div>
+      <div class=T>Receive and pay simply by QR code.</div>
+    </div>
+    <p class="promote-explanation T">Community Coins brings independent currency communities and their shared route together. The aim is to make their coins usable in one wallet, step by step.</p>
+    <a class="promote-more T" href="https://communitycoins.org/#site-menu" target=_blank rel="noopener noreferrer">View the shared Community Coins route</a>
+  </div>
+</div>
+
+<div class=hidden>
+  <span class=T id=txtPromotionTitle>Let someone experience {coin}</span>
+  <span class=T id=txtPromotionIntro>Know someone who feels drawn to {coin}, a sovereign digital currency from {country}? Let them scan this QR code. They immediately get their own wallet to receive, pay and experiment.</span>
+  <span class=T id=txtPromotionHomeCommunity>its home community</span>
+</div>
+
+<div class="hidden" id=en_contact title="Contact">
+  <div class="panel panel-default">
+    <div id=idQrContact class="center"></div>
+    <div class="small T">Present this QR-code to let new users obtain a new wallet</div>
+  </div> 
+  <div class="panel">
+    <p class=T>Some text
+  </div>
+</div>
+
+<div class="hidden" id=en_qrreader title="QR reader">
+  <div class="panel panel-default" id=reader>
+    <div  class="center">
+    </div>
+  </div>
+</div>
+
+<div class="hidden T" id=en_communitycoins>
+  We think communitycoins are a special class of cryptocoins that are/should be driven by a community and are typical grassroots organisations, as opposed to centralised ICO's and institutional initiatives.
+</div>
+<div class="hidden T" id=en_canada>
+  As we reflect on the specifics of being a Canadian crypto currency community, we recognize that even though we are focused in Canada, our work applied to the national level problems also apply to others in their own communities. As we work on building tools to help solve user-centric problems, we join with other communities who are in a similar state with the intent so share our experiences.
+</div>
+<div class="hidden T" id=en_iceland>
+  Auroracoin believes that cryptocurrencies promote individual freedoms and that groups like CommunityCoins.org are essential in building like-minded communities and financial technology infrastructure.We are committed to supporting CommunityCoins.org through shared knowledge & experience, technical collaboration, goodwill, and positive reinforcement.
+</div>
+<div class="hidden T" id=en_the_netherlands>
+  The dutch Electronic Gulden Foundation endorses communitycoins.org. We will put significant effort in the cooperation with other community-coins that support the shared manifest.
+</div>
+<div class="hidden T" id=en_pakistan>
+  Pakcoin aims to bring cryptocurrency usage into daily lives of common people because its by the people for the people. We support communitycoins.org by sharing our experiences and technical knowledge for promoting well being of community coins.
+</div>
+<div class="hidden T" id=en_united_kingdom>
+  Sterlingcoin very proudly endorses CommunityCoins.org as an effort to mutually support like-minded and community-driven cryptocurrency projects with knowledge and resource sharing. Sterlingcoin is committed to support CommunityCoins.org, its manifest, and peer projects in every way possible.
+</div>
+<div class="hidden T" id=en_germany>
+  Deutsche eMark wants to provide great value to the German and it's worldwide investors community who have adapted and are banking on the coin over the long-term. We are also a proud member of CommunityCoins.org which we highly endorse. CommunityCoins are here to financially empower their users. The release of the code - open source gives the entrepreneur and individual planning security and confidence as macroeconomic interest rates in form of mining/staking rewards and halving events are well known in advance.  
+</div>
+<div class="hidden T" id=en_portugal>
+  We are part of a group of cryptocurrency enthusiasts with different initiatives for different communities and this is where we join our forces and cooperate
+</div>
+<div class="hidden T" id=en_japan>
+  Fujicoin is not a cryptocurrency made for speculative purposes. Rather our goal is to enable people around the world to use Fujicoin on a daily basis.
+</div>
+<div class="hidden T" id=en_russia>
+  The new reality reflects the world's transition to a state of competition for spatial influence as opposed to competition for technological leadership.
+  The essence of competition for leadership at this stage is to create a crisis-resistant, technologically and industrially self-sufficient space in which the priority of national rules of the game will be ensured.
+</div>
+<div class="hidden" id=en_helpWalletName title="Confidence Boost">
+<p class=T>
+</div>
+<div class="hidden" id=en_helpCalculator title="The currency calculator">
+  <div class="panel T">Reference compares the payment with personally useful measures such as Bitcoin or commodities. Fiat shows the same value in familiar national currencies. Wallet coin selects the fully supported community coin used by balance, history, Receive and Send.</div>
+  <div class=calculator-help-actions><button id=idHelpReferenceSettings type=button class="wallet-help-link T">Choose references</button><button id=idHelpFiatSettings type=button class="wallet-help-link T">Choose fiat currencies</button><button id=idHelpWalletCoinInformation type=button class="wallet-help-link T">View wallet coins</button></div>
+</div>
+
+<div class="hidden" id=en_helpMemo title="The memo field">
+  <div class="panel panel-default T">
+    The memo field is added for your convenience. The information entered here can optionally be transmitted to your payment partner through a payment request (RECEIVE). The information you type here is attached to your transaction history. Optionally it will be send to your payment partner without the possibility of interception. With the HISTORY button (bottom right) you can later consult this memo, search for it and even enhance it at a later date.
+  </div>
+</div>
+
+<div class="hidden" id=en_helpWalletExchange title="Why exchange extra information besides a simple payment?">
+  <div class="panel panel-default T">
+    When your payment partner receives extra information about you...
+- Think of it as a tailor made business card
+- The exchange of information, using a wallet name occurs person to person and cannot be intercepted
+- It could enhance trust
+- You could get similar information in return
+- You don't need to remember or store the information exchanged. It remains in your wallet history until you delete it.
+- You can exclude or include elements on the card by clicking on them
+- Your wallet name can be used as a destination for payments.
+- A walletname can only be used to send parallel information if both wallets have a connection. A connection happens through a payment request where the walletname is exchanged
+- Last but not least: This information will only be exchanged AFTER your payment partner submitted his payment to the cryptocurrency network. You receive the payment details submitted and you have a preliminary confirmation the paymentproces has started.
+- <mark>The CC (Community Coin) information exchange feature only works when both payment partners use the community coin wallet.</mark>
+  </div>
+</div>
+
+<div class="hidden" id=en_helpMotivation title="Wallet ConfidenceBoost motivation">
+    <p class=T>
+Wallet identity settings, such as a wallet name, are not mandatory, but they solve some of the main challenges of cryptocurrencies: 
+- Instead of struggling with complex addresses, recipients can provide a straightforward name that senders can easily identify and trust.
+- In cash payments, such as cryptocurrency payments, the sender often faces greater vulnerability because he is the first to move. To address this, receiving additional information from the recipient becomes a crucial step. It not only enhances the sender's confidence but also provides clear assurance about the intended destination of the transaction.
+- Since cryptocurrency transactions are public by nature, they are not designed to include detailed payment information within them. Here's where a wallet name comes into play. It serves as a dual-purpose destination address, not only for the payment itself but also as part of an accompanying message. This wallet name effectively becomes part of a parallel, peer-to-peer communication channel that ensures privacy and confidentiality. Messages sent via this channel can only be read by the intended recipient, enhancing the privacy and security of your transactions.
+- Cryptocurrency payments often involve waiting for several minutes for a payment to be confirmed, making them less convenient for quick, cash-like transactions. However, with the parallel peer-to-peer communication channel facilitated by a wallet name, transaction information can be exchanged directly and securely between the sender and recipient. This innovation enables instant, zero-confirmation payments, making cryptocurrency a more practical choice for speedy transactions, akin to cash payments.
+
+To meet these challenges the communitycoin teams have established such a practical but optional peer-to-peer communication service. It allows wallet users to register a wallet name and to communicate directly. If the sender uses a destination walletname the following happens:
+- The cryptic recipient address for the payment is retrieved
+- A payment transaction is generated and submitted to the cryptocurrency network
+- In parallel an encrypted message is send to the recipient. That message contains: the transaction ID, the currency used and the amount transmitted
+- Optionally the message can include: The wallet name of the sender, a personal message (memo) and a contact card.
+- The entire message is peer to peer because it can only be decrypted by the recipient through the use of asymetric RSA-OAEP encryption</p>
+    <h3>More convenience: a five minute code</h3>    
+    <p class=T>
+    Still a wallet name is not optimal because names can be difficult too. Like yajnavalkya. Without resorting to the cryptic QR-CODE we introduce <mark>a five-minute-code</mark>, which consists of four large digits the recipient can pronounce or show to his payment partner. It works like this:
+- The recipient selects the payment currency and het enters the amount, probably using the the fiat currency in the calculator panel.
+- Optionally he enters text in the memo-field
+- The recipient presses the receive-button and verifies the payment data
+- Then the recipient presses the five-minute button and a large random four-digit-code appears, which he shows to the sender
+    </p>
+    <p style='font-size:96px;text-align:center' id=fiveMinute>7812</p>
+</div>
+
+
+<div class="hidden" id=en_walletDelete title="The memo field">
+  <div class="panel panel-default T">
+    Consider the following before pressing the OK-button below:
+    <ul>
+      <li class=T>Your current balance is</li>
+      <li class=T>Your latest coin backup was on</li>
+      <li class=T>Your latest full backup (coin + Transaction History) was on</li>
+  </div>
+</div>
+
+<div class="hidden" id=en_infoMain title="References and links">
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <div class="max-width-image">
+          <img src="img/rooty.png" alt="Community coins" class="img-fluid">
+      </div>
+      <div class=div-center>
+        <p><a href=https://communitycoins.org>https://communitycoins.org</a></p>
+      </div>
+    </div>
+    <div>
+      <p class="italic" T>This wallet is a Federated Initiative of community coin teams. That means that it is created and maintained by groups of friends that work together to make something amazing happen: We put <span class="bg-warning">the power of Bitcoin</span> in the hands of everybody in their own country and region. For people that Bitcoin would otherwise never reach.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="hidden" id=en_Warning title="Warning">
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <div class=div-center>
+        <h2 class="T">Warning</h2>
+      </div> 
+    </div>
+    <div class="T" id=id_warning1>
+    </div>
+  </div>
+</div>
+
+<div class="hidden" id=en_menuCurrencies title="">
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <div class=div-center>
+        <p id=headerSelectCurrencies></p>
+      </div> 
+    </div>
+    <div class="T" id=id_selectCurrencies>
+    </div>
+  </div>
+</div>
+
+<div class="hidden" id=en_backupOptions title="Backup options">
+  <div class="panel panel-default">
+    <div class="T" id=id_backupOptions>
+      <p class=T>A backup consists of a string of data that enables you to reconstruct the wallet if the original gets lost or to transfer the wallet to another device. Remember to keep the backup just as secure, or more, as you would keep the original. Don't leave unnecessary copies abandoned on temporary directories or (email) folders. Be aware that a wallet also has a history which becomes frozen in the backup. You have three options:</p>
+      <ul><li ><a href=# onclick='saveBackupAs()' class=T>Save the backup to a file to transfer it later to another device.</a></li>
+      <li><a href=# onclick='mailTo()' class=T>Mail the backup to yourself using your local mail-client.</a></li>
+      <li class=T>Select the content of the textbox below and copy it to a convenient location</li></ul>
+      <span class=small id=labelBackupContent></span>
+      <div class="memo-container"><textarea id=backupContent readonly></textarea></div>
+    </div>
+  </div>
+</div>
+
+<div class="hidden" id=en_reloadBackup title="Reload backup-wallet">
+  <div class="panel panel-default">
+    <div class="T" id=id_reloadBackup>
+      <p class=T>Paste a complete wallet backup here, or enter the 12, 15, 18, 21 or 24 words of an English BIP39 seed.</p>
+      <p class=T>A valid wallet backup is recognized and activated automatically. Only replacement of an already loaded wallet still requires confirmation.</p>
+      <p class=T>For a seed, check every word carefully and then press Restore seed. A seed creates a new wallet, unless the same seed and passphrase already belong to a loaded wallet.</p>
+      <div class="memo-container">
+        <textarea id=walletMnemonicInput rows=5 autocomplete=off autocapitalize=none spellcheck=false aria-label="Wallet backup or mnemonic"></textarea>
+      </div>
+      <div class=recovery-passphrase>
+        <p class=T>Only if the original wallet used a BIP39 passphrase, enter it twice below. You may also paste seed::passphrase in the seed field.</p>
+        <label class=T for=walletMnemonicPassphrase>BIP39 passphrase (optional)</label>
+        <input id=walletMnemonicPassphrase type=password maxlength=1024 autocomplete=off autocapitalize=none spellcheck=false>
+        <label class=T for=walletMnemonicPassphraseRepeat>Repeat BIP39 passphrase</label>
+        <input id=walletMnemonicPassphraseRepeat type=password maxlength=1024 autocomplete=off autocapitalize=none spellcheck=false>
+        <label class="setup-check T"><input type=checkbox id=walletMnemonicPassphraseShow>Show passphrase</label>
+      </div>
+      <div class="center">
+        <button id=walletMnemonicRestore class="btn btn-warning T">Restore seed</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="hidden" id=en_grassroot title="Enter password">
+  <div id=idPinRequest>
+    <div id="pin-container">
+      <input type="text" id="idp" style="width:100%;box-sizing:border-box" >
+    </div>
+  </div><br><br>
+  <h3>community coins wallet</h3>
+  <div align=center style='margin-top:40px'><img style='width:100px' src='img/rooty.png'>
+</div>
+
+<div class="hidden" id=en_paymentRequest title="Receive Request">
+  <div class="panel panel-default" id=idReceivePayment>
+  </div>
+  <div class="container">
+    <div class="row">
+      <div class="col-4">
+        <button class="custom-button" id=id_buttonSimpleQR>
+          <img src="img/qr-universal.png" alt="Simple QR-code">
+          <div class="button-text">Simple QR-code</div>
+        </button>
+      </div>
+      <div class="col-4">
+        <button class="custom-button"  id=id_buttonConnectionQR>
+          <img src="img/qr-cc.png" alt="Direct connect code">
+          <div class="button-text">Direct connect code</div>
+        </button>
+      </div>
+      <div class="col-4">
+        <button class="custom-button"  id=id_buttonShare>
+          <img src="img/share.png" alt="share">
+          <div class="button-text">Share</div>
+        </button>
+      </div>
+    </div>
+  </div>  
+  <!--div class="panel panel-default" id=idReceiveQR></div-->
+  <div class="panel panel-default" id=idReceiveInfo>
+  </div>
+</div>
+
+<div class="hidden" id=en_sendRequest title="Send Request">
+  <div class="panel panel-default" id=idSendPayment>
+  </div>
+  <div class="container">
+    <div class=oneRow>
+      <div>TO: </div>
+      <input id=inputTo type="text" style="text-align:center;">
+      <div class="button button-color-bleu small T" id="idScan">SCAN</div>
+      <div class="button button-color-yellow small T" id="searchButton">SEARCH</div>
+    </div>
+  </div>  
+  <!--div class="panel panel-default" id=idSearch></div>
+  <div class="panel panel-default" id=idConnection></div-->
+  <div class="panel panel-default" id=idSendInfo></div>
+</div>
+
+<div class="hidden" id=en_paymentInfo> 
+  <table width=100% class=table>
+    <tr><td align=center><img id=payIcon class="img-max-height-40" src="img/rooty.png"></td></tr>
+    <tr><td align=center id=receiveAmount></td></tr>
+  </table>
+</div>
+
+<div class="hidden" id=en_extraInfo>
+  <div align=center ><input type="checkbox" id="extraInfo" checked>&nbsp;
+  <b>Extra information:</b>&nbsp;<button class='btn btn-link'><span class='bi bi-question-circle' id=id_helpWalletExchange title='Why would you exchange this information?'></span></button></div>
+  <table id="payBusinessCard" width=100%><!--class=table-->
+    <tr class=card><td id=receiveWalletname align=center data-tag="card"></td></tr>
+    <tr class="card"><td class=blue id=receiveComment data-tag="card"></td></tr>
+  </table>
+</div>
+
+<div class="hidden" id=en_setupp title="Setup Pincode">
+  <div class="panel panel-default">
+    <table class=table>
+      <tr><td colspan=2>
+        <table cellspacing=0 cellpadding=0><tr>
+        <td valign=top><label for="idPin" class="label T">&nbsp;Pincode:&nbsp;</label></td>
+        <td width=100%>
+        <input type="text" id="idp" style="width:100%;box-sizing:border-box" onkeypress="return validPin(event,this)" class="walletName">
+        </td></tr></table>
+        <div id=idPinTips class="small T">
+        <br />&nbsp;<br />&nbsp;
+- While you enter the pincode it becomes visible. Look carefully at what you typed because if you make a mistake the wallet becomes unaccessable immediately after pressing OK.
+- Use only lowercase characters, numbers and/or a decimal point
+- One pin-code protects access to all cc-wallets on this device
+- The pin-code gives you extra security but it only buys you time if your device falls in the wrong hands. If so, restore backups of all concerned wallets to another device and transfer all funds to a new wallet. Once the transfer is complete delete the compromised wallets and never use them again.
+- If you forget your pincode just use <mark>kill</mark> as pincode. All wallets and the pincode will be removed from your device. You can recover the wallets from your backups.
+        </div>
+      </td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="hidden" id=en_setupOwner title="Wallet Settings">
+  <div class="panel panel-default">
+    <table class=table>
+      <tr><td colspan=2>
+        <table cellspacing=0 cellpadding=0><tr>
+        <td valign=top><label for="idOwner" class="label T">&nbsp;Wallet&nbsp;name:&nbsp;</label></td>
+        <td width=100%>
+        <input type="text" id="idOwner" style="width:100%;box-sizing:border-box" onkeypress="return validName(event,this)" class="walletName">
+        <div id=claimAlert style="color:red">&nbsp;</div>
+        </td>
+        <td valign=top>
+          <button id=nameClaim>SET</button>
+          <div id="claimLoading" style="display:none">
+            <img src="img/ZKZg.gif" height=20px>
+          </div>
+        </td></tr></table>
+        <div id=idNameTips class="small T">The name is stored only in this wallet. It may be changed again and does not need to be unique.</div>
+      </td></tr>
+      <tr><td colspan=2>
+        <div>colorpickerWrapper</div>
+      </td></tr>
+      <tr><td colspan=2 >
+      <label class="label T">Contact card:</label>
+      <div class="memo-container"><textarea class=memo-container id=idCard></textarea></div>
+      <p class="small T">Prepare multiple lines of text to optionally exchange during payments. This could serve for example as a business-card or contain contact options such as your telegram or eMail address.</p>
+      </td></tr>
+    </table>
+    <span class="T">
+    The wallet name and contact card settings are not mandatory, but they solve some of the main challenges of cryptocurrencies.</span>
+    <a href="#" class="T" id="id_helpMotivation">Read more ...</a>
+  </div>
+</div>
+
+<div class="hidden T" id=txtConnections>Connections</div>
+<div class="hidden T" id=txtBalance>Balance</div>
+
+<div class="hidden T" id=countries>Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Portugal|Japan|Russia</div>
+<div class="hidden T" id=warningNoPrice>No price information available yet. Check your internet connection.</div>
+<div class="hidden T" id=titleBalance>Balance currencies Dialog</div>
+<div class="hidden T" id=titleReference>Reference settings</div>
+<div class="hidden T" id=titleFiat>Fiat settings</div>
+<div class="hidden T" id=titleSupported>Wallet coins</div>
+<div class="hidden T" id=operands>%*/+-|Percentage|Multiply|Divide|Add|Subtract</div>
+
+<div class="hidden T" id=headerBalance>Select the currencies you want at your disposal to present your wallet balance and press the OK-button below. 
+Not included are the supported coins that can be stored in this wallet because they will appear automatically once they arrive.
+If you select any of these supported coins <u>only the balance of that specific coin</u> will be shown.
+If you select any of the currencies presented below, <u>the entire wallet balance</u> will be expressed in that currency.</div>
+<div class="hidden T" id=headerReference>Select the reference measures that help you understand value. Every selected reference must be available from the price feed.</div>
+<div class="hidden T" id=headerFiat>Select the national currencies in which you want to compare wallet amounts. Every selected currency must be available from the price feed.</div>
+<div class="hidden T" id=headerSupported>Only community coins with a complete and tested wallet connection appear here. A wallet coin controls balance, history, Receive and Send together.</div>
+<div class="hidden T" id=txtOnline>Online</div>
+<div class="hidden T" id=txtOffline>Offline</div>
+<div class="hidden T" id=backupText1>Activate this backup?</div>
+<div class="hidden T" id=backupText2>If you press OK your current wallet will be deactivated...</div>
+<div class="hidden T" id=backupText3>The backup is packed in a string and put in the memo. There you can select it and transfer it to a safe place.</div>
+<div class="hidden T" id=backupText4>Backup saved at</div>
+<div class="hidden T" id=txtActive>Active</div>
+<div class="hidden T" id=txtName>Wallet</div>
+<div class="hidden T" id=txtActivity>Activity</div>
+<div class="hidden T" id=txtBalanceServiceNotConnected>Balance service not connected</div>
+<div class="hidden T" id=txtConfirmedAtBlock>Confirmed {time} (block {height})</div>
+<div class="hidden T" id=txtUpdatingLastConfirmedAtBlock>Updating · last confirmed {time} (block {height})</div>
+<div class="hidden T" id=txtRefreshingConfirmedBalance>Refreshing confirmed balance</div>
+<div class="hidden T" id=txtLastConfirmedAtBlockRefreshRequired>Last confirmed {time} (block {height}) · refresh required</div>
+<div class="hidden T" id=txtConfirmedBalanceUnavailable>Confirmed balance unavailable</div>
+<div class="hidden T" id=txtLiveConfirmedBalance>Live confirmed balance</div>
+<div class="hidden T" id=txtLastObservedNotSpendable>Last observed balance; not currently spendable</div>
+<div class="hidden T" id=txtAmountChanged>Amount changed</div>
+<div class="hidden T" id=txtConfirmedInputsExpired>Confirmed inputs expired; refresh required</div>
+<div class="hidden T" id=txtActiveWalletStateChanged>Active wallet state changed</div>
+<div class="hidden T" id=txtNewCheckpointRequested>A new checkpoint is being requested</div>
+<div class="hidden T" id=txtConfirmedInputsUnavailable>Payment information is temporarily unavailable</div>
+<div class="hidden T" id=txtFreshStateUnavailable>Fresh {coin} state unavailable</div>
+<div class="hidden T" id=txtInvalidAmountPrecision>Enter a positive amount with no more than eight decimals</div>
+<div class="hidden T" id=txtAmountOutsideSafeRange>The amount is outside the safe transaction range</div>
+<div class="hidden T" id=txtInvalidCoinAddress>Enter a valid {coin} address</div>
+<div class="hidden T" id=txtUnsupportedPaymentRequestFields>The payment request contains unsupported fields</div>
+<div class="hidden T" id=txtValidSnapshotRequired>A valid confirmed snapshot is required</div>
+<div class="hidden T" id=txtOwnDestination>The destination belongs to this wallet</div>
+<div class="hidden T" id=txtInsufficientConfirmedBalance>Insufficient confirmed balance, including the minimum fee</div>
+<div class="hidden T" id=txtMoreThanInputs>This payment requires more than {count} inputs</div>
+<div class="hidden T" id=txtChangeAddressUnavailable>The change address is unavailable</div>
+<div class="hidden T" id=txtIndexNumber>index {index}</div>
+<div class="hidden T" id=txtPlanReady>Transaction ready at a fresh checkpoint</div>
+<div class="hidden T" id=txtRefreshingInputs>Checking payment information…</div>
+<div class="hidden T" id=txtRequest>REQUEST</div>
+<div class="hidden T" id=txtTransaction>TRANSACTION</div>
+<div class="hidden T" id=txtReceiveCoin>Receive {coin}</div>
+<div class="hidden T" id=txtReceiveAmountCoin>Receive {amount} {coin}</div>
+<div class="hidden T" id=txtSendCoin>Send {coin}</div>
+<div class="hidden T" id=txtSendAmountCoin>Send {amount} {coin}</div>
+<div class="hidden T" id=txtRefreshingCachedConfirmedAtBlock>Last confirmed {time} (block {height}) · refreshing…</div>
+<div class="hidden T" id=txtEnterScanDestination>Enter or scan a destination, then review the transaction</div>
+<div class="hidden T" id=txtDestinationUnlocked>Destination unlocked for editing</div>
+<div class="hidden T" id=txtScannedDestinationAccepted>Scanned destination accepted</div>
+<div class="hidden T" id=txtDestinationChanged>Destination changed</div>
+<div class="hidden T" id=txtSendPlaceholder>EFL address or e-gulden: request</div>
+<div class="hidden T" id=txtTransactionReview>Transaction review</div>
+<div class="hidden T" id=txtUnsignedLocalWarning>LOCAL ONLY · NOT SIGNED · NOT BROADCAST</div>
+<div class="hidden T" id=txtReviewedInputsSignedBelow>REVIEWED INPUTS · SIGNED RESULT BELOW</div>
+<div class="hidden T" id=txtNoChangeOutput>No change output</div>
+<div class="hidden T" id=txtInvalidDerivationIndex>Invalid derivation index</div>
+<div class="hidden T" id=txtPlanChanged>The transaction details changed; review again</div>
+<div class="hidden T" id=txtCheckpointChanged>The confirmed checkpoint changed; review again</div>
+<div class="hidden T" id=txtPlannedInputUnavailable>A selected input is no longer available</div>
+<div class="hidden T" id=txtInvalidRawTransaction>The raw transaction is invalid</div>
+<div class="hidden T" id=txtRawRoundTripFailed>The serialized transaction could not be reproduced</div>
+<div class="hidden T" id=txtSignedInputMismatch>The signed inputs do not match the reviewed inputs</div>
+<div class="hidden T" id=txtSignatureVerificationFailed>A transaction signature could not be verified</div>
+<div class="hidden T" id=txtSignatureHashTypeMismatch>A transaction signature does not commit to every input and output</div>
+<div class="hidden T" id=txtSignatureAddressMismatch>A transaction signature uses the wrong address</div>
+<div class="hidden T" id=txtSignedOutputMismatch>The signed outputs do not match the reviewed outputs</div>
+<div class="hidden T" id=txtSignedFeeMismatch>The signed transaction fee does not match the reviewed fee</div>
+<div class="hidden T" id=txtInputKeyMismatch>The key for derivation index {index} does not match the selected input</div>
+<div class="hidden T" id=txtInputScriptMismatch>The script for derivation index {index} does not match the selected input</div>
+<div class="hidden T" id=txtSignaturesVerified>{count} signatures verified</div>
+<div class="hidden T" id=txtByteCount>{count} bytes</div>
+<div class="hidden T" id=txtRecipient>Recipient</div>
+<div class="hidden T" id=txtChange>Change</div>
+<div class="hidden T" id=txtTransactionBuiltVerified>Transaction built, signed and verified locally</div>
+<div class="hidden T" id=txtBuildingSigningTransaction>Building and signing the transaction locally…</div>
+<div class="hidden T" id=txtActiveMnemonicUnavailable>The active wallet seed is unavailable</div>
+<div class="hidden T" id=txtUnableBuildTransaction>Unable to build the transaction: {reason}</div>
+<div class="hidden T" id=txtBroadcastReady>The verified transaction is ready for final broadcast confirmation</div>
+<div class="hidden T" id=txtBroadcastSubmitting>Submitting the signed transaction…</div>
+<div class="hidden T" id=txtBroadcastAccepted>Broadcast accepted by the network</div>
+<div class="hidden T" id=txtBroadcastKnown>The transaction was already known by the network</div>
+<div class="hidden T" id=txtBroadcastConfirmed>Transaction confirmed at block {height} with {confirmations} confirmation(s)</div>
+<div class="hidden T" id=txtBroadcastUnknown>Transaction not currently found; inputs remain locked pending another check</div>
+<div class="hidden T" id=txtBroadcastRejected>Transaction rejected: {reason}</div>
+<div class="hidden T" id=txtBroadcastUnavailable>Broadcast outcome uncertain: {reason}</div>
+<div class="hidden T" id=txtBroadcastStatusUnavailable>Transaction status temporarily unavailable: {reason}</div>
+<div class="hidden T" id=txtBroadcastTxidMismatch>The network response does not match the locally calculated transaction ID</div>
+<div class="hidden T" id=txtNoSignedTransaction>No locally verified signed transaction is available</div>
+<div class="hidden T" id=txtPendingTransaction>The previous payment is still being processed</div>
+<div class="hidden T" id=txtPriorSubmissionUncertain>An earlier ROT may have received the transaction; inputs remain locked while status is checked</div>
+<div class="hidden T" id=txtBroadcastTiming>total {client} ms · relay {relay} ms · ROT roundtrip {rotRoundTrip} ms · ROT {rot} ms · Core {core} ms · attempt {attempt}</div>
+<div class="hidden T" id=txtStateTiming>state total {client} ms · relay {relay} ms · ROT roundtrip {rotRoundTrip} ms · attempt {attempt}</div>
+<div class="hidden T" id=txtTransactionStatusChecking>Checking transaction status…</div>
+<div class="hidden T" id=txtTransactionSubmitting>TRANSACTION SUBMITTING...</div>
+<div class="hidden T" id=txtTransactionSubmitted>TRANSACTION SUBMITTED</div>
+<div class="hidden T" id=txtTransactionConfirmed>TRANSACTION CONFIRMED</div>
+<div class="hidden T" id=txtTransactionNotAccepted>TRANSACTION NOT ACCEPTED</div>
+<div class="hidden T" id=txtPaymentReceiptScanned>PAYMENT CONFIRMATION SCANNED</div>
+<div class="hidden T" id=txtObserversWitnessed>{seen} of {configured} observers witnessed the transaction.</div>
+<div class="hidden T" id=txtBlockchainConfirmationObserved>BLOCKCHAIN CONFIRMATION OBSERVED</div>
+<div class="hidden T" id=txtPaymentReceiptMismatch>PAYMENT CONFIRMATION DOES NOT MATCH</div>
+<div class="hidden T" id=txtPaymentConfirmationSummary>{amount} {coin} sent to {address}</div>
+<div class="hidden T" id=txtTransactionStatusProgress>TRANSACTION STATUS CHECKING...</div>
+<div class="hidden T" id=txtBackToWallet>Back to wallet</div>
+<div class="hidden T" id=txtNewWallet>A new empty wallet will be created and activated. The current wallet can be reactivated using this menu. Note: A maximum of five wallets can be maintained.</div>
+<div class="hidden T" id=txtInvalidString>Invalid string</div>
+<div class="hidden T" id=txtPassphraseMismatch>The two BIP39 passphrases do not match</div>
+<div class="hidden T" id=txtWalletMaximum>This device already contains the maximum number of wallets. You could remove one before restoring this backup.</div>
+<div class="hidden T" id=txtClaimError>Name already claimed</div>
+<div class="hidden T" id=txtClaimRestore>Wallet name restored</div>
+<div class="hidden T" id=txtWalletReplace>You are trying to restore a backup that is already present on this device. Do you want to replace it?</div>
+<div class="hidden T" id=txtRestoreMnemonic>Restore this seed as a wallet on this device?</div>
+<div class="hidden T" id=txtPromptDeleteWallet>Enter the ID of the wallet to delete</div>
+
+<div class="hidden T" id=txtDeleteWallet1>The active wallet will be deleted and a new empty one will be created. The active wallet is </div>
+<div class="hidden T" id=txtDeleteWallet2>If you delete the active wallet a new empty one will be created and activated. If you want to avoid that, first activate a wallet you want to keep. The active wallet is </div>
+<div class="hidden T" id=txtDeleteWallet3>Delete wallet? </div>
+
+<div class="hidden T" id=txtAlertNewWallet>One device can accomodate just five wallets.</div>
+<div class="hidden T" id=txtClaimNameError>Supply at least one character</div>
+<div class="hidden T" id=txtMyWallet>My wallet</div>
+<div class="hidden T" id=txtPaymentRequest>Payment request</div>
+<div class="hidden T" id=txtPaymentRequestMail>Request to pay</div>
+
+<div class="hidden T" id=txtUnavailable>Unavailable</div>
+<script>
+x=1
+</script>
+<!--script src="https://cdn.jsdelivr.net/npm/bip39"></script-->
+<script src="js/buffer-polyfill.js"></script>
+<script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js"></script>
+<script src="js/bitcoinjs-lib-6-1-5.js"></script>
+<script src="js/bitcoinjsMessage.js"></script>
+<!--script>
+const bitcoin2.bip39=window.bip39; 
+const bitcoin2.bip32=window.bip32;
+const bitcoin2.ECPair = window.ECPair;
+</script-->
+
+<script src="js/sjcl-bip39.js"></script>
+<script src="js/wordlist_english.js"></script>
+<script src="js/jsbip39.js"></script>
+<script src="js/entropy.js"></script>
+<script src='rooty.js'></script>
+
+</body>
+</html>
