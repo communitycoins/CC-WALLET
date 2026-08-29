@@ -1,6 +1,6 @@
 # CC-WALLET
 
-> **Canonical source:** https://git.communitycoins.org/Multicoin-Wallets/cc-wallet  
+> **Canonical source:** hhttps://git.communitycoins.org/Communitycoins.Rooty/CC-WALLET  
 > Mirrors on GitLab or GitHub may be read-only and may lag behind.
 
 CC-WALLET is a non-custodial browser wallet for legacy CommunityCoin networks.
