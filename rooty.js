@@ -1,7 +1,23 @@
-/* [EFL-SLICE-054]
-Canonical multi-coin wallet with compact identity and calculator roles.
-Base: - Derived from EFL-SLICE-053
+/* [MULTI-COIN-004]
+Canonical multi-coin wallet with local unexpected-spend protection.
+Base: - Derived from MULTI-COIN-003
 Changes:
+- [MULTI-COIN-004] Remember confirmed outpoints without retaining spendable transaction data
+- Lock Send when a confirmed outpoint disappears outside this device's pending broadcast
+- Keep balance, Receive, history and backup readable until the user explicitly unlocks Send
+- [MULTI-COIN-003] Show currency names while selectors are closed and restore name plus ticker while opening
+- Remove the implied coin ticker from the native Balance column
+- Give balance icons intrinsic dimensions and version the wallet-owned browser assets
+- [MULTI-COIN-002] Replace the obsolete Balance-currency selection with all operational wallet coins
+- [MULTI-COIN-002] Replace the obsolete Balance-currency selection with all operational wallet coins
+- Show native balances, one shared reference-currency column and a reference-valued wallet total
+- Reuse only wallet-bound validated balance caches and distinguish an unknown balance from zero
+- Remove connection counts from the balance presentation
+- [MULTI-COIN-001] Activate DEM through its ROT gateway and DEM-capable bitcoinjs bundle
+- Switch financial state atomically with the selected operational wallet coin
+- Keep Receive rotation separate for EFL and DEM
+- Configure per-coin atomic units, decimal precision, fees, observers and test vectors
+- Show the transaction year in confirmed history
 - [EFL-SLICE-054] Preserve wallet behavior while identity and calculator presentation become more compact
 - [EFL-SLICE-053] Enlarge wallet identity and render compact Online or Offline status
 - Restrict the wallet-coin selector to fully connected members of EFL, CDN, AUR and DEM
@@ -341,6 +357,8 @@ supportedCoins["efl"].stateService={
   url:"https://eflslice.communitycoins.org/EFL-SLICE-048.php",
   responseCoin:"EFL",
   uriScheme:"e-gulden:",
+  unitsPerCoin:100000000,
+  decimals:8,
   changeIndex:0,
   receiveIndex:1,
   initialReceiveCount:10,
@@ -365,10 +383,49 @@ supportedCoins["efl"].stateService={
     10:"LRFFMZwox2M7nRAqHcfyHpoFYEtYvnATRD"
   },
   testPassphrase:"TREZOR",
-  testPassphraseAddress:"Lg19Z51CBr4SLSttYmrN4wzcpqZNkwtpJm"
+  testPassphraseAddress:"Lg19Z51CBr4SLSttYmrN4wzcpqZNkwtpJm",
+  testSignedTxid:"bbc242035724d80039dd785f3c326117085e8a46c9f5563ecf9642205aebb587",
+  testSignedByteLength:373
 }
 supportedCoins["efl"].balance="0"
 supportedCoins["efl"].connections=0
+supportedCoins["dem"].stateService={
+  url:"https://demslice.communitycoins.org/MULTI-COIN-001.php",
+  responseCoin:"DEM",
+  uriScheme:"emark:",
+  unitsPerCoin:1000000,
+  decimals:6,
+  changeIndex:0,
+  receiveIndex:1,
+  initialReceiveCount:10,
+  maximumReceiveIndex:50,
+  receiveBatchSize:10,
+  reuseResetRemaining:20,
+  focusDuration:10*60*1000,
+  focusInterval:60*1000,
+  requestTimeout:8000,
+  spendableAge:60*1000+8000,
+  feeTierInputs:6,
+  minimumFeeSats:1000,
+  maximumRawTransactionHex:65000,
+  broadcastTimeout:30000,
+  maximumZeroConfirmationObservers:1,
+  historyTimeout:45000,
+  broadcastStatusInterval:60000,
+  testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  testAddresses:{
+    0:"NSLekptmfNGK91maBKj1fu1RUFo8Go451Q",
+    1:"NPYwwLnYZBAbSB2AuTNsij4N5ZNKFXizEb",
+    10:"NZUZGpoLkehGc87y1rAfpEaPnBWX5gZeRB"
+  },
+  testPassphrase:"TREZOR",
+  testPassphraseAddress:"NhZvD6ZBjdPE8fCvccBN93uPeB7WMUD9f6",
+  testTransactionTime:1700000000,
+  testSignedTxid:"5c4e7031a06e1728b5497fc38f127ae8fc0b0e9d7ce278f67f8c00de93cfdd4b",
+  testSignedByteLength:379
+}
+supportedCoins["dem"].balance="0"
+supportedCoins["dem"].connections=0
 if (change) {
   endorsed="aur|cdn|efl|cesc|dem|slg|pak|rubtc|boli|btc|ltc"
   testCombos()
@@ -396,12 +453,6 @@ function testCombos(){
   for (const tikker in supportedCoins) {
     for (const combo in combos) {
       var defaultFiat=supportedCoins[tikker].defaultFiat
-      if (combo=="Balance") {
-        if (combos[combo]['available'].indexOf("|"+tikker+"|")<0) {combos[combo]['available']+="|"+tikker}
-        if (combos[combo]['selected'].indexOf("|"+tikker+"|")<0) {combos[combo]['selected']+="|"+tikker}
-        if (combos[combo]['available'].indexOf("|"+defaultFiat+"|")<0) {combos[combo]['available']+="|"+defaultFiat}
-        if (combos[combo]['selected'].indexOf("|"+defaultFiat+"|")<0) {combos[combo]['selected']+="|"+defaultFiat}
-      }
       if (combo=="Fiat") {
         if (combos[combo]['available'].indexOf("|"+defaultFiat+"|")<0) {combos[combo]['available']+="|"+defaultFiat}
         if (combos[combo]['selected'].indexOf("|"+defaultFiat+"|")<0) {combos[combo]['selected']+="|"+defaultFiat}
@@ -435,6 +486,10 @@ function enforceWalletCoinChoices(){
   combos.Supported.active="|"+active+"|"
   var old=String(combos.Supported.old||"").replace(/\|/g,"")
   combos.Supported.old=operational.includes(old)?"|"+old+"|":combos.Supported.active
+  combos.Balance.available=values
+  combos.Balance.selected=values
+  combos.Balance.active="|"+active+"|"
+  combos.Balance.old=combos.Balance.active
   localStorage.setItem("combos",JSON.stringify(combos))
   return operational
 }
@@ -506,7 +561,7 @@ var translationReady
 if (language!=defaultLanguage) {
   translationReady=new Promise(function(resolve){
   const scriptLanguage = document.createElement('script');
-  scriptLanguage.src = `js/language_${language}.js`;
+  scriptLanguage.src = `js/language_${language}.js?v=MULTI-COIN-004`;
   scriptLanguage.defer=true
   scriptLanguage.onload=function(){translate();resolve()}
   scriptLanguage.onerror=function(){translate();resolve()}
@@ -556,6 +611,8 @@ var confirmedReceiptSyncTimer
 const confirmedReceiptSyncInterval=5000
 const compactReceiptVersion="CCR1"
 const pendingBroadcastStorageKey="pendingBroadcasts"
+const confirmedOutpointWatchStorageKey="confirmedOutpointWatch"
+const walletSpendLockStorageKey="walletSpendLock"
 const expertModeStorageKey="expertMode"
 const receiveAddressStorageKey="receiveAddressState"
 const confirmedBalanceCacheStorageKey="confirmedBalanceCache"
@@ -569,7 +626,8 @@ var historyDrag
 var historyBootstrapRequests={}
 var historyCleanupRequests={}
 var scanPurpose="memo"
-const stateCoin=Object.keys(supportedCoins).find(function(coin){return supportedCoins[coin].stateService!=undefined})
+var initialStateCoin=String(combos.Supported.active||"").replace(/\|/g,"")
+let stateCoin=operationalWalletCoins().includes(initialStateCoin)?initialStateCoin:operationalWalletCoins()[0]
 var stateRefreshTimer
 var stateFreshnessTimer
 var stateRequest
@@ -587,6 +645,9 @@ var all //ref. integr
 function getStateService(coin=stateCoin){
   var service=supportedCoins[coin]&&supportedCoins[coin].stateService
   if (service==undefined){throw new Error("State service unavailable for "+coin)}
+  if ((!Number.isSafeInteger(service.decimals))||(service.decimals<0)||(service.decimals>8)||(!Number.isSafeInteger(service.unitsPerCoin))||(service.unitsPerCoin!==Math.pow(10,service.decimals))||(!Number.isSafeInteger(service.minimumFeeSats))||(service.minimumFeeSats<1)||(!Number.isSafeInteger(service.feeTierInputs))||(service.feeTierInputs<1)){
+    throw new Error("Invalid coin service units for "+coin)
+  }
   return service
 }
 function isExpertMode(){return localStorage.getItem(expertModeStorageKey)==="1"}
@@ -692,6 +753,9 @@ function createReceiveAddressState(horizon,coin=stateCoin){
   var service=getStateService(coin)
   return {version:1,horizon:horizon==undefined?service.initialReceiveCount:horizon,reusePhase:false,reused:[],lastIndex:null}
 }
+function receiveAddressKey(coin=stateCoin){
+  return coin==="efl"?receiveAddressStorageKey:receiveAddressStorageKey+"."+coin
+}
 function isReceiveAddressState(state,coin=stateCoin){
   var service=getStateService(coin)
   if ((state==null)||(typeof state!=="object")||(state.version!==1)||(state.reusePhase!==true&&state.reusePhase!==false)){return false}
@@ -706,7 +770,8 @@ function isReceiveAddressState(state,coin=stateCoin){
   return true
 }
 function getReceiveAddressState(coin=stateCoin){
-  var raw=localStorage.getItem(receiveAddressStorageKey)
+  var key=receiveAddressKey(coin)
+  var raw=localStorage.getItem(key)
   if (raw!=null){
     try{
       var state=JSON.parse(raw)
@@ -714,11 +779,11 @@ function getReceiveAddressState(coin=stateCoin){
     }catch(error){}
   }
   var state=createReceiveAddressState(undefined,coin)
-  localStorage.setItem(receiveAddressStorageKey,JSON.stringify(state))
+  localStorage.setItem(key,JSON.stringify(state))
   return state
 }
-function persistReceiveAddressState(state){
-  localStorage.setItem(receiveAddressStorageKey,JSON.stringify(state))
+function persistReceiveAddressState(state,coin=stateCoin){
+  localStorage.setItem(receiveAddressKey(coin),JSON.stringify(state))
   updateDb().catch(function(error){console.error("Unable to save Receive rotation:",error)})
   return state
 }
@@ -784,7 +849,7 @@ function selectReceiveAddressIndex(snapshot=null,coin=stateCoin){
   if ((!Number.isSafeInteger(index))||(index<service.receiveIndex)||(index>state.horizon)){throw new Error("Receive address unavailable")}
   state.reused.push(index)
   state.lastIndex=index
-  persistReceiveAddressState(state)
+  persistReceiveAddressState(state,coin)
   return {index:index,horizonExpanded:horizonExpanded,state:state}
 }
 function persistPendingBroadcast(record){
@@ -829,6 +894,113 @@ function pendingInputsPresent(snapshot,pending=pendingBroadcast){
   return pending.inputs.some(function(input){
     return snapshot.utxos.some(function(utxo){return (utxo.txid===input.txid)&&(utxo.vout===input.vout)})
   })
+}
+function outpointKey(input){
+  return input.txid+":"+input.vout
+}
+function readConfirmedOutpointWatchStore(){
+  var raw=localStorage.getItem(confirmedOutpointWatchStorageKey)
+  if (raw==null){return {}}
+  try{
+    var store=JSON.parse(raw)
+    return (store!=null)&&(typeof store==="object")&&(!Array.isArray(store))?store:{}
+  }catch(error){return {}}
+}
+function isConfirmedOutpointWatch(record,coin=stateCoin){
+  if ((record==null)||(typeof record!=="object")||(record.version!==1)||(record.walletId!==historyWalletId())||(record.coin!==coin)){return false}
+  if ((!Number.isSafeInteger(record.height))||(record.height<0)||(typeof record.blockHash!=="string")||(!/^[0-9a-f]{64}$/.test(record.blockHash))||(!Array.isArray(record.outpoints))){return false}
+  var seen={}
+  return record.outpoints.every(function(outpoint){
+    if ((typeof outpoint!=="string")||(!/^[0-9a-f]{64}:[0-9]+$/.test(outpoint))||(seen[outpoint]===true)){return false}
+    seen[outpoint]=true
+    return true
+  })
+}
+function readConfirmedOutpointWatch(coin=stateCoin){
+  var record=readConfirmedOutpointWatchStore()[coin]
+  return isConfirmedOutpointWatch(record,coin)?record:null
+}
+function expectedPendingOutpoints(coin=stateCoin){
+  var expected={}
+  if ((pendingBroadcast==null)||(pendingBroadcast.coin!==coin)||(!Array.isArray(pendingBroadcast.inputs))){return expected}
+  pendingBroadcast.inputs.forEach(function(input){expected[outpointKey(input)]=true})
+  return expected
+}
+function persistConfirmedOutpointWatch(snapshot,coin=stateCoin){
+  var store=readConfirmedOutpointWatchStore()
+  var record={
+    version:1,
+    walletId:historyWalletId(),
+    coin:coin,
+    height:snapshot.height,
+    blockHash:snapshot.blockHash,
+    outpoints:Array.from(new Set(snapshot.utxos.map(outpointKey))).sort()
+  }
+  store[coin]=record
+  localStorage.setItem(confirmedOutpointWatchStorageKey,JSON.stringify(store))
+  return record
+}
+function readWalletSpendLock(){
+  var raw=localStorage.getItem(walletSpendLockStorageKey)
+  if (raw==null){return null}
+  try{
+    var record=JSON.parse(raw)
+    if ((record==null)||(typeof record!=="object")||(record.version!==1)||(record.walletId!==historyWalletId())||(record.reason!=="unexpected-spend")||(typeof record.coin!=="string")||(!Number.isSafeInteger(record.detectedAt))||(record.detectedAt<0)||(!Number.isSafeInteger(record.outpointCount))||(record.outpointCount<1)){return null}
+    return record
+  }catch(error){return null}
+}
+function isWalletSpendLocked(){
+  return readWalletSpendLock()!=null
+}
+function updateWalletSpendLockPresentation(){
+  var locked=isWalletSpendLocked()
+  var status=$$$('#idWalletLockStatus')
+  if (status!=null){status.classList.toggle('hidden',!locked)}
+  document.querySelectorAll('[id="idUnlockWallet"]').forEach(function(control){control.classList.toggle('hidden',!locked)})
+  var sendButton=$$$('#idSend')
+  if (sendButton!=null){
+    sendButton.classList.toggle('wallet-spend-locked',locked)
+    sendButton.setAttribute('aria-disabled',locked?'true':'false')
+  }
+  return locked
+}
+function persistWalletSpendLock(coin,outpoints){
+  if (isWalletSpendLocked()){return false}
+  var record={version:1,walletId:historyWalletId(),reason:"unexpected-spend",coin:coin,detectedAt:Date.now(),outpointCount:outpoints.length}
+  localStorage.setItem(walletSpendLockStorageKey,JSON.stringify(record))
+  clearLocalSendPlan(T("txtWalletLockedSend"))
+  updateWalletSpendLockPresentation()
+  updateDb().catch(function(error){console.error("Unable to save wallet spend lock:",error)})
+  alert(T("txtUnexpectedSpendLock"))
+  return record
+}
+function unlockWalletSpend(){
+  if (!isWalletSpendLocked()){updateWalletSpendLockPresentation();return false}
+  localStorage.removeItem(walletSpendLockStorageKey)
+  clearLocalSendPlan()
+  updateWalletSpendLockPresentation()
+  updateDb().catch(function(error){console.error("Unable to save wallet unlock:",error)})
+  return true
+}
+function requireWalletSpendUnlocked(){
+  if (!isWalletSpendLocked()){return true}
+  clearLocalSendPlan(T("txtWalletLockedSend"))
+  updateWalletSpendLockPresentation()
+  alert(T("txtWalletLockedSend"))
+  return false
+}
+function observeConfirmedOutpoints(snapshot,coin=stateCoin){
+  var previous=readConfirmedOutpointWatch(coin)
+  var current=persistConfirmedOutpointWatch(snapshot,coin)
+  var unexpected=[]
+  if ((previous!=null)&&(snapshot.height>previous.height)){
+    var present={}
+    current.outpoints.forEach(function(outpoint){present[outpoint]=true})
+    var expected=expectedPendingOutpoints(coin)
+    unexpected=previous.outpoints.filter(function(outpoint){return (present[outpoint]!==true)&&(expected[outpoint]!==true)})
+  }
+  if (unexpected.length>0){persistWalletSpendLock(coin,unexpected)}
+  return Object.freeze({previous:previous,current:current,unexpected:Object.freeze(unexpected.slice())})
 }
 function setBalanceStatus(text,status=""){
   var statusLine=$$$('#idBalanceStatus')
@@ -880,6 +1052,7 @@ function updateCoinPresentation(coin,refreshBalance=true){
   if (refreshBalance){testInputBalance()}
   scaleBalanceValue()
   if (coin!==stateCoin){setBalanceStatus(T("txtBalanceServiceNotConnected"))}
+  updateWalletSpendLockPresentation()
   return true
 }
 function updateCoinStateStatus(coin=stateCoin){
@@ -989,7 +1162,10 @@ function refreshCombos(){
       if (option!=""){
         const comboOption = document.createElement("option");
         comboOption.value = option;
-        comboOption.textContent=calculatorOptionLabel(option)
+        var optionLabels=calculatorOptionLabels(option)
+        comboOption.textContent=optionLabels.full
+        comboOption.dataset.fullLabel=optionLabels.full
+        comboOption.dataset.compactLabel=optionLabels.compact
         comboBox.appendChild(comboOption);
         if (active.indexOf(option)>=0) {
           comboBox.value=option
@@ -999,20 +1175,46 @@ function refreshCombos(){
         }
       }
     }
+    if (combo!=="Balance"){prepareCompactCurrencySelect(comboBox)}
     if (combo!="Balance") {$$$("#input"+combo).value=0}
   }
   applyRequestedCoin()
+  var selectedCoin=$$$('#comboSupported').value
+  if (operationalWalletCoins().includes(selectedCoin)&&selectedCoin!==stateCoin){switchStateCoin(selectedCoin,"coin-selection",false)}
   testInputBalance()
-  updateCoinPresentation($$$('#comboSupported').value,false)
+  updateCoinPresentation(stateCoin,false)
   syncBalanceToCalculator(stateCoin,false)
 }
-function calculatorOptionLabel(code){
+function calculatorOptionLabels(code){
   var name=""
   if ((supportedCoins[code]!=undefined)&&(typeof supportedCoins[code].name==="string")){name=supportedCoins[code].name}
   else if ((rates!=undefined)&&(rates[code]!=undefined)&&(typeof rates[code].name==="string")){name=rates[code].name}
   var ticker=String(code).toUpperCase()
-  if ((name==="")||(name.toLowerCase()===String(code).toLowerCase())){return ticker}
-  return name+" · "+ticker
+  if ((name==="")||(name.toLowerCase()===String(code).toLowerCase())){return {compact:ticker,full:ticker}}
+  return {compact:name,full:name+" · "+ticker}
+}
+function calculatorOptionLabel(code){return calculatorOptionLabels(code).full}
+function expandCurrencySelectLabels(comboBox){
+  Array.from(comboBox.options).forEach(function(option){
+    if (option.dataset.fullLabel!=undefined){option.textContent=option.dataset.fullLabel}
+  })
+}
+function compactCurrencySelectLabel(comboBox){
+  Array.from(comboBox.options).forEach(function(option){
+    if (option.dataset.fullLabel==undefined){return}
+    option.textContent=option.selected?option.dataset.compactLabel:option.dataset.fullLabel
+  })
+}
+function prepareCompactCurrencySelect(comboBox){
+  if (comboBox.dataset.compactCurrencySelect!=="1"){
+    comboBox.dataset.compactCurrencySelect="1"
+    comboBox.addEventListener("pointerdown",function(){expandCurrencySelectLabels(comboBox)})
+    comboBox.addEventListener("focus",function(){expandCurrencySelectLabels(comboBox)})
+    comboBox.addEventListener("change",function(){setTimeout(function(){compactCurrencySelectLabel(comboBox)},0)})
+    comboBox.addEventListener("blur",function(){compactCurrencySelectLabel(comboBox)})
+  }
+  compactCurrencySelectLabel(comboBox)
+  return comboBox
 }
 function applyRequestedCoin(){
   if (urlCoinApplied||(urlCoin==null)){return false}
@@ -1059,14 +1261,10 @@ function refreshCurrencyAvailability(){
   for (const currency in rates) {
     const cType=rates[currency].type
     if ((cType=="fiat")) {
-      if (combos["Balance"]["available"].indexOf(`${currency}|`)<0) {combos["Balance"]["available"]+=`${currency}|`;change=true}
       if (combos["Reference"]["available"].indexOf(`${currency}|`)<0) {combos["Reference"]["available"]+=`${currency}|`;change=true}
       if (combos["Fiat"]["available"].indexOf(`${currency}|`)<0) {combos["Fiat"]["available"]+=`${currency}|`;change=true}
     }
     if ((cType=="crypto")||(cType=="commodity")) {
-      if (supportedCoins[currency]==undefined) {
-        if (combos["Balance"]["available"].indexOf(`${currency}|`)<0) {combos["Balance"]["available"]+=`${currency}|`;change=true}
-      }
       if (combos["Reference"]["available"].indexOf(`${currency}|`)<0) {combos["Reference"]["available"]+=`${currency}|`;change=true}
     }
   }
@@ -1113,6 +1311,7 @@ function handleClick(event) {
   if (event.target.closest&&event.target.closest('#id_question')) {clickedId="id_question"}
   if (event.target.closest&&event.target.closest('#id_speak')) {clickedId="id_speak"}
   if (event.target.closest&&event.target.closest('#idHelpReferences')) {clickedId="idHelpReferences"}
+  if (event.target.closest&&event.target.closest('#idUnlockWallet')) {clickedId="idUnlockWallet"}
   if (event.target.closest&&event.target.closest('#menuCurrenciesReference')) {clickedId="menuCurrenciesReference"}
   if (event.target.closest&&event.target.closest('#menuCurrenciesFiat')) {clickedId="menuCurrenciesFiat"}
   if (event.target.closest&&event.target.closest('#menuCurrenciesSupported')) {clickedId="menuCurrenciesSupported"}
@@ -1183,6 +1382,7 @@ function handleClick(event) {
   if (clickedId == "idBroadcastTransaction") {broadcastSignedTransaction()}
   if (clickedId == "idSendScan") {showSendScanner()}
   if (clickedId == "idExpertMode") {setExpertMode(clickedElement.checked)}
+  if (clickedId == "idUnlockWallet") {unlockWalletSpend()}
   if (clickedId == "idRequestShare") {}
   if (clickedId == "idRequestUniversal") {}
   if (clickedId == "idRequestSpecific") {}
@@ -1921,6 +2121,7 @@ async function dial(diaLog,help,save) {
   if (diaLog==="setup"){
     var expertControl=$$$('#id_modalbody #idExpertMode')
     if (expertControl!=null){expertControl.checked=isExpertMode()}
+    updateWalletSpendLockPresentation()
   }
   if ((diaLog=="paymentRequest")||(diaLog=="sendRequest")){
     if ($$$('#idMemo').value.trim().subs(0,8)=="balance ") {
@@ -2010,8 +2211,6 @@ async function dial(diaLog,help,save) {
       var currencies=combos[menu]["available"].split("|").filter(str => str !== '')
     } else if (menu=="Reference") {
       var currencies=(combos[menu]["available"]+combos["Supported"]["available"]).split("|").sort().filter(str => str !== '')
-    } else if (menu=="Balance") {
-      var currencies=(combos[menu]["available"]+combos["Supported"]["available"]).split("|").sort().filter(str => str !== '')
     } else {
       var currencies=combos[menu]["available"].split("|").sort().filter(str => str !== '')
     }
@@ -2036,44 +2235,8 @@ async function dial(diaLog,help,save) {
     $$$("#id_selectCurrencies").innerHTML=currencyButtons
   }
   if (diaLog=="balance") {
-    var cValue,balance,decimals,balance,sum
-    var collection="<div><table class='table table-bordered table-hover'>"
-    const currency=$$$('#comboBalance').value
-    const thConnections=$$$('#txtConnections').innerHTML
-    const thBalance=$$$('#txtBalance').innerHTML
-    if (supportedCoins[currency]==undefined){decimals=2}else{decimals=8}
-    if (!ccRates.hasOwnProperty(currency)){cValue=rates[currency].value}else{cValue=1/ccRates[currency]}
-    collection+=`<tr><td></td><td><b>${thBalance}</b></td><td class=right-align><b>${thBalance} ${currency}</b></td><td class=right-align><b>${thConnections}</b></td></tr>`
-    sum=0;
-    const activeCoin=$$$('#comboSupported').value
-    for (const coin in supportedCoins) {
-      if (!operationalWalletCoins().includes(coin)){continue}
-      var rowHighLight=""
-      var connectionStyle=" style='font-weight:bold;color:green'"
-      if (coin==activeCoin) {rowHighLight='class="table-active"'}
-      if (supportedCoins[coin].balance>0){
-        collection+=`<tr ${rowHighLight} style='cursor:pointer' onclick='gotoBalance("${coin}")'><td><img class='img-fluid img-max-height-40' src='img/${coin}.png'></td>`
-        balance=Number(supportedCoins[coin].balance).toFixed(8);balance=trim0(balance)
-        collection+=`<td class=right-align>${balance}</td>`
-        if (ccRates[coin]==undefined){
-          balance=Number(balance*cValue/rates[coin].value).toFixed(decimals);balance=trim0(balance)
-        }else{
-          balance=Number(balance*cValue*ccRates[coin]).toFixed(decimals);balance=trim0(balance)
-        }
-        collection+=`<td class=right-align>${balance}</td>`
-        if (supportedCoins[coin].connections==1){
-          connectionStyle=" style='font-weight:bold;color:orange'"
-        } else if ((supportedCoins[coin].connections==0)||(supportedCoins[coin].connections==undefined)){
-          connectionStyle=" style='font-weight:bold;color:red'"
-          supportedCoins[coin].connections=$$$('#txtUnavailable').innerHTML
-        }
-        collection+=`<td class=right-align${connectionStyle}>${supportedCoins[coin].connections}</td></tr>`
-        sum=Number(sum)+Number(balance)
-      }
-    }
-    sum=Number(sum).toFixed(decimals);
-    collection+=`<tr><td></td><td></td><td class=right-align><b>${sum}</b></td><td></td></tr></table></div>`
-    $$$('#id_balance').innerHTML=collection
+    $$$('#ModalTitle').textContent=T("txtWalletBalance")
+    renderBalanceOverview()
   }
   if (diaLog=="walletSeed"){
     if (!showWalletSeed()){
@@ -2353,6 +2516,143 @@ function findWalletByMnemonic(mnemonicString,passphrase=""){
     }
   }))
 }
+function balanceRecord(coin){
+  if ((walletState.coin===coin)&&(walletState.snapshot!=null)&&isSafeNonNegativeInteger(walletState.snapshot.balanceSats)){
+    return {known:true,balanceSats:walletState.snapshot.balanceSats,balance:formatSats(walletState.snapshot.balanceSats,coin)}
+  }
+  var cached=readConfirmedBalanceCache(coin)
+  if (cached==null){return {known:false,balanceSats:null,balance:"—"}}
+  return {known:true,balanceSats:cached.balanceSats,balance:formatSats(cached.balanceSats,coin)}
+}
+function referenceDecimals(currency){
+  if ((supportedCoins[currency]!=undefined)&&(supportedCoins[currency].stateService!=undefined)){return supportedCoins[currency].stateService.decimals}
+  if (supportedCoins[currency]!=undefined){return 8}
+  return 2
+}
+function convertBalance(balance,coin,reference){
+  if ((rates==null)||(rates[coin]==null)||(rates[reference]==null)){return null}
+  var sourceRate=Number(rates[coin].value)
+  var referenceRate=Number(rates[reference].value)
+  var amount=Number(balance)
+  if ((!Number.isFinite(sourceRate))||(sourceRate<=0)||(!Number.isFinite(referenceRate))||(referenceRate<=0)||(!Number.isFinite(amount))||(amount<0)){return null}
+  var converted=amount/sourceRate*referenceRate
+  return Number.isFinite(converted)?converted:null
+}
+function formatReferenceBalance(value,currency){
+  if (!Number.isFinite(value)){return "—"}
+  return trim0(value.toFixed(referenceDecimals(currency)))
+}
+function activateReferenceCurrency(currency){
+  var combo=$$$("#comboReference")
+  if ((combo==null)||(!Array.from(combo.options).some(function(option){return option.value===currency}))){return false}
+  var previous=String(combos.Reference.active||combo.value).replace(/\|/g,"")
+  combos.Reference.old=previous
+  combo.value=currency
+  combos.Reference.active=currency
+  localStorage.setItem("combos",JSON.stringify(combos))
+  try{reCalc($$$("#inputReference"),false)}catch(error){}
+  combos.Reference.old=currency
+  localStorage.setItem("combos",JSON.stringify(combos))
+  return true
+}
+function appendBalanceCell(row,tag,className,text){
+  var cell=document.createElement(tag)
+  if (className!==""){cell.className=className}
+  if (text!=null){cell.textContent=text}
+  row.appendChild(cell)
+  return cell
+}
+function renderBalanceOverview(){
+  var container=$$$("#id_balance")
+  var referenceCombo=$$$("#comboReference")
+  if ((container==null)||(referenceCombo==null)){return false}
+  container.textContent=""
+
+  var table=document.createElement("table")
+  table.className="table table-bordered table-hover balance-overview-table"
+  var heading=document.createElement("thead")
+  var headingRow=document.createElement("tr")
+  appendBalanceCell(headingRow,"th","balance-coin-column",T("txtCoin"))
+  appendBalanceCell(headingRow,"th","right-align",T("txtBalance"))
+  var referenceHeading=appendBalanceCell(headingRow,"th","right-align",null)
+  var selector=document.createElement("select")
+  selector.id="idBalanceReference"
+  selector.className="balance-reference-select"
+  selector.setAttribute("aria-label",T("txtReference"))
+  Array.from(referenceCombo.options).forEach(function(option){
+    var copy=document.createElement("option")
+    copy.value=option.value
+    copy.dataset.fullLabel=option.dataset.fullLabel||calculatorOptionLabel(option.value)
+    copy.dataset.compactLabel=option.dataset.compactLabel||calculatorOptionLabels(option.value).compact
+    copy.textContent=copy.dataset.fullLabel
+    selector.appendChild(copy)
+  })
+  selector.value=referenceCombo.value
+  selector.disabled=selector.options.length===0
+  selector.addEventListener("change",function(){
+    if (activateReferenceCurrency(selector.value)){renderBalanceOverview()}
+  })
+  prepareCompactCurrencySelect(selector)
+  referenceHeading.appendChild(selector)
+  heading.appendChild(headingRow)
+  table.appendChild(heading)
+
+  var body=document.createElement("tbody")
+  var reference=selector.value
+  var total=0
+  var complete=true
+  var activeCoin=$$$("#comboSupported").value
+  operationalWalletCoins().forEach(function(coin){
+    var record=balanceRecord(coin)
+    var converted=record.known?convertBalance(record.balance,coin,reference):null
+    var row=document.createElement("tr")
+    if (coin===activeCoin){row.className="table-active"}
+    var coinCell=appendBalanceCell(row,"td","balance-coin-column",null)
+    var coinButton=document.createElement("button")
+    coinButton.type="button"
+    coinButton.className="balance-coin-action"
+    coinButton.addEventListener("click",function(){gotoBalance(coin)})
+    var icon=document.createElement("img")
+    icon.className="balance-coin-icon"
+    icon.src="img/"+supportedCoins[coin].coin+".png"
+    icon.alt=""
+    icon.width=38
+    icon.height=38
+    var identity=document.createElement("span")
+    identity.className="balance-coin-identity"
+    var name=document.createElement("div")
+    name.className="balance-coin-name"
+    name.textContent=supportedCoins[coin].name
+    var ticker=document.createElement("div")
+    ticker.className="balance-coin-ticker"
+    ticker.textContent=coin.toUpperCase()
+    identity.appendChild(name)
+    identity.appendChild(ticker)
+    coinButton.appendChild(icon)
+    coinButton.appendChild(identity)
+    coinCell.appendChild(coinButton)
+    appendBalanceCell(row,"td","right-align balance-native",record.balance)
+    appendBalanceCell(row,"td","right-align balance-reference",formatReferenceBalance(converted,reference))
+    if ((!record.known)||(converted==null)){complete=false}else{total+=converted}
+    body.appendChild(row)
+  })
+  table.appendChild(body)
+
+  var footer=document.createElement("tfoot")
+  var totalRow=document.createElement("tr")
+  var totalLabel=appendBalanceCell(totalRow,"th","right-align",T("txtTotal"))
+  totalLabel.colSpan=2
+  appendBalanceCell(totalRow,"th","right-align balance-total",complete?formatReferenceBalance(total,reference):"—")
+  footer.appendChild(totalRow)
+  table.appendChild(footer)
+  container.appendChild(table)
+
+  var note=document.createElement("p")
+  note.className="balance-overview-note"
+  note.textContent=T("txtBalanceOverviewNote")
+  container.appendChild(note)
+  return true
+}
 async function restoreWalletMnemonic(mnemonicText,passphrase="",repeatedPassphrase=""){
   if (walletRestoring){return false}
   walletRestoring=true
@@ -2384,7 +2684,7 @@ async function restoreWalletMnemonic(mnemonicText,passphrase="",repeatedPassphra
     localStorage.setItem("language",language)
     localStorage.setItem("bip39",mnemonicString)
     if (recovery.passphrase!==""){localStorage.setItem(mnemonicPassphraseStorageKey,recovery.passphrase)}
-    localStorage.setItem(receiveAddressStorageKey,JSON.stringify(createReceiveAddressState(getStateService(stateCoin).maximumReceiveIndex,stateCoin)))
+    localStorage.setItem(receiveAddressKey(stateCoin),JSON.stringify(createReceiveAddressState(getStateService(stateCoin).maximumReceiveIndex,stateCoin)))
     sessionStorage.setItem("walletMnemonicRestore","1")
     location.reload()
     return true
@@ -2401,8 +2701,9 @@ function gotoBalance(coin){
   $$$("#inputSupported").value=supportedCoins[coin].balance;reCalc()
   $$$("#idPaymentIcon").src="img/"+supportedCoins[coin].coin+".png"
   combos["Supported"]['old']=combos["Supported"]['active']
-  updateCoinPresentation(coin)
-  if (coin===stateCoin){wakeState("balance",true)}else{scheduleStateRefresh()}
+  combos["Supported"]['active']=coin
+  localStorage.setItem("combos",JSON.stringify(combos))
+  switchStateCoin(coin,"balance",true)
   bModal.hide();
 }
 async function stopScanner(){
@@ -2477,10 +2778,10 @@ function payQR(){
   }
   if ((purpose==="send")||(purpose==="universal")){
     try{
-      if (purpose==="universal"){showSendView()}
+      if ((purpose==="universal")&&(showSendView()===false)){return}
       applyScannedSendRequest(QR)
     }catch(error){
-      if (purpose==="universal"){showSendView()}
+      if ((purpose==="universal")&&(showSendView()===false)){return}
       setSendStatus(error.message,"error")
     }
     return
@@ -2977,7 +3278,7 @@ function transientHistoryRecords(walletId,coin,persisted){
 function historyDisplayTime(record){
   var value=Number.isSafeInteger(record.BLOCK_TIME)&&record.BLOCK_TIME>0?record.BLOCK_TIME:record.SEEN_AT
   var date=new Date(value)
-  return date.toLocaleDateString([],{day:"2-digit",month:"2-digit"})+" "+date.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})
+  return date.toLocaleDateString([],{day:"2-digit",month:"2-digit",year:"numeric"})+" "+date.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})
 }
 function showHistoryReceipt(record){
   if ((record==null)||(record.DIRECTION!=="OUT")){return false}
@@ -3013,7 +3314,7 @@ function renderHistory(){
       time.textContent=historyDisplayTime(record)
       var amount=document.createElement("span")
       amount.className="history-amount "+record.DIRECTION.toLowerCase()
-      amount.textContent=(record.DIRECTION==="IN"?"+":"−")+formatSats(record.AMOUNT_SATS)
+      amount.textContent=(record.DIRECTION==="IN"?"+":"−")+formatSats(record.AMOUNT_SATS,coin)
       var address=document.createElement("span")
       address.className="history-address"
       address.textContent=record.DIRECTION==="OUT"?record.ADDRESS:""
@@ -3322,10 +3623,11 @@ function deriveWalletAddresses(mnemonicString,coin=stateCoin,receiveCount=null,p
 function isSafeNonNegativeInteger(value){
   return Number.isSafeInteger(value)&&value>=0
 }
-function formatSats(value){
+function formatSats(value,coin=stateCoin){
   if (!isSafeNonNegativeInteger(value)){return "0"}
-  var whole=Math.floor(value/100000000)
-  var fraction=String(value%100000000).padStart(8,"0").replace(/0+$/,"")
+  var service=getStateService(coin)
+  var whole=Math.floor(value/service.unitsPerCoin)
+  var fraction=String(value%service.unitsPerCoin).padStart(service.decimals,"0").replace(/0+$/,"")
   return fraction===""?String(whole):whole+"."+fraction
 }
 function isStateCoinActive(coin=stateCoin){
@@ -3361,9 +3663,9 @@ function freezeStateSnapshot(snapshot){
 function getDisplayedBalance(coin=stateCoin){
   if ((walletState.coin!==coin)||(walletState.snapshot==null)){
     var cachedBalance=readConfirmedBalanceCache(coin)
-    return cachedBalance==null?"0":formatSats(cachedBalance.balanceSats)
+    return cachedBalance==null?"0":formatSats(cachedBalance.balanceSats,coin)
   }
-  return formatSats(walletState.snapshot.balanceSats)
+  return formatSats(walletState.snapshot.balanceSats,coin)
 }
 function readConfirmedBalanceCache(coin=stateCoin){
   try{
@@ -3450,10 +3752,29 @@ function resetWalletState(reason="wallet-change",coin=stateCoin){
   clearStateFreshnessTimer()
   if (stateRequestController!=null){stateRequestController.abort()}
   stateRequestController=null
+  stateRequest=null
   walletAddresses=[]
   walletState={coin:coin,status:"unavailable",snapshot:null,error:reason,updatedAt:null}
   supportedCoins[coin].balance="0"
   supportedCoins[coin].connections=0
+}
+function switchStateCoin(coin,reason="coin-selection",wake=true){
+  if (!operationalWalletCoins().includes(coin)){throw new Error("State service unavailable for "+coin)}
+  if (coin===stateCoin){
+    updateCoinPresentation(coin)
+    return wake?wakeState(reason,true):Promise.resolve(walletState.snapshot||true)
+  }
+  var previousCoin=stateCoin
+  var previousBalance=getDisplayedBalance(previousCoin)
+  resetWalletState(reason,previousCoin)
+  supportedCoins[previousCoin].balance=previousBalance
+  stateCoin=coin
+  walletState={coin:coin,status:"unavailable",snapshot:null,error:reason,updatedAt:null}
+  stateActivity={mode:"sleeping",focusUntil:0,lastActivityAt:null,lastAttemptAt:null,nextRefreshAt:null,attempts:0,lastReason:reason}
+  supportedCoins[coin].balance=getDisplayedBalance(coin)
+  updateCoinPresentation(coin)
+  updateBalanceDisplay(coin)
+  return wake?wakeState(reason,true):Promise.resolve(true)
 }
 function beginStateRefresh(coin=stateCoin){
   var sameCoin=walletState.coin===coin
@@ -3657,6 +3978,7 @@ async function refreshState(reason="manual",coin=stateCoin){
       snapshot=freezeStateSnapshot(snapshot)
       walletState={coin:coin,status:"ready",snapshot:snapshot,error:null,updatedAt:Date.now()}
       storeConfirmedBalanceCache(snapshot,coin,walletState.updatedAt)
+      observeConfirmedOutpoints(snapshot,coin)
       reconcileLocalSendPlan(snapshot)
       reconcilePendingBroadcast(snapshot)
       reconcileCurrentPaymentReceipt(snapshot,coin)
@@ -3664,7 +3986,7 @@ async function refreshState(reason="manual",coin=stateCoin){
       updateBalanceDisplay(coin)
       scheduleStateExpiry(coin)
       synchronizeHistory(snapshot,walletAddresses.slice(),coin)
-      console_log(service.responseCoin+" state updated ("+snapshot.mode+"): "+snapshot.height+" / "+formatSats(snapshot.balanceSats))
+      console_log(service.responseCoin+" state updated ("+snapshot.mode+"): "+snapshot.height+" / "+formatSats(snapshot.balanceSats,coin))
       return snapshot
     }catch(error){
       if (requestGeneration===stateGeneration){
@@ -3780,15 +4102,17 @@ function sendPlanError(code,message){
   error.code=code
   return error
 }
-function parseCoinAmount(amount){
+function parseCoinAmount(amount,coin=stateCoin){
+  var service=getStateService(coin)
   var text=String(amount==null?"":amount).trim()
-  if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,8})?$/.test(text)){
+  var amountPattern=new RegExp("^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,"+service.decimals+"})?$")
+  if (!amountPattern.test(text)){
     throw sendPlanError("INVALID_AMOUNT",T("txtInvalidAmountPrecision"))
   }
   var parts=text.split(".")
   var whole=Number(parts[0])
-  var fraction=Number((parts[1]||"").padEnd(8,"0"))
-  var sats=whole*100000000+fraction
+  var fraction=Number((parts[1]||"").padEnd(service.decimals,"0"))
+  var sats=whole*service.unitsPerCoin+fraction
   if ((!Number.isSafeInteger(sats))||(sats<=0)){
     throw sendPlanError("INVALID_AMOUNT",T("txtAmountOutsideSafeRange"))
   }
@@ -3823,7 +4147,7 @@ function parsePaymentRequest(value,coin=stateCoin){
         throw sendPlanError("INVALID_REQUEST",T("txtUnsupportedPaymentRequestFields"))
       }
       amount=normalizePaymentAmount(parameters.get("amount")||"")
-      if (amount!==""){parseCoinAmount(amount)}
+      if (amount!==""){parseCoinAmount(amount,coin)}
     }
     return {address:validateCoinAddress(address,coin),amount:amount}
   }
@@ -3838,7 +4162,7 @@ function createLocalSendPlan(snapshot,destination,amount,coin=stateCoin){
   if (snapshot.addresses.some(function(addressState){return addressState.address===destination})){
     throw sendPlanError("SELF_ADDRESS",T("txtOwnDestination"))
   }
-  var amountSats=parseCoinAmount(amount)
+  var amountSats=parseCoinAmount(amount,coin)
   var candidates=snapshot.utxos.map(function(utxo){return Object.assign({},utxo)}).sort(function(a,b){
     if (a.valueSats!==b.valueSats){return b.valueSats-a.valueSats}
     if (a.txid!==b.txid){return a.txid<b.txid?-1:1}
@@ -3922,7 +4246,7 @@ function setTransactionPresentation(mode){
 }
 function fillCompactTransaction(prefix,coin,amountSats,destination){
   $$$("#"+prefix+"Coin").textContent=getStateService(coin).responseCoin
-  $$$("#"+prefix+"Amount").textContent=formatSats(amountSats)
+  $$$("#"+prefix+"Amount").textContent=formatSats(amountSats,coin)
   $$$("#"+prefix+"Destination").textContent=destination
 }
 function resetSendForm(){
@@ -3939,8 +4263,8 @@ function resetSendForm(){
 function updateSendTitle(){
   var title=T("txtSendCoin",{coin:supportedCoins[stateCoin].name})
   try{
-    var amountSats=parseCoinAmount($$$('#inputSupported').value)
-    title=T("txtSendAmountCoin",{amount:formatSats(amountSats),coin:supportedCoins[stateCoin].name})
+    var amountSats=parseCoinAmount($$$('#inputSupported').value,stateCoin)
+    title=T("txtSendAmountCoin",{amount:formatSats(amountSats,stateCoin),coin:supportedCoins[stateCoin].name})
   }catch(error){}
   $$$('#idTransactionTitle').textContent=title
   return title
@@ -3972,17 +4296,17 @@ function renderLocalSendPlan(plan){
   clearLocalSignedTransaction()
   $$$('#idPlanCheckpoint').textContent=plan.checkpoint.height+" · "+plan.checkpoint.blockHash
   $$$('#idPlanDestination').textContent=plan.destination
-  $$$('#idPlanAmount').textContent=formatSats(plan.amountSats)+" "+plan.coin.toUpperCase()
-  $$$('#idPlanFee').textContent=formatSats(plan.feeSats)+" "+plan.coin.toUpperCase()
-  $$$('#idPlanInputTotal').textContent=formatSats(plan.inputTotalSats)+" "+plan.coin.toUpperCase()
-  $$$('#idPlanChange').textContent=formatSats(plan.changeSats)+" "+plan.coin.toUpperCase()
+  $$$('#idPlanAmount').textContent=formatSats(plan.amountSats,plan.coin)+" "+plan.coin.toUpperCase()
+  $$$('#idPlanFee').textContent=formatSats(plan.feeSats,plan.coin)+" "+plan.coin.toUpperCase()
+  $$$('#idPlanInputTotal').textContent=formatSats(plan.inputTotalSats,plan.coin)+" "+plan.coin.toUpperCase()
+  $$$('#idPlanChange').textContent=formatSats(plan.changeSats,plan.coin)+" "+plan.coin.toUpperCase()
   $$$('#idPlanChangeAddress').textContent=plan.changeSats>0?plan.changeAddress+" ("+T("txtIndexNumber",{index:plan.changeIndex})+")":T("txtNoChangeOutput")
   $$$('#idPlanCoinTicker').textContent=plan.coin.toUpperCase()
   var body=$$$('#idSendInputs')
   body.replaceChildren()
   plan.inputs.forEach(function(input){
     var row=document.createElement("tr")
-    ;[input.index,input.txid+":"+input.vout,formatSats(input.valueSats)].forEach(function(value){
+    ;[input.index,input.txid+":"+input.vout,formatSats(input.valueSats,plan.coin)].forEach(function(value){
       var cell=document.createElement("td")
       cell.textContent=value
       row.appendChild(cell)
@@ -3996,7 +4320,7 @@ function assertLocalPlanCurrent(plan,coin=stateCoin){
   if ((plan==null)||(plan!==localSendPlan)){throw sendPlanError("PLAN_CHANGED",T("txtPlanChanged"))}
   if ((walletState.coin!==coin)||(walletState.snapshot==null)){throw sendPlanError("STATE_CHANGED",T("txtConfirmedInputsUnavailable"))}
   var snapshot=walletState.snapshot
-  if ((plan.destination!==$$$('#idSendTo').value)||(plan.amountSats!==parseCoinAmount($$$('#inputSupported').value))){
+  if ((plan.destination!==$$$('#idSendTo').value)||(plan.amountSats!==parseCoinAmount($$$('#inputSupported').value,coin))){
     throw sendPlanError("PLAN_CHANGED",T("txtPlanChanged"))
   }
   if (!localPlanInputsMatchSnapshot(plan,snapshot)){throw sendPlanError("STATE_CHANGED",T("txtPlannedInputUnavailable"))}
@@ -4055,10 +4379,14 @@ function inspectSignedTransaction(plan,rawHex,coin=stateCoin){
     signaturesVerified:true
   })
 }
-function buildSignedTransaction(plan,mnemonicString,coin=stateCoin,passphrase=null){
+function buildSignedTransaction(plan,mnemonicString,coin=stateCoin,passphrase=null,transactionTime=null){
   var network=bitcoin.networks[networks[coin].index]
   var account=deriveCoinAccount(mnemonicString,coin,passphrase)
   var builder=new bitcoin.TransactionBuilder(network)
+  if (transactionTime!==null){
+    if ((!Number.isSafeInteger(transactionTime))||(transactionTime<0)){throw sendPlanError("INVALID_TIME",T("txtInvalidRawTransaction"))}
+    builder.tx.time=transactionTime
+  }
   plan.inputs.forEach(function(input){
     builder.addInput(input.txid,input.vout)
   })
@@ -4078,14 +4406,14 @@ function buildSignedTransaction(plan,mnemonicString,coin=stateCoin,passphrase=nu
 function renderSignedTransaction(result){
   $$$('#idSignedTxid').textContent=result.txid
   $$$('#idSignedSize').textContent=T("txtByteCount",{count:result.byteLength})
-  $$$('#idSignedFee').textContent=formatSats(result.feeSats)+" "+result.coin.toUpperCase()
+  $$$('#idSignedFee').textContent=formatSats(result.feeSats,result.coin)+" "+result.coin.toUpperCase()
   $$$('#idSignedSignatures').textContent=T("txtSignaturesVerified",{count:result.inputs.length})
   $$$('#idSignedCoinTicker').textContent=result.coin.toUpperCase()
   var body=$$$('#idSignedOutputs')
   body.replaceChildren()
   result.outputs.forEach(function(output){
     var row=document.createElement("tr")
-    ;[T(output.role==="recipient"?"txtRecipient":"txtChange"),output.address,formatSats(output.valueSats)].forEach(function(value){
+    ;[T(output.role==="recipient"?"txtRecipient":"txtChange"),output.address,formatSats(output.valueSats,result.coin)].forEach(function(value){
       var cell=document.createElement("td")
       cell.textContent=value
       row.appendChild(cell)
@@ -4099,6 +4427,7 @@ function renderSignedTransaction(result){
   setSendStatus(T("txtTransactionBuiltVerified"),"ready")
 }
 function prepareSignedTransaction(){
+  if (!requireWalletSpendUnlocked()){return false}
   if (transactionBuilding){return false}
   transactionBuilding=true
   clearLocalSignedTransaction()
@@ -4171,13 +4500,13 @@ function renderBroadcastTracking(record,response){
   showReceipt.classList.toggle('hidden',!isTransactionReceipt(receipt,record.coin,record.txid)||status==="SUBMITTING"||status==="REJECTED")
   return record
 }
-function parseBroadcastResponse(data,expectedTxid,kind){
+function parseBroadcastResponse(data,expectedTxid,kind,coin=stateCoin){
   if ((data==null)||(typeof data!=="object")||(typeof data.status!=="string")||(typeof data.technical!=="boolean")){
     throw new Error(T("txtBroadcastUnavailable",{reason:"INVALID_RESPONSE"}))
   }
   if ((typeof data.txid!=="string")||(data.txid!==expectedTxid)){throw new Error(T("txtBroadcastTxidMismatch"))}
   if (data.technical){return Object.freeze(Object.assign({},data))}
-  if (data.coin!==getStateService(stateCoin).responseCoin){throw new Error(T("txtBroadcastUnavailable",{reason:"INVALID_COIN"}))}
+  if (data.coin!==getStateService(coin).responseCoin){throw new Error(T("txtBroadcastUnavailable",{reason:"INVALID_COIN"}))}
   var allowed=kind==="broadcast"?['ACCEPTED','KNOWN','REJECTED']:['MEMPOOL','CONFIRMED','UNKNOWN','REJECTED']
   if (!allowed.includes(data.status)){throw new Error(T("txtBroadcastUnavailable",{reason:"INVALID_STATUS"}))}
   if ((data.status==='ACCEPTED'||data.status==='KNOWN')&&((data.ok!==true)||(data.accepted!==true))){throw new Error(T("txtBroadcastUnavailable",{reason:"INVALID_ACCEPTANCE"}))}
@@ -4270,6 +4599,12 @@ function mergeZeroConfirmationObserver(aggregate,response){
   else {aggregate.status="NOT_SEEN"}
   return aggregate
 }
+function observerWitnessText(seen,configured){
+  if (seen===1){
+    return T(configured===1?"txtSingleObserverWitnessed":"txtOneOfObserversWitnessed",{seen:seen,configured:configured})
+  }
+  return T("txtObserversWitnessed",{seen:seen,configured:configured})
+}
 function renderZeroConfirmation(response,error="",retrying=false){
   var panel=$$$('#idReceiveZeroConfirmation')
   if (panel==null){return}
@@ -4284,7 +4619,7 @@ function renderZeroConfirmation(response,error="",retrying=false){
   }
   if (response.status==="UNCONFIRMED"){
     panel.classList.add('ready')
-    title.textContent=T("txtObserversWitnessed",{seen:response.seen,configured:response.configured})
+    title.textContent=observerWitnessText(response.seen,response.configured)
     if (currentPaymentReceiptHistoryStatus!=="SEEN"&&currentPaymentReceiptHistoryStatus!=="CONFIRMED"){
       currentPaymentReceiptHistoryStatus="SEEN"
       renderHistory().then(function(){peekHistoryDrawer()}).catch(function(error){console.error("Unable to render observed history:",error)})
@@ -4312,7 +4647,7 @@ function showReceiveObservation(receipt){
   currentPaymentReceiptHistoryStatus=undefined
   currentPaymentReceiptSeenAt=Date.now()
   $$$('#idObservedCoin').textContent=receipt.coin
-  $$$('#idObservedAmount').textContent=formatSats(receipt.amountSats)
+  $$$('#idObservedAmount').textContent=formatSats(receipt.amountSats,stateCoin)
   $$$('#idZeroConfirmationTitle').textContent=T("txtPaymentReceiptScanned")
   $$$('#idZeroConfirmationDetail').textContent=T("txtTransactionStatusProgress")
   $$$('#idZeroConfirmationDetail').classList.remove('hidden')
@@ -4472,6 +4807,7 @@ function createPendingBroadcast(result,status="SUBMITTING",coin=stateCoin){
   }
 }
 function showBroadcastConfirmation(){
+  if (!requireWalletSpendUnlocked()){return false}
   try{
     if (localSignedTransaction==null){throw new Error(T("txtNoSignedTransaction"))}
     assertLocalPlanCurrent(localSendPlan,stateCoin)
@@ -4486,6 +4822,7 @@ function showBroadcastConfirmation(){
   }
 }
 async function broadcastSignedTransaction(){
+  if (!requireWalletSpendUnlocked()){return false}
   if (broadcastRequesting){return false}
   if (localSignedTransaction==null){setSendStatus(T("txtNoSignedTransaction"),"error");return false}
   var result=localSignedTransaction
@@ -4509,7 +4846,7 @@ async function broadcastSignedTransaction(){
   try{
     var data=await requestBroadcastService({operation:"broadcast",txid:result.txid,rawTransaction:result.rawHex},stateCoin)
     record.broadcastTiming=compactTiming(data)
-    var response=parseBroadcastResponse(data,result.txid,"broadcast")
+    var response=parseBroadcastResponse(data,result.txid,"broadcast",result.coin)
     if (response.technical){throw new Error(response.error||"BROADCAST_UNAVAILABLE")}
     if (response.status==="REJECTED"){
       if (response.priorSubmissionUncertain===true){
@@ -4581,7 +4918,7 @@ async function refreshBroadcastStatus(reason="manual"){
   try{
     var data=await requestBroadcastService({operation:"transactionStatus",txid:record.txid},record.coin)
     record.statusTiming=compactTiming(data)
-    var response=parseBroadcastResponse(data,record.txid,"status")
+    var response=parseBroadcastResponse(data,record.txid,"status",record.coin)
     if (response.technical){throw new Error(response.error||"TRANSACTION_STATUS_UNAVAILABLE")}
     record.status=response.status
     if (response.status==="REJECTED"){
@@ -4630,6 +4967,7 @@ function reconcilePendingBroadcast(snapshot){
   scheduleBroadcastStatus()
 }
 async function prepareLocalSendPlan(){
+  if (!requireWalletSpendUnlocked()){return false}
   if (sendPlanning){return false}
   sendPlanning=true
   clearLocalSendPlan()
@@ -4655,33 +4993,35 @@ async function reviewSendTransaction(){
   if (result===false){return false}
   return showBroadcastConfirmation()
 }
-function verifyLocalSendPlanning(){
-  var service=getStateService(stateCoin)
-  var addresses=deriveWalletAddresses(service.testMnemonic,stateCoin,service.initialReceiveCount,"")
-  var destination=deriveCoinAddress(service.testMnemonic,11,stateCoin,"")
+function verifyLocalSendPlanning(coin=stateCoin){
+  var service=getStateService(coin)
+  var units=service.unitsPerCoin
+  var addresses=deriveWalletAddresses(service.testMnemonic,coin,service.initialReceiveCount,"")
+  var destination=deriveCoinAddress(service.testMnemonic,11,coin,"")
   var makeUtxo=function(number,value,index){return {index:index,address:addresses[index],txid:String(number).padStart(64,"0"),vout:0,valueSats:value,height:1,confirmations:1,scriptPubKey:""}}
-  var utxos=[makeUtxo(1,300000000,1),makeUtxo(2,150000000,2),makeUtxo(3,50000000,3)]
+  var utxos=[makeUtxo(1,3*units,1),makeUtxo(2,3*units/2,2),makeUtxo(3,units/2,3)]
   var snapshot={id:"0".repeat(32),height:1,blockHash:"1".repeat(64),addresses:addresses.map(function(address,index){return {index:index,address:address,utxos:[]}}),utxos:utxos}
-  var plan=createLocalSendPlan(snapshot,destination,"3.5",stateCoin)
-  if ((!Object.isFrozen(plan))||(plan.inputs.length!==2)||(plan.inputTotalSats!==450000000)||(plan.changeSats!==99900000)||(plan.changeIndex!==service.changeIndex)){
+  var plan=createLocalSendPlan(snapshot,destination,"3.5",coin)
+  if ((!Object.isFrozen(plan))||(plan.inputs.length!==2)||(plan.inputTotalSats!==9*units/2)||(plan.changeSats!==units-service.minimumFeeSats)||(plan.changeIndex!==service.changeIndex)){
     throw new Error("Local send plan selection test failed")
   }
   var failures=0
-  try{createLocalSendPlan(snapshot,addresses[1],"1",stateCoin)}catch(error){if (error.code==="SELF_ADDRESS"){failures++}}
-  try{createLocalSendPlan(snapshot,destination,"1.000000001",stateCoin)}catch(error){if (error.code==="INVALID_AMOUNT"){failures++}}
+  try{createLocalSendPlan(snapshot,addresses[1],"1",coin)}catch(error){if (error.code==="SELF_ADDRESS"){failures++}}
+  try{createLocalSendPlan(snapshot,destination,"1."+"0".repeat(service.decimals)+"1",coin)}catch(error){if (error.code==="INVALID_AMOUNT"){failures++}}
   if (failures!==2){throw new Error("Local send plan rejection test failed")}
-  var small=Array.from({length:7},function(_,index){return makeUtxo(index+10,2000000,(index%service.initialReceiveCount)+1)})
-  var tiered=createLocalSendPlan(Object.assign({},snapshot,{utxos:small}),destination,"0.138",stateCoin)
-  if ((tiered.inputs.length!==7)||(tiered.feeTiers!==2)||(tiered.feeSats!==200000)||(tiered.changeSats!==0)){
+  var small=Array.from({length:7},function(_,index){return makeUtxo(index+10,2*units/100,(index%service.initialReceiveCount)+1)})
+  var tiered=createLocalSendPlan(Object.assign({},snapshot,{utxos:small}),destination,"0.138",coin)
+  if ((tiered.inputs.length!==7)||(tiered.feeTiers!==2)||(tiered.feeSats!==2*service.minimumFeeSats)||(tiered.changeSats!==0)){
     throw new Error("Local tiered-fee selection test failed")
   }
-  console_log("Local send plan test passed: full UTXO selection, tiered fee, change index 0")
+  console_log(service.responseCoin+" send plan test passed: full UTXO selection, tiered fee, change index 0")
 }
-function verifyLocalTransactionBuilding(){
-  var service=getStateService(stateCoin)
-  var network=bitcoin.networks[networks[stateCoin].index]
-  var addresses=deriveWalletAddresses(service.testMnemonic,stateCoin,service.initialReceiveCount,"")
-  var destination=deriveCoinAddress(service.testMnemonic,11,stateCoin,"")
+function verifyLocalTransactionBuilding(coin=stateCoin){
+  var service=getStateService(coin)
+  var units=service.unitsPerCoin
+  var network=bitcoin.networks[networks[coin].index]
+  var addresses=deriveWalletAddresses(service.testMnemonic,coin,service.initialReceiveCount,"")
+  var destination=deriveCoinAddress(service.testMnemonic,11,coin,"")
   var makeUtxo=function(txid,vout,value,index){
     return {
       index:index,
@@ -4700,37 +5040,38 @@ function verifyLocalTransactionBuilding(){
     blockHash:"1".repeat(64),
     addresses:addresses.map(function(address,index){return {index:index,address:address,utxos:[]}}),
     utxos:[
-      makeUtxo("1".repeat(64),0,300000000,1),
-      makeUtxo("2".repeat(64),1,150000000,2),
-      makeUtxo("3".repeat(64),2,50000000,3)
+      makeUtxo("1".repeat(64),0,3*units,1),
+      makeUtxo("2".repeat(64),1,3*units/2,2),
+      makeUtxo("3".repeat(64),2,units/2,3)
     ]
   }
-  var plan=createLocalSendPlan(snapshot,destination,"3.5",stateCoin)
-  var result=buildSignedTransaction(plan,service.testMnemonic,stateCoin,"")
-  var expectedTxid="bbc242035724d80039dd785f3c326117085e8a46c9f5563ecf9642205aebb587"
-  if ((result.txid!==expectedTxid)||(result.byteLength!==373)||(result.inputs.length!==2)||(result.outputs.length!==2)||(!result.signaturesVerified)||(result.feeSats!==100000)){
+  var transactionTime=service.testTransactionTime==undefined?null:service.testTransactionTime
+  var plan=createLocalSendPlan(snapshot,destination,"3.5",coin)
+  var result=buildSignedTransaction(plan,service.testMnemonic,coin,"",transactionTime)
+  if ((result.txid!==service.testSignedTxid)||(result.byteLength!==service.testSignedByteLength)||(result.inputs.length!==2)||(result.outputs.length!==2)||(!result.signaturesVerified)||(result.feeSats!==service.minimumFeeSats)){
     throw new Error("Local transaction signing test failed")
   }
-  var zeroChangePlan=createLocalSendPlan(snapshot,destination,"4.499",stateCoin)
-  var zeroChangeResult=buildSignedTransaction(zeroChangePlan,service.testMnemonic,stateCoin,"")
-  if ((zeroChangePlan.changeSats!==0)||(zeroChangeResult.changeSats!==0)||(zeroChangeResult.inputs.length!==2)||(zeroChangeResult.outputs.length!==1)||(zeroChangeResult.outputs[0].role!=="recipient")||(zeroChangeResult.feeSats!==100000)){
+  var zeroChangeAmount=formatSats(9*units/2-service.minimumFeeSats,coin)
+  var zeroChangePlan=createLocalSendPlan(snapshot,destination,zeroChangeAmount,coin)
+  var zeroChangeResult=buildSignedTransaction(zeroChangePlan,service.testMnemonic,coin,"",transactionTime)
+  if ((zeroChangePlan.changeSats!==0)||(zeroChangeResult.changeSats!==0)||(zeroChangeResult.inputs.length!==2)||(zeroChangeResult.outputs.length!==1)||(zeroChangeResult.outputs[0].role!=="recipient")||(zeroChangeResult.feeSats!==service.minimumFeeSats)){
     throw new Error("Local zero-change transaction test failed")
   }
   var tieredUtxos=Array.from({length:7},function(_,index){
-    return makeUtxo(String(index+10).padStart(64,"0"),index,2000000,(index%service.initialReceiveCount)+1)
+    return makeUtxo(String(index+10).padStart(64,"0"),index,2*units/100,(index%service.initialReceiveCount)+1)
   })
   var tieredSnapshot=Object.assign({},snapshot,{utxos:tieredUtxos})
-  var tieredPlan=createLocalSendPlan(tieredSnapshot,destination,"0.138",stateCoin)
-  var tieredResult=buildSignedTransaction(tieredPlan,service.testMnemonic,stateCoin,"")
-  if ((tieredResult.inputs.length!==7)||(tieredResult.outputs.length!==1)||(tieredResult.feeSats!==200000)||(!tieredResult.signaturesVerified)){
+  var tieredPlan=createLocalSendPlan(tieredSnapshot,destination,"0.138",coin)
+  var tieredResult=buildSignedTransaction(tieredPlan,service.testMnemonic,coin,"",transactionTime)
+  if ((tieredResult.inputs.length!==7)||(tieredResult.outputs.length!==1)||(tieredResult.feeSats!==2*service.minimumFeeSats)||(!tieredResult.signaturesVerified)){
     throw new Error("Local tiered transaction test failed")
   }
-  console_log("Local transaction test passed: 2 signatures, txid "+expectedTxid)
+  console_log(service.responseCoin+" transaction test passed: 2 signatures, txid "+service.testSignedTxid)
   console_log("Local zero-change transaction test passed: change output omitted")
   console_log("Local tiered transaction test passed: 7 signatures, 2 fee tiers")
 }
-function verifyBroadcastParsing(){
-  var service=getStateService(stateCoin)
+function verifyBroadcastParsing(coin=stateCoin){
+  var service=getStateService(coin)
   var txid="b".repeat(64)
   var accepted=parseBroadcastResponse({
     ok:true,
@@ -4744,33 +5085,34 @@ function verifyBroadcastParsing(){
     rotRoundTripMs:3,
     relayMs:4,
     attempts:1
-  },txid,"broadcast")
+  },txid,"broadcast",coin)
   if ((!Object.isFrozen(accepted))||(accepted.status!=="ACCEPTED")){throw new Error("Broadcast acceptance parser test failed")}
-  var rejected=parseBroadcastResponse({ok:false,coin:service.responseCoin,technical:false,status:"REJECTED",txid:txid,rpcCode:-26,rpcMessage:"test rejection"},txid,"broadcast")
+  var rejected=parseBroadcastResponse({ok:false,coin:service.responseCoin,technical:false,status:"REJECTED",txid:txid,rpcCode:-26,rpcMessage:"test rejection"},txid,"broadcast",coin)
   if ((rejected.status!=="REJECTED")||(rejected.rpcCode!==-26)){throw new Error("Broadcast rejection parser test failed")}
   var mismatched=false
-  try{parseBroadcastResponse({ok:true,coin:service.responseCoin,technical:false,status:"ACCEPTED",accepted:true,txid:"c".repeat(64)},txid,"broadcast")}catch(error){mismatched=true}
+  try{parseBroadcastResponse({ok:true,coin:service.responseCoin,technical:false,status:"ACCEPTED",accepted:true,txid:"c".repeat(64)},txid,"broadcast",coin)}catch(error){mismatched=true}
   if (!mismatched){throw new Error("Broadcast txid mismatch test failed")}
-  var receipt={type:"transactionReceipt",coin:service.responseCoin,txid:txid,address:service.testAddresses[1],amountSats:5000000}
-  if (!isTransactionReceipt(receipt,stateCoin,txid)){throw new Error("Payment receipt validation test failed")}
-  var compactReceipt=encodeTransactionReceipt(receipt,stateCoin)
-  var decodedCompactReceipt=decodeTransactionReceipt(compactReceipt,stateCoin)
-  var decodedLegacyReceipt=decodeTransactionReceipt(JSON.stringify(receipt),stateCoin)
+  var receipt={type:"transactionReceipt",coin:service.responseCoin,txid:txid,address:service.testAddresses[1],amountSats:service.unitsPerCoin/20}
+  if (!isTransactionReceipt(receipt,coin,txid)){throw new Error("Payment receipt validation test failed")}
+  var compactReceipt=encodeTransactionReceipt(receipt,coin)
+  var decodedCompactReceipt=decodeTransactionReceipt(compactReceipt,coin)
+  var decodedLegacyReceipt=decodeTransactionReceipt(JSON.stringify(receipt),coin)
   if ((compactReceipt.length>=JSON.stringify(receipt).length)||(decodedCompactReceipt.txid!==receipt.txid)||(decodedCompactReceipt.address!==receipt.address)||(decodedCompactReceipt.amountSats!==receipt.amountSats)||(decodedLegacyReceipt.txid!==receipt.txid)){
     throw new Error("Payment receipt encoding test failed")
   }
-  if ((findWalletAddressIndex(service.testMnemonic,receipt.address,stateCoin,"")!==1)||(findWalletAddressIndex(service.testMnemonic,deriveCoinAddress(service.testMnemonic,service.maximumReceiveIndex+1,stateCoin,""),stateCoin,"")!==-1)){
+  if ((findWalletAddressIndex(service.testMnemonic,receipt.address,coin,"")!==1)||(findWalletAddressIndex(service.testMnemonic,deriveCoinAddress(service.testMnemonic,service.maximumReceiveIndex+1,coin,""),coin,"")!==-1)){
     throw new Error("Payment receipt wallet-ownership test failed")
   }
-  var observation=parseZeroConfirmationResponse({ok:true,coin:service.responseCoin,technical:false,status:"UNCONFIRMED",txid:txid,address:receipt.address,amountSats:receipt.amountSats,configured:3,available:2,seen:2,notSeen:0,confirmed:0,outputMismatch:0,unavailable:1},receipt,stateCoin)
-  if ((observation.seen!==2)||(observation.unavailable!==1)){throw new Error("Payment observation parser test failed")}
+  var configured=service.maximumZeroConfirmationObservers
+  var observation=parseZeroConfirmationResponse({ok:true,coin:service.responseCoin,technical:false,status:"UNCONFIRMED",txid:txid,address:receipt.address,amountSats:receipt.amountSats,configured:configured,available:configured,seen:configured,notSeen:0,confirmed:0,outputMismatch:0,unavailable:0},receipt,coin)
+  if ((observation.seen!==configured)||(observation.unavailable!==0)){throw new Error("Payment observation parser test failed")}
   console_log("Broadcast parser test passed: accepted, rejected, txid mismatch")
-  console_log("Payment receipt test passed: compact and legacy encoding, wallet ownership, exact output, 2 of 3 observers")
+  console_log(service.responseCoin+" payment receipt test passed: compact and legacy encoding, wallet ownership, exact output, "+configured+" of "+configured+" observers")
 }
-function verifyStateParser(){
-  var service=getStateService(stateCoin)
-  var addresses=deriveWalletAddresses(service.testMnemonic,stateCoin,service.initialReceiveCount,"")
-  var network=bitcoin.networks[networks[stateCoin].index]
+function verifyStateParser(coin=stateCoin){
+  var service=getStateService(coin)
+  var addresses=deriveWalletAddresses(service.testMnemonic,coin,service.initialReceiveCount,"")
+  var network=bitcoin.networks[networks[coin].index]
   var response={
     ok:true,
     id:"0".repeat(32),
@@ -4778,23 +5120,23 @@ function verifyStateParser(){
     mode:"full",
     height:1,
     blockHash:"0".repeat(64),
-    zeroConfirmationObservers:3,
+    zeroConfirmationObservers:service.maximumZeroConfirmationObservers,
     balance:0,
     addresses:addresses.map(function(address){return {address:address,lastChangeHeight:null,balance:0,utxos:[]}})
   }
-  response.balance=100000000
-  response.addresses[0].balance=100000000
+  response.balance=service.unitsPerCoin
+  response.addresses[0].balance=service.unitsPerCoin
   response.addresses[0].lastChangeHeight=1
   response.addresses[0].utxos=[{
     txid:"1".repeat(64),
     vout:0,
-    value:100000000,
+    value:service.unitsPerCoin,
     height:1,
     confirmations:1,
     scriptPubKey:bitcoin.address.toOutputScript(addresses[0],network).toString('hex')
   }]
-  var snapshot=freezeStateSnapshot(parseStateResponse(response,addresses,null,stateCoin))
-  if ((snapshot.balanceSats!==100000000)||(snapshot.addresses.length!==addresses.length)||(snapshot.utxos.length!==1)||(snapshot.utxos[0].index!==0)||(!Object.isFrozen(snapshot))){
+  var snapshot=freezeStateSnapshot(parseStateResponse(response,addresses,null,coin))
+  if ((snapshot.balanceSats!==service.unitsPerCoin)||(snapshot.addresses.length!==addresses.length)||(snapshot.utxos.length!==1)||(snapshot.utxos[0].index!==0)||(!Object.isFrozen(snapshot))){
     throw new Error("State parser test failed")
   }
   var request=buildStateRequest(addresses,snapshot)
@@ -4808,10 +5150,10 @@ function verifyStateParser(){
     mode:"delta",
     height:2,
     blockHash:"2".repeat(64),
-    zeroConfirmationObservers:3,
+    zeroConfirmationObservers:service.maximumZeroConfirmationObservers,
     addresses:[]
-  },addresses,snapshot,stateCoin))
-  if ((unchanged.balanceSats!==100000000)||(unchanged.utxos.length!==1)||(unchanged.utxos[0].confirmations!==2)){
+  },addresses,snapshot,coin))
+  if ((unchanged.balanceSats!==service.unitsPerCoin)||(unchanged.utxos.length!==1)||(unchanged.utxos[0].confirmations!==2)){
     throw new Error("Unchanged state delta test failed")
   }
   var changed=freezeStateSnapshot(parseStateResponse({
@@ -4821,15 +5163,15 @@ function verifyStateParser(){
     mode:"delta",
     height:2,
     blockHash:"2".repeat(64),
-    zeroConfirmationObservers:3,
+    zeroConfirmationObservers:service.maximumZeroConfirmationObservers,
     addresses:[{address:addresses[0],lastChangeHeight:2,balance:0,utxos:[]}]
-  },addresses,snapshot,stateCoin))
+  },addresses,snapshot,coin))
   if ((changed.balanceSats!==0)||(changed.utxos.length!==0)||(changed.addresses[0].lastChangeHeight!==2)){
     throw new Error("Changed state delta test failed")
   }
   var rejected=false
-  response.balance=100000001
-  try{parseStateResponse(response,addresses,null,stateCoin)}catch(error){rejected=true}
+  response.balance=service.unitsPerCoin+1
+  try{parseStateResponse(response,addresses,null,coin)}catch(error){rejected=true}
   if (!rejected){throw new Error("Inconsistent state test failed")}
   console_log(service.responseCoin+" state parser test passed: full and delta, "+addresses.length+" addresses")
 }
@@ -4868,8 +5210,8 @@ function updateReceiveTitle(){
   var coin=currentReceiveRequest==null?stateCoin:currentReceiveRequest.coin
   var title=T("txtReceiveCoin",{coin:supportedCoins[coin].name})
   try{
-    var amountSats=parseCoinAmount($$$('#inputSupported').value)
-    title=T("txtReceiveAmountCoin",{amount:formatSats(amountSats),coin:supportedCoins[coin].name})
+    var amountSats=parseCoinAmount($$$('#inputSupported').value,coin)
+    title=T("txtReceiveAmountCoin",{amount:formatSats(amountSats,coin),coin:supportedCoins[coin].name})
   }catch(error){}
   $$$('#idTransactionTitle').textContent=title
   return title
@@ -4929,7 +5271,7 @@ function renderPaymentReceiptQrOverlay(){
   panel.innerHTML=""
   var qrcode=new QRCode("idPaymentReceiptQrLarge",{width:size,height:size,correctLevel:QRCode.CorrectLevel.M})
   qrcode.makeCode(encoded)
-  summary.textContent=T("txtPaymentConfirmationSummary",{amount:formatSats(currentSenderPaymentReceipt.amountSats),coin:currentSenderPaymentReceipt.coin,address:currentSenderPaymentReceipt.address})
+  summary.textContent=T("txtPaymentConfirmationSummary",{amount:formatSats(currentSenderPaymentReceipt.amountSats,stateCoin),coin:currentSenderPaymentReceipt.coin,address:currentSenderPaymentReceipt.address})
   return true
 }
 function showPaymentReceiptQrOverlay(){
@@ -4967,6 +5309,7 @@ function showReceiveView(){
   updateReceiveView()
 }
 function showSendView(){
+  if (!requireWalletSpendUnlocked()){return false}
   selectStateCoin(stateCoin)
   hideReceiveQrOverlay()
   cancelZeroConfirmationRequest()
@@ -4981,8 +5324,10 @@ function showSendView(){
   setTransactionPresentation("sendEdit")
   updateSendTitle()
   renderHistory().catch(function(error){console.error("Unable to reset observed history:",error)})
+  return true
 }
 function applyScannedSendRequest(value){
+  if (!requireWalletSpendUnlocked()){return false}
   var request=parsePaymentRequest(value,stateCoin)
   var field=$$$('#idSendTo')
   field.value=request.address
@@ -5037,9 +5382,9 @@ function setReceiveRequest(){
   addressPanel.textContent=currentReceiveRequest.address
   $$$('#idReceivePayment').appendChild(addressPanel)
 }
-function testMnemonicDerivation(){
-  var service=getStateService(stateCoin)
-  var account=deriveCoinAccount(service.testMnemonic,stateCoin,"")
+function testMnemonicDerivation(coin=stateCoin){
+  var service=getStateService(coin)
+  var account=deriveCoinAccount(service.testMnemonic,coin,"")
   var results=[]
   for (const index in service.testAddresses){
     var address=deriveCoinAddressFromAccount(account,Number(index))
@@ -5047,40 +5392,43 @@ function testMnemonicDerivation(){
   }
   return results
 }
-function verifyMnemonicDerivation(){
-  var service=getStateService(stateCoin)
-  var results=testMnemonicDerivation()
+function verifyMnemonicDerivation(coin=stateCoin){
+  var service=getStateService(coin)
+  var results=testMnemonicDerivation(coin)
   var failed=results.filter(result=>!result.passed)
   if (failed.length>0){
-    console.error("EFL mnemonic test failed",failed)
-    throw new Error("EFL mnemonic test failed")
+    console.error(service.responseCoin+" mnemonic test failed",failed)
+    throw new Error(service.responseCoin+" mnemonic test failed")
   }
   return true
 }
-function verifyMnemonicPassphrase(){
-  var service=getStateService(stateCoin)
-  var address=deriveCoinAddress(service.testMnemonic,0,stateCoin,service.testPassphrase)
+function verifyMnemonicPassphrase(coin=stateCoin){
+  var service=getStateService(coin)
+  var address=deriveCoinAddress(service.testMnemonic,0,coin,service.testPassphrase)
   if ((address!==service.testPassphraseAddress)||(address===service.testAddresses[0])){
-    console.error("EFL passphrase test failed",address)
-    throw new Error("EFL passphrase test failed")
+    console.error(service.responseCoin+" passphrase test failed",address)
+    throw new Error(service.responseCoin+" passphrase test failed")
   }
+  return true
+}
+function verifyOperationalDerivations(){
+  operationalWalletCoins().forEach(function(coin){verifyMnemonicDerivation(coin);verifyMnemonicPassphrase(coin)})
   return true
 }
 function runWalletDiagnostics(){
   var started=performance.now()
-  verifyMnemonicDerivation()
-  verifyMnemonicPassphrase()
+  verifyOperationalDerivations()
   var service=getStateService(stateCoin)
   var receiveRequest=getReceiveRequest(service.testMnemonic,"1.25",stateCoin,service.receiveIndex,"")
   if ((receiveRequest.index!=service.receiveIndex)||(receiveRequest.address!=service.testAddresses[service.receiveIndex])||(receiveRequest.amount!=="1.25")||(receiveRequest.uri!=service.uriScheme+service.testAddresses[service.receiveIndex]+"?amount=1.25")){
-    console.error("EFL receive test failed",receiveRequest)
-    throw new Error("EFL receive test failed")
+    console.error(service.responseCoin+" receive test failed",receiveRequest)
+    throw new Error(service.responseCoin+" receive test failed")
   }
-  verifyStateParser()
-  verifyLocalSendPlanning()
-  verifyLocalTransactionBuilding()
-  verifyBroadcastParsing()
-  console_log("EFL mnemonic test passed: 0, 1, 10 and BIP39 passphrase")
+  verifyStateParser(stateCoin)
+  verifyLocalSendPlanning(stateCoin)
+  verifyLocalTransactionBuilding(stateCoin)
+  verifyBroadcastParsing(stateCoin)
+  console_log("Operational mnemonic tests passed: EFL and DEM indices 0, 1, 10 and BIP39 passphrases")
   return Object.freeze({passed:true,durationMs:Math.round(performance.now()-started)})
 }
 function setEntropy(){
@@ -5666,7 +6014,8 @@ async function cc(){
   await translationReady
   markWalletBoot("translation-ready")
   applyExpertMode()
-  verifyMnemonicDerivation()
+  updateWalletSpendLockPresentation()
+  verifyOperationalDerivations()
   markWalletBoot("derivation-canary-ready")
   setEntropy()
   await waitForValidPin()
@@ -5680,11 +6029,7 @@ async function cc(){
     if ($$$('#comboBalance').value===stateCoin){wakeState("balance-selection",true)}else{scheduleStateRefresh()}
   })
   $$$('#comboReference').addEventListener("change", function() {
-    var selectedOption = $$$('#comboReference').options[$$$('#comboReference').selectedIndex];
-    combos["Reference"]['active']=$$$('#comboReference').value
-    localStorage.setItem("combos",JSON.stringify(combos))
-    reCalc($$$("#inputReference"),false);
-    combos["Reference"]['old']=combos["Reference"]['active']
+    activateReferenceCurrency($$$('#comboReference').value)
   });
   $$$('#comboFiat').addEventListener("change", function() {
     var selectedOption = $$$('#comboFiat').options[$$$('#comboFiat').selectedIndex];
@@ -5694,16 +6039,15 @@ async function cc(){
     combos["Fiat"]['old']=combos["Fiat"]['active']
   });
   $$$('#comboSupported').addEventListener("change", function() {
-    var selectedOption = $$$('#comboSupported').options[$$$('#comboSupported').selectedIndex];
-    combos["Supported"]['active']=$$$('#comboSupported').value
-    $$$("#idPaymentIcon").src="img/"+supportedCoins[$$$('#comboSupported').value].coin+".png"
+    var coin=$$$('#comboSupported').value
+    combos["Supported"]['active']=coin
+    $$$("#idPaymentIcon").src="img/"+supportedCoins[coin].coin+".png"
     localStorage.setItem("combos",JSON.stringify(combos))
-    reCalc($$$("#inputSupported"),false);
-    combos["Supported"]['old']=combos["Supported"]['active']
-    updateCoinPresentation($$$('#comboSupported').value)
-    renderHistory()
     if (!$$$('#panel-transaction').classList.contains('hidden')){closeTransactionView()}
-    if ($$$('#comboSupported').value===stateCoin){wakeState("coin-selection",true)}else{scheduleStateRefresh()}
+    switchStateCoin(coin,"coin-selection",true)
+    reCalc($$$("#inputSupported"),false)
+    combos["Supported"]['old']=combos["Supported"]['active']
+    renderHistory()
   });
   $$$('#idSendTo').addEventListener("input",function(){clearLocalSendPlan(T("txtDestinationChanged"))})
   $$$('#inputSupported').addEventListener("input",function(){
