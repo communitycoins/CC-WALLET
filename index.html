@@ -1,11 +1,14 @@
 <!DOCTYPE html>
-<!-- [MULTI-COIN-004]
-Canonical wallet interface with local unexpected-spend protection.
-Base: - Derived from MULTI-COIN-003
+<!-- [MULTI-COIN-005]
+Canonical wallet interface with operational Auroracoin support.
+Base: - Derived from MULTI-COIN-004
 Changes:
+- [MULTI-COIN-005] Activate the existing Auroracoin presentation through the operational coin service
+- Version wallet-owned assets for the three-coin deployment
 - [MULTI-COIN-004] Show a subtle wallet-wide Send lock beside Balance
 - Add an explicit red Unlock wallet action to Settings only while locked
 - Warn in Help that browser copies and dated backups are not synchronized
+- Show controlled wallet synchronization while explicit unlock is in progress
 - [MULTI-COIN-003] Version wallet-owned CSS and JavaScript to prevent mixed mobile caches
 - Support compact closed selector labels with complete expanded choices
 - [MULTI-COIN-002] Present every operational wallet coin in the Balance dialog
@@ -102,7 +105,7 @@ Changes:
 <script type="text/javascript" src="js/pako.1.0.3.min.js"></script>
 
 <title class=T>Community coins wallet</title>
-<link rel='stylesheet' href='rooty.css?v=MULTI-COIN-004'>
+<link rel='stylesheet' href='rooty.css?v=MULTI-COIN-005'>
 </head>
 <body>
   <div class="splash-screen" id="splashScreen">
@@ -787,8 +790,11 @@ To meet these challenges the communitycoin teams have established such a practic
 <div class="hidden T" id=txtWalletBalance>Wallet balance</div>
 <div class="hidden T" id=txtBalanceOverviewNote>Balances are the last confirmed values observed for this wallet. A dash means that coin has not been checked yet.</div>
 <div class="hidden T" id=txtWalletLocked>This wallet is locked</div>
+<div class="hidden T" id=txtUnlockWallet>Unlock wallet</div>
+<div class="hidden T" id=txtSynchronizingWallet>Synchronizing wallet…</div>
 <div class="hidden T" id=txtWalletLockedSend>This wallet is locked. Unlock it in Settings before making a payment.</div>
 <div class="hidden T" id=txtUnexpectedSpendLock>This wallet was used on another device to spend and therefore has been locked. You can unlock it with the Settings button.</div>
+<div class="hidden T" id=txtWalletSynchronizationFailed>Wallet synchronization failed. The wallet remains locked.</div>
 
 <div class="hidden T" id=countries>Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Portugal|Japan|Russia</div>
 <div class="hidden T" id=warningNoPrice>No price information available yet. Check your internet connection.</div>
@@ -941,7 +947,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=MULTI-COIN-004'></script>
+<script src='rooty.js?v=MULTI-COIN-005'></script>
 
 </body>
 </html>
