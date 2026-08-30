@@ -1,10 +1,14 @@
-/* [MULTI-COIN-004]
-Canonical multi-coin wallet with local unexpected-spend protection.
-Base: - Derived from MULTI-COIN-003
+/* [MULTI-COIN-005]
+Canonical multi-coin wallet with operational Auroracoin support.
+Base: - Derived from MULTI-COIN-004
 Changes:
+- [MULTI-COIN-005] Activate AUR through its ROT 0.8.4 gateway without changing transaction serialization
+- Configure AUR units, legacy fee tiers, observer ceiling and fixed derivation and transaction vectors
+- Keep operational mnemonic diagnostics coin-neutral as further wallet coins are activated
 - [MULTI-COIN-004] Remember confirmed outpoints without retaining spendable transaction data
 - Lock Send when a confirmed outpoint disappears outside this device's pending broadcast
 - Keep balance, Receive, history and backup readable until the user explicitly unlocks Send
+- Rebuild full state and ROT history for the affected coin before removing the explicit lock
 - [MULTI-COIN-003] Show currency names while selectors are closed and restore name plus ticker while opening
 - Remove the implied coin ticker from the native Balance column
 - Give balance icons intrinsic dimensions and version the wallet-owned browser assets
@@ -389,6 +393,42 @@ supportedCoins["efl"].stateService={
 }
 supportedCoins["efl"].balance="0"
 supportedCoins["efl"].connections=0
+supportedCoins["aur"].stateService={
+  url:"https://aurslice.communitycoins.org/MULTI-COIN-005.php",
+  responseCoin:"AUR",
+  uriScheme:"auroracoin:",
+  unitsPerCoin:100000000,
+  decimals:8,
+  changeIndex:0,
+  receiveIndex:1,
+  initialReceiveCount:10,
+  maximumReceiveIndex:50,
+  receiveBatchSize:10,
+  reuseResetRemaining:20,
+  focusDuration:10*60*1000,
+  focusInterval:60*1000,
+  requestTimeout:8000,
+  spendableAge:60*1000+8000,
+  feeTierInputs:6,
+  minimumFeeSats:1000,
+  maximumRawTransactionHex:65000,
+  broadcastTimeout:30000,
+  maximumZeroConfirmationObservers:1,
+  historyTimeout:45000,
+  broadcastStatusInterval:60000,
+  testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  testAddresses:{
+    0:"AeP7V3XRg3yMzRKec7XkkaR4456pjd43Ux",
+    1:"Ac19dFPUUEstG4ovNTEDDb2HY4HL2EMz74",
+    10:"AJz91afAnVLQwMgEwwJVvhn46bKsgDSt5e"
+  },
+  testPassphrase:"TREZOR",
+  testPassphraseAddress:"AMzVDFaHxN393jhH9E2kWadhBiDVGTvTSC",
+  testSignedTxid:"e49fb86bde223dc66a58779c8b078196bd98953a22d518921253809b94e575ad",
+  testSignedByteLength:373
+}
+supportedCoins["aur"].balance="0"
+supportedCoins["aur"].connections=0
 supportedCoins["dem"].stateService={
   url:"https://demslice.communitycoins.org/MULTI-COIN-001.php",
   responseCoin:"DEM",
@@ -561,7 +601,7 @@ var translationReady
 if (language!=defaultLanguage) {
   translationReady=new Promise(function(resolve){
   const scriptLanguage = document.createElement('script');
-  scriptLanguage.src = `js/language_${language}.js?v=MULTI-COIN-004`;
+  scriptLanguage.src = `js/language_${language}.js?v=MULTI-COIN-005`;
   scriptLanguage.defer=true
   scriptLanguage.onload=function(){translate();resolve()}
   scriptLanguage.onerror=function(){translate();resolve()}
@@ -585,6 +625,7 @@ var walletCount
 var walletSwitching=false
 var walletResetting=false
 var walletRestoring=false
+var walletUnlocking=false
 var dialogContext,paymentMail
 var currentReceiveRequest
 var receiveUpdateTimer
@@ -956,7 +997,12 @@ function updateWalletSpendLockPresentation(){
   var locked=isWalletSpendLocked()
   var status=$$$('#idWalletLockStatus')
   if (status!=null){status.classList.toggle('hidden',!locked)}
-  document.querySelectorAll('[id="idUnlockWallet"]').forEach(function(control){control.classList.toggle('hidden',!locked)})
+  document.querySelectorAll('[id="idUnlockWallet"]').forEach(function(control){
+    control.classList.toggle('hidden',!locked)
+    control.disabled=walletUnlocking
+    control.setAttribute('aria-busy',walletUnlocking?'true':'false')
+    control.textContent=walletUnlocking?T("txtSynchronizingWallet"):T("txtUnlockWallet")
+  })
   var sendButton=$$$('#idSend')
   if (sendButton!=null){
     sendButton.classList.toggle('wallet-spend-locked',locked)
@@ -974,13 +1020,71 @@ function persistWalletSpendLock(coin,outpoints){
   alert(T("txtUnexpectedSpendLock"))
   return record
 }
-function unlockWalletSpend(){
-  if (!isWalletSpendLocked()){updateWalletSpendLockPresentation();return false}
-  localStorage.removeItem(walletSpendLockStorageKey)
-  clearLocalSendPlan()
+async function resynchronizeLockedWallet(lock){
+  var coin=lock.coin
+  if (!operationalWalletCoins().includes(coin)){throw new Error(T("txtWalletSynchronizationFailed"))}
+  var walletId=historyWalletId()
+  var mnemonicString=localStorage.getItem("bip39")
+  if ((walletId==="")||(typeof mnemonicString!=="string")||(!mnemonic.check(mnemonicString))){throw new Error(T("txtWalletSynchronizationFailed"))}
+  var service=getStateService(coin)
+  var addresses=deriveWalletAddresses(mnemonicString,coin,service.maximumReceiveIndex)
+  var snapshot=freezeStateSnapshot(await fetchState(addresses,null,coin))
+  var history=await fetchHistory(addresses,coin)
+  var currentLock=readWalletSpendLock()
+  if ((historyWalletId()!==walletId)||(currentLock==null)||(currentLock.coin!==lock.coin)||(currentLock.detectedAt!==lock.detectedAt)||(history.height<snapshot.height)||((history.height===snapshot.height)&&(history.blockHash!==snapshot.blockHash))){throw new Error(T("txtWalletSynchronizationFailed"))}
+
+  await replaceWalletCoinHistory(history,coin)
+  var receiveState=getReceiveAddressState(coin)
+  if (receiveState.horizon<service.maximumReceiveIndex){
+    receiveState.horizon=service.maximumReceiveIndex
+    localStorage.setItem(receiveAddressKey(coin),JSON.stringify(receiveState))
+  }
+  persistConfirmedOutpointWatch(snapshot,coin)
+  var updatedAt=Date.now()
+  storeConfirmedBalanceCache(snapshot,coin,updatedAt)
+
+  if (coin===stateCoin){
+    walletAddresses=addresses
+    walletState={coin:coin,status:"ready",snapshot:snapshot,error:null,updatedAt:updatedAt}
+    loadPendingBroadcast(mnemonicString,coin)
+    reconcileLocalSendPlan(snapshot)
+    reconcilePendingBroadcast(snapshot)
+    supportedCoins[coin].connections=1
+    updateBalanceDisplay(coin)
+    scheduleStateExpiry(coin)
+  }
+  return Object.freeze({coin:coin,snapshot:snapshot,history:history})
+}
+async function unlockWalletSpend(){
+  if (walletUnlocking){return false}
+  var lock=readWalletSpendLock()
+  if (lock==null){updateWalletSpendLockPresentation();return false}
+  walletUnlocking=true
   updateWalletSpendLockPresentation()
-  updateDb().catch(function(error){console.error("Unable to save wallet unlock:",error)})
-  return true
+  resetWalletState("wallet-unlock-synchronization",stateCoin)
+  try{
+    var result=await resynchronizeLockedWallet(lock)
+    localStorage.removeItem(walletSpendLockStorageKey)
+    try{
+      await updateDb()
+    }catch(error){
+      localStorage.setItem(walletSpendLockStorageKey,JSON.stringify(lock))
+      throw error
+    }
+    clearLocalSendPlan()
+    updateWalletSpendLockPresentation()
+    if (result.coin!==stateCoin){wakeState("wallet-unlocked",true)}else{scheduleStateRefresh()}
+    return result
+  }catch(error){
+    console.error("Unable to synchronize and unlock wallet:",error)
+    updateWalletSpendLockPresentation()
+    alert(T("txtWalletSynchronizationFailed"))
+    wakeState("wallet-unlock-failed",true)
+    return false
+  }finally{
+    walletUnlocking=false
+    updateWalletSpendLockPresentation()
+  }
 }
 function requireWalletSpendUnlocked(){
   if (!isWalletSpendLocked()){return true}
@@ -1288,7 +1392,7 @@ function updateLayout() {
 }
 function handleClick(event) {
   clickedIt=Date.now()
-  if (walletResetting||walletRestoring){return}
+  if (walletResetting||walletRestoring||walletUnlocking){return}
   recordStateActivity("click")
 
   var clickedElement = event.target;
@@ -3140,6 +3244,37 @@ function clearWalletHistory(walletId){
     }finally{db.close()}
   })
 }
+function replaceWalletCoinHistory(history,coin=stateCoin){
+  var walletId=historyWalletId()
+  if ((walletId==="")||(history==null)||(!Array.isArray(history.events))){return Promise.reject(new Error("Invalid replacement history"))}
+  var records=history.events.map(function(event){return makeHistoryRecord(walletId,coin,event.direction,event.txid,event.vout,event.valueSats,event.address,event.blockTime,"CONFIRMED",event.blockHeight,event.blockTime)})
+  records.push({WALLET:walletId,HASH:historyBootstrapHash(walletId,coin),TYPE:"BOOTSTRAP",COIN:coin,HEIGHT:history.height,BLOCK_HASH:history.blockHash,CREATED_AT:Date.now()})
+  return queueDatabase(async function(){
+    const db=await openDatabase()
+    try{
+      await new Promise((resolve,reject)=>{
+        const transaction=db.transaction("HISTORY","readwrite")
+        const store=transaction.objectStore("HISTORY")
+        const request=store.index("WALLET").openCursor(IDBKeyRange.only(walletId))
+        transaction.oncomplete=()=>{resolve()}
+        transaction.onerror=(event)=>{reject(event.target.error||transaction.error)}
+        transaction.onabort=()=>{reject(transaction.error||new Error("History replacement aborted"))}
+        request.onsuccess=(event)=>{
+          const cursor=event.target.result
+          if (cursor){
+            if (cursor.value.COIN===coin){cursor.delete()}
+            cursor.continue()
+          }else{
+            records.forEach(function(record){store.put(record)})
+          }
+        }
+      })
+    }finally{db.close()}
+  }).then(function(){
+    if (historyWalletId()===walletId){return renderHistory().then(function(){return records.length})}
+    return records.length
+  })
+}
 function removeUnconfirmedHistoryRecords(walletId,coin){
   if ((typeof walletId!=="string")||(walletId==="")){return Promise.resolve(0)}
   return queueDatabase(async function(){
@@ -3957,6 +4092,7 @@ async function fetchState(addresses,previousSnapshot=null,coin=stateCoin){
 }
 async function refreshState(reason="manual",coin=stateCoin){
   var service=getStateService(coin)
+  if (walletUnlocking){return false}
   if (stateRequest!=null){return stateRequest}
   stateActivity.lastAttemptAt=Date.now()
   stateActivity.nextRefreshAt=null
@@ -5428,7 +5564,8 @@ function runWalletDiagnostics(){
   verifyLocalSendPlanning(stateCoin)
   verifyLocalTransactionBuilding(stateCoin)
   verifyBroadcastParsing(stateCoin)
-  console_log("Operational mnemonic tests passed: EFL and DEM indices 0, 1, 10 and BIP39 passphrases")
+  var operationalNames=operationalWalletCoins().map(function(coin){return getStateService(coin).responseCoin}).join(", ")
+  console_log("Operational mnemonic tests passed: "+operationalNames+" indices 0, 1, 10 and BIP39 passphrases")
   return Object.freeze({passed:true,durationMs:Math.round(performance.now()-started)})
 }
 function setEntropy(){

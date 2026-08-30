@@ -5,6 +5,7 @@ Changes:
 - [MULTI-COIN-004] Place the wallet lock status beside Balance without disturbing mobile geometry
 - Present the Settings unlock action and final Help warning in sober red, normal-weight text
 - Keep locked Send discoverable so selecting it can explain how to unlock
+- Keep the explicit unlock action stable while full state and history are synchronized
 - [MULTI-COIN-003] Bound Balance-table content and strengthen narrow-screen coin geometry
 - Keep compact native-select results readable without shortening expanded choices
 - [MULTI-COIN-002] Present a compact three-column coin, balance and reference table
@@ -143,6 +144,7 @@ Changes:
   .balance-button {margin:0 0 4px;padding:3px 9px;border:1px solid #aebbb2;border-radius:999px;background:white;color:#405247;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;}
   .wallet-lock-status {min-width:0;color:#a32620;font-size:.72rem;font-weight:400;line-height:1.15;text-align:right;}
   .wallet-unlock {width:100%;padding:0.5rem 0;border:0;background:transparent;color:#a32620!important;font-weight:400;text-align:left;cursor:pointer;}
+  .wallet-unlock:disabled {cursor:wait;opacity:.72;}
   .balance-value {width:100%;border:0;background:transparent;color:#17211b;opacity:1;font-size:3.35rem;font-variant-numeric:tabular-nums;font-weight:700;line-height:1;text-align:left;-webkit-text-fill-color:#17211b;}
   .balance-value.balance-medium {font-size:2.55rem;}
   .balance-value.balance-long {font-size:1.75rem;}
