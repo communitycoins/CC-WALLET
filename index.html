@@ -1,8 +1,17 @@
 <!DOCTYPE html>
-<!-- [EFL-SLICE-054] 
-Canonical wallet interface with a compact identity and calculator model.
-Base: - Derived from EFL-SLICE-053
+<!-- [MULTI-COIN-004]
+Canonical wallet interface with local unexpected-spend protection.
+Base: - Derived from MULTI-COIN-003
 Changes:
+- [MULTI-COIN-004] Show a subtle wallet-wide Send lock beside Balance
+- Add an explicit red Unlock wallet action to Settings only while locked
+- Warn in Help that browser copies and dated backups are not synchronized
+- [MULTI-COIN-003] Version wallet-owned CSS and JavaScript to prevent mixed mobile caches
+- Support compact closed selector labels with complete expanded choices
+- [MULTI-COIN-002] Present every operational wallet coin in the Balance dialog
+- [MULTI-COIN-002] Present every operational wallet coin in the Balance dialog
+- Replace Balance-currency settings and connection counts with one reference selector and total
+- [MULTI-COIN-001] Activate EFL and DEM as complete selectable wallet services
 - [EFL-SLICE-054] Top-align the wallet identity and separate it from the tool row
 - Compact each calculator role, settings action, selector and amount into one row
 - Shorten the third role label from Wallet coin to Wallet
@@ -93,7 +102,7 @@ Changes:
 <script type="text/javascript" src="js/pako.1.0.3.min.js"></script>
 
 <title class=T>Community coins wallet</title>
-<link rel='stylesheet' href='rooty.css'>
+<link rel='stylesheet' href='rooty.css?v=MULTI-COIN-004'>
 </head>
 <body>
   <div class="splash-screen" id="splashScreen">
@@ -132,7 +141,10 @@ Changes:
         <div class="host-coin-ticker" id=idHostCoinTicker></div>
       </div>
       <div class="host-coin-copy">
-        <button class="balance-button T" id=balanceButton type=button>BALANCE</button>
+        <div class=balance-heading-row>
+          <button class="balance-button T" id=balanceButton type=button>BALANCE</button>
+          <span class="wallet-lock-status hidden T" id=idWalletLockStatus>This wallet is locked</span>
+        </div>
         <input id=inputBalance class="balance-value" type="text" value="0" readonly>
         <div class="balance-status" id=idBalanceStatus aria-live=polite>Waiting for live state</div>
         <div class="state-timing expert-only" id=idStateTiming></div>
@@ -332,6 +344,7 @@ Changes:
     <div class="panel T">Back up the wallet before receiving meaningful amounts. A seed and any recovery passphrase together provide access to the coins; keep them private and offline.</div>
     <div class="panel T">The entered amount is paid in full to the recipient. The transaction fee is added on top and is paid by the sender; it is never subtracted from the recipient's amount.</div>
     <div class="panel wallet-disclaimer T">This wallet does not hold funds or store recovery words centrally. You are responsible for backups, addresses, amounts and the selected network. Transactions are irreversible. Software, price information and network observations are provided without warranty. A zero-confirmation observation is not a blockchain confirmation.</div>
+    <div class="panel wallet-context-warning T">This wallet copy exists only in this browser profile on this device. Other browsers, profiles, private windows and devices have separate storage. Recovery words and any passphrase recover the coins; a full wallet backup is a dated snapshot, not synchronization.</div>
     <div class="panel help-reference"><button class="wallet-help-link T" id=idHelpReferences type=button>About Community Coins and references</button></div>
   </div> 
 </div>
@@ -371,6 +384,9 @@ Changes:
         </li>
         <li class="nav-item">
           <label class="nav-link setup-check"><input type=checkbox id=idExpertMode>&nbsp;<span class=T>Expert mode</span></label>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link wallet-unlock hidden T" id=idUnlockWallet type=button>Unlock wallet</button>
         </li>
       </ul>
     </div>
@@ -764,21 +780,23 @@ To meet these challenges the communitycoin teams have established such a practic
   </div>
 </div>
 
-<div class="hidden T" id=txtConnections>Connections</div>
 <div class="hidden T" id=txtBalance>Balance</div>
+<div class="hidden T" id=txtCoin>Coin</div>
+<div class="hidden T" id=txtReference>Reference</div>
+<div class="hidden T" id=txtTotal>Total</div>
+<div class="hidden T" id=txtWalletBalance>Wallet balance</div>
+<div class="hidden T" id=txtBalanceOverviewNote>Balances are the last confirmed values observed for this wallet. A dash means that coin has not been checked yet.</div>
+<div class="hidden T" id=txtWalletLocked>This wallet is locked</div>
+<div class="hidden T" id=txtWalletLockedSend>This wallet is locked. Unlock it in Settings before making a payment.</div>
+<div class="hidden T" id=txtUnexpectedSpendLock>This wallet was used on another device to spend and therefore has been locked. You can unlock it with the Settings button.</div>
 
 <div class="hidden T" id=countries>Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Portugal|Japan|Russia</div>
 <div class="hidden T" id=warningNoPrice>No price information available yet. Check your internet connection.</div>
-<div class="hidden T" id=titleBalance>Balance currencies Dialog</div>
 <div class="hidden T" id=titleReference>Reference settings</div>
 <div class="hidden T" id=titleFiat>Fiat settings</div>
 <div class="hidden T" id=titleSupported>Wallet coins</div>
 <div class="hidden T" id=operands>%*/+-|Percentage|Multiply|Divide|Add|Subtract</div>
 
-<div class="hidden T" id=headerBalance>Select the currencies you want at your disposal to present your wallet balance and press the OK-button below. 
-Not included are the supported coins that can be stored in this wallet because they will appear automatically once they arrive.
-If you select any of these supported coins <u>only the balance of that specific coin</u> will be shown.
-If you select any of the currencies presented below, <u>the entire wallet balance</u> will be expressed in that currency.</div>
 <div class="hidden T" id=headerReference>Select the reference measures that help you understand value. Every selected reference must be available from the price feed.</div>
 <div class="hidden T" id=headerFiat>Select the national currencies in which you want to compare wallet amounts. Every selected currency must be available from the price feed.</div>
 <div class="hidden T" id=headerSupported>Only community coins with a complete and tested wallet connection appear here. A wallet coin controls balance, history, Receive and Send together.</div>
@@ -876,6 +894,8 @@ If you select any of the currencies presented below, <u>the entire wallet balanc
 <div class="hidden T" id=txtTransactionConfirmed>TRANSACTION CONFIRMED</div>
 <div class="hidden T" id=txtTransactionNotAccepted>TRANSACTION NOT ACCEPTED</div>
 <div class="hidden T" id=txtPaymentReceiptScanned>PAYMENT CONFIRMATION SCANNED</div>
+<div class="hidden T" id=txtSingleObserverWitnessed>{seen} of {configured} observer has witnessed the transaction.</div>
+<div class="hidden T" id=txtOneOfObserversWitnessed>{seen} of {configured} observers has witnessed the transaction.</div>
 <div class="hidden T" id=txtObserversWitnessed>{seen} of {configured} observers witnessed the transaction.</div>
 <div class="hidden T" id=txtBlockchainConfirmationObserved>BLOCKCHAIN CONFIRMATION OBSERVED</div>
 <div class="hidden T" id=txtPaymentReceiptMismatch>PAYMENT CONFIRMATION DOES NOT MATCH</div>
@@ -921,7 +941,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js'></script>
+<script src='rooty.js?v=MULTI-COIN-004'></script>
 
 </body>
 </html>
