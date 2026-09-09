@@ -1,8 +1,14 @@
 <?php
-/* [CC-WALLET-005]
-Provide safe zero-configuration proxy identity, origin and private operational paths.
-Base: - Derived from CC-WALLET-004
+/* [CC-WALLET-007]
+Complete ROT registration, operator messaging and passive proxy discovery.
+Base: - Derived from CC-WALLET-006
 Changes:
+- [CC-WALLET-007] Bound registration capacity with a primary-coin reserve
+- Preserve ROT nicknames and identify registrations only by coin and rotId
+- Sign status acknowledgements and bounded operator-message delivery
+- Record first failure, recovery and registration-state transitions in network.health
+- Add passive proxyPing, proxyInfo and self-only proxyDirectory operations
+- Keep wallet routing and same-origin browser behavior unchanged
 - [CC-WALLET-005] Derive empty proxy ID and origin constants from validated SERVER_NAME
 - Default the private data directory to the CC-PROXY sibling of the wallet directory
 - Keep rot-registry.json, network.log and the reserved network.hour path together
@@ -46,6 +52,12 @@ define('CC_PROXY_ID','');
 define('CC_PROXY_DATA_DIR',dirname(__DIR__).'/CC-PROXY');
 define('CC_PROXY_ORIGIN','');
 define('CC_PROXY_ALLOW_HTTP_REGISTRATION',false);
+define('CC_PROXY_PRIMARY_COIN','EFL');
+define('CC_PROXY_MAX_REGISTRATIONS',100);
+define('CC_PROXY_PRIMARY_RESERVE',20);
+define('CC_PROXY_ACCEPTS_REGISTRATIONS',true);
+define('CC_PROXY_BOOTSTRAP_URL','https://wallet.communitycoins.org/proxy.php');
+define('CC_PROXY_DIRECTORY_MAX',10);
 
 $coinConfiguration=[
     'EFL'=>[
@@ -94,6 +106,9 @@ if ($configuredDataDirectory!==false) {$configuredDataDirectory=rtrim($configure
 if ($configuredDataDirectory==='') {$configuredDataDirectory=false;}
 $configuredOrigin=normalizedOrigin(CC_PROXY_ORIGIN==='' && $configuredServerName!==false?'https://'.$configuredServerName:CC_PROXY_ORIGIN);
 if ($configuredOrigin===false || strpos($configuredOrigin,'https://')!==0) {$configuredOrigin=false;}
+$configuredPrimaryCoin=is_string(CC_PROXY_PRIMARY_COIN)?strtoupper(trim(CC_PROXY_PRIMARY_COIN)):'';
+if ($configuredPrimaryCoin!=='' && !isset($coinConfiguration[$configuredPrimaryCoin])) {$configuredPrimaryCoin=false;}
+$configuredPublicUrl=$configuredOrigin===false?false:$configuredOrigin.'/proxy.php';
 
 $rots=[];
 $gateway=[
@@ -115,15 +130,22 @@ $gateway=[
     'registrationLifetime'=>3600,
     'registrationRetention'=>86400,
     'statusFreshness'=>600,
-    'maxActiveRegistrations'=>1000,
+    'primaryCoin'=>$configuredPrimaryCoin,
+    'maxActiveRegistrations'=>max(1,(int)CC_PROXY_MAX_REGISTRATIONS),
+    'primaryReserve'=>max(0,(int)CC_PROXY_PRIMARY_RESERVE),
     'maxActiveRegistrationsPerIp'=>16,
     'timestampTolerance'=>120,
     'quarantineSeconds'=>3600,
     'dataDirectory'=>$configuredDataDirectory,
     'registryFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/rot-registry.json',
     'origin'=>$configuredOrigin,
+    'publicUrl'=>$configuredPublicUrl,
+    'acceptsRegistrations'=>CC_PROXY_ACCEPTS_REGISTRATIONS===true,
+    'bootstrapUrl'=>CC_PROXY_BOOTSTRAP_URL,
+    'directoryMax'=>max(1,min(10,(int)CC_PROXY_DIRECTORY_MAX)),
     'networkLog'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.log',
-    'networkHour'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.hour'
+    'networkHour'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.hour',
+    'networkHealth'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.health'
 ];
 $networkEvent=null;
 $requestDeadline=null;
@@ -223,7 +245,7 @@ function readRegistry($callback,&$error) {
         return false;
     }
     $registry=normalizeRegistry($decoded);
-    expireRegistryRecords($registry,time());
+    expireRegistryRecords($registry,time(),false);
     return call_user_func_array($callback,[&$registry]);
 }
 
@@ -239,6 +261,7 @@ function changeRegistry($callback,&$error) {
         $error='REGISTRY_UNAVAILABLE';
         return false;
     }
+    @chmod($gateway['registryFile'],0600);
     if (!flock($handle,LOCK_EX)) {
         fclose($handle);
         $error='REGISTRY_LOCK_FAILED';
@@ -255,7 +278,7 @@ function changeRegistry($callback,&$error) {
     }
     $registry=normalizeRegistry($decoded);
     $beforeChange=json_encode($registry,JSON_UNESCAPED_SLASHES);
-    expireRegistryRecords($registry,time());
+    expireRegistryRecords($registry,time(),true);
     $result=call_user_func_array($callback,[&$registry]);
     $afterChange=json_encode($registry,JSON_UNESCAPED_SLASHES);
     if ($beforeChange!==false && $afterChange!==false && hash_equals($beforeChange,$afterChange)) {
@@ -283,7 +306,7 @@ function changeRegistry($callback,&$error) {
     return $result;
 }
 
-function expireRegistryRecords(array &$registry,$now) {
+function expireRegistryRecords(array &$registry,$now,$recordEvents=false) {
     global $gateway;
 
     foreach ($registry['rots'] as $key=>&$record) {
@@ -292,9 +315,14 @@ function expireRegistryRecords(array &$registry,$now) {
             continue;
         }
         if (isset($record['expiresAt']) && $record['expiresAt']<$now && (!isset($record['status']) || $record['status']!=='ENDED')) {
+            $oldStatus=isset($record['status'])?$record['status']:'CANDIDATE';
             $record['status']='ENDED';
             $record['endedAt']=$now;
             $record['endedReason']='REGISTRATION_EXPIRED';
+            if ($recordEvents) {
+                queueRotMessage($record,'ROT_ENDED','Proxy ended the ROT registration: REGISTRATION_EXPIRED',$now);
+                writeHealthEvent(['kind'=>'ROT_STATUS','coin'=>isset($record['coin'])?$record['coin']:null,'rotId'=>isset($record['rotId'])?$record['rotId']:null,'nickname'=>isset($record['nickname'])?$record['nickname']:null,'from'=>$oldStatus,'to'=>'ENDED','reason'=>'REGISTRATION_EXPIRED']);
+            }
         }
         if (isset($record['endedAt']) && $record['endedAt']+$gateway['registrationRetention']<$now) {
             unset($registry['rots'][$key]);
@@ -382,22 +410,77 @@ function safeNickname($value) {
     return is_string($value) && preg_match('/^[A-Za-z0-9._-]{1,32}$/',$value)?$value:false;
 }
 
-function uniqueNickname(array $registry,$coin,$nickname,$rotId) {
-    $base=$nickname;
-    $suffix=1;
-    while (true) {
-        $used=false;
-        foreach ($registry['rots'] as $record) {
-            if (is_array($record) && isset($record['coin'],$record['nickname'],$record['rotId']) && $record['coin']===$coin && $record['nickname']===$nickname && $record['rotId']!==$rotId) {
-                $used=true;
-                break;
-            }
-        }
-        if (!$used) {return $nickname;}
-        $suffix++;
-        $tail='-'.$suffix;
-        $nickname=substr($base,0,32-strlen($tail)).$tail;
+function writeHealthEvent(array $event) {
+    global $gateway;
+
+    if ($gateway['networkHealth']===false) {return false;}
+    $event=array_merge(['time'=>gmdate('c')],$event);
+    unset($event['host'],$event['port'],$event['authToken']);
+    $json=json_encode($event,JSON_UNESCAPED_SLASHES);
+    return $json!==false && @file_put_contents($gateway['networkHealth'],$json."\n",FILE_APPEND|LOCK_EX)!==false;
+}
+
+function nextMessageSequence(array $record) {
+    return isset($record['nextMessageSequence']) && is_int($record['nextMessageSequence']) && $record['nextMessageSequence']>0?$record['nextMessageSequence']:1;
+}
+
+function queueRotMessage(array &$record,$code,$text,$now=null) {
+    if (!is_string($code) || !preg_match('/^[A-Z0-9_]{3,48}$/',$code)) {return false;}
+    $text=substr(trim((string)$text),0,256);
+    if ($text==='') {return false;}
+    $now=is_int($now)?$now:time();
+    if (!isset($record['messages']) || !is_array($record['messages'])) {$record['messages']=[];}
+    if (count($record['messages'])>=32) {
+        array_shift($record['messages']);
+        $sequence=nextMessageSequence($record);
+        $record['nextMessageSequence']=$sequence+1;
+        $record['messages'][]=['sequence'=>$sequence,'time'=>$now,'code'=>'MESSAGE_OVERFLOW','text'=>'Earlier proxy messages were discarded by the bounded queue'];
+        return true;
     }
+    $sequence=nextMessageSequence($record);
+    $record['nextMessageSequence']=$sequence+1;
+    $record['messages'][]=['sequence'=>$sequence,'time'=>$now,'code'=>$code,'text'=>$text];
+    return true;
+}
+
+function acknowledgeRotMessages(array &$record,$sequence) {
+    if (!is_int($sequence) || $sequence<0) {return false;}
+    $currentAck=isset($record['ackSequence'])?(int)$record['ackSequence']:0;
+    if ($sequence<$currentAck) {$sequence=$currentAck;}
+    $lastIssued=nextMessageSequence($record)-1;
+    if ($sequence>$lastIssued) {return false;}
+    if (!isset($record['messages']) || !is_array($record['messages'])) {$record['messages']=[];}
+    $record['messages']=array_values(array_filter($record['messages'],function($message) use ($sequence) {
+        return !is_array($message) || !isset($message['sequence']) || (int)$message['sequence']>$sequence;
+    }));
+    $record['ackSequence']=$sequence;
+    return true;
+}
+
+function pendingRotMessages(array $record) {
+    $messages=isset($record['messages']) && is_array($record['messages'])?array_slice(array_values($record['messages']),0,16):[];
+    $result=[];
+    foreach ($messages as $message) {
+        if (!is_array($message) || !isset($message['sequence'],$message['time'],$message['code'],$message['text'])) {continue;}
+        $item=[
+            'sequence'=>(int)$message['sequence'],
+            'time'=>(int)$message['time'],
+            'code'=>substr((string)$message['code'],0,48),
+            'text'=>substr((string)$message['text'],0,256)
+        ];
+        if (isset($message['count'])) {$item['count']=max(1,(int)$message['count']);}
+        if (isset($message['lastTime'])) {$item['lastTime']=(int)$message['lastTime'];}
+        $result[]=$item;
+    }
+    return $result;
+}
+
+function transitionMessage($from,$to,$reason) {
+    if ($from===$to) {return false;}
+    $code='ROT_'.$to;
+    $text='Proxy changed ROT status from '.$from.' to '.$to;
+    if (is_string($reason) && $reason!=='') {$text.=': '.$reason;}
+    return ['code'=>$code,'text'=>$text];
 }
 
 function makeAuthToken() {
@@ -412,6 +495,10 @@ function runRotRegisterOperation(array $input) {
     global $gateway,$networkEvent;
 
     $networkEvent['route']='rotRegister';
+    if (!$gateway['acceptsRegistrations']) {
+        sendJson(['ok'=>false,'error'=>'REGISTRATION_DISABLED'],503);
+        return;
+    }
     $sourceIp=requestSourceIp();
     $configurationError='';
     if (!validateRegistryConfiguration($configurationError)) {
@@ -458,15 +545,17 @@ function runRotRegisterOperation(array $input) {
             $activeTotal++;
             if (isset($existing['host']) && $existing['host']===$sourceIp && $existingKey!==$key) {$activeForIp++;}
         }
-        if (!isset($registry['rots'][$key]) && ($activeTotal>=$gateway['maxActiveRegistrations'] || $activeForIp>=$gateway['maxActiveRegistrationsPerIp'])) {
+        $isExisting=isset($registry['rots'][$key]);
+        $withinPrimaryReserve=$gateway['primaryCoin']!==false && $gateway['primaryCoin']!=='' && $coin===$gateway['primaryCoin'] && $activeTotal<$gateway['maxActiveRegistrations']+$gateway['primaryReserve'];
+        $withinGeneralCapacity=$activeTotal<$gateway['maxActiveRegistrations'];
+        if (!$isExisting && ((!$withinGeneralCapacity && !$withinPrimaryReserve) || $activeForIp>=$gateway['maxActiveRegistrationsPerIp'])) {
             return ['abuse'=>true];
         }
-        $assignedNickname=uniqueNickname($registry,$coin,$nickname,$rotId);
         $registry['rots'][$key]=[
             'protocol'=>1,
             'coin'=>$coin,
             'rotId'=>$rotId,
-            'nickname'=>$assignedNickname,
+            'nickname'=>$nickname,
             'host'=>$sourceIp,
             'port'=>$port,
             'authToken'=>$authToken,
@@ -485,7 +574,10 @@ function runRotRegisterOperation(array $input) {
             'checkpointFailures'=>isset($previous['checkpointFailures'])?(int)$previous['checkpointFailures']:0,
             'retryAt'=>0,
             'backoffUntil'=>0,
-            'consecutiveFailures'=>0
+            'consecutiveFailures'=>0,
+            'messages'=>isset($previous['messages']) && is_array($previous['messages'])?$previous['messages']:[],
+            'nextMessageSequence'=>isset($previous['nextMessageSequence'])?(int)$previous['nextMessageSequence']:1,
+            'ackSequence'=>isset($previous['ackSequence'])?(int)$previous['ackSequence']:0
         ];
         clearIpFailure($registry,$sourceIp);
         return ['record'=>$registry['rots'][$key]];
@@ -521,11 +613,16 @@ function runRotRegisterOperation(array $input) {
     ],201);
 }
 
-function registrationRequestMac(array $record,$timestamp) {
+function registrationRequestMac(array $record,$timestamp,$ackSequence) {
     global $gateway;
 
-    $message='CCP1|REGISTRATION|'.$gateway['proxyId'].'|'.$record['rotId'].'|'.$record['coin'].'|'.$timestamp;
+    $message='CCP1|REGISTRATION|'.$gateway['proxyId'].'|'.$record['rotId'].'|'.$record['coin'].'|'.$timestamp.'|'.$ackSequence;
     return hash_hmac('sha256',$message,$record['authToken']);
+}
+
+function registrationMessagesDigest(array $messages) {
+    $json=json_encode(array_values($messages),JSON_UNESCAPED_SLASHES);
+    return hash('sha256',$json===false?'[]':$json);
 }
 
 function signedRegistrationResponse(array $record,array $body) {
@@ -533,7 +630,14 @@ function signedRegistrationResponse(array $record,array $body) {
 
     $timestamp=time();
     $body['timestamp']=$timestamp;
-    $message='CCP1|REGISTRATION-RES|'.$gateway['proxyId'].'|'.$record['rotId'].'|'.$record['coin'].'|'.$timestamp.'|'.$body['status'].'|'.$body['expiresIn'].'|'.$body['retryAfter'];
+    if (!isset($body['messages']) || !is_array($body['messages'])) {$body['messages']=[];}
+    if (!isset($body['messageSequence']) || !is_int($body['messageSequence'])) {$body['messageSequence']=0;}
+    $ok=!empty($body['ok'])?'1':'0';
+    $error=isset($body['error'])?(string)$body['error']:'';
+    $nickname=isset($body['nickname'])?(string)$body['nickname']:'';
+    $latency=isset($body['statusLatencyMs']) && is_int($body['statusLatencyMs'])?(string)$body['statusLatencyMs']:'';
+    $serverTime=isset($body['serverTime']) && is_int($body['serverTime'])?(string)$body['serverTime']:'';
+    $message='CCP1|REGISTRATION-RES|'.$gateway['proxyId'].'|'.$record['rotId'].'|'.$record['coin'].'|'.$timestamp.'|'.$ok.'|'.$body['status'].'|'.$error.'|'.$nickname.'|'.$body['expiresIn'].'|'.$body['retryAfter'].'|'.$latency.'|'.$body['messageSequence'].'|'.registrationMessagesDigest($body['messages']).'|'.$serverTime;
     $body['mac']=hash_hmac('sha256',$message,$record['authToken']);
     return $body;
 }
@@ -558,8 +662,9 @@ function runRotRegistrationStatusOperation(array $input) {
     $coin=canonicalCoin(isset($input['coin'])?$input['coin']:null);
     $rotId=safeRotId(isset($input['rotId'])?$input['rotId']:null);
     $timestamp=isset($input['timestamp'])?$input['timestamp']:null;
+    $ackSequence=isset($input['ackSequence'])?$input['ackSequence']:null;
     $mac=isset($input['mac'])?$input['mac']:null;
-    if ($coin===false || $rotId===false || !is_int($timestamp) || !is_string($mac) || !preg_match('/^[0-9a-f]{64}$/',$mac)) {
+    if ($coin===false || $rotId===false || !is_int($timestamp) || !is_int($ackSequence) || $ackSequence<0 || !is_string($mac) || !preg_match('/^[0-9a-f]{64}$/',$mac)) {
         recordIpFailure($sourceIp);
         sendJson(['ok'=>false,'error'=>'INVALID_REGISTRATION_AUTH'],401);
         return;
@@ -570,9 +675,14 @@ function runRotRegistrationStatusOperation(array $input) {
         sendJson(['ok'=>false,'error'=>$error],503);
         return;
     }
-    if (!is_array($record) || !isset($record['authToken'],$record['host']) || $sourceIp===false || !hash_equals($record['host'],$sourceIp) || !hash_equals(registrationRequestMac($record,$timestamp),$mac)) {
+    if (!is_array($record) || !isset($record['authToken'],$record['host']) || $sourceIp===false || !hash_equals($record['host'],$sourceIp) || !hash_equals(registrationRequestMac($record,$timestamp,$ackSequence),$mac)) {
         recordIpFailure($sourceIp);
         sendJson(['ok'=>false,'error'=>'INVALID_REGISTRATION_AUTH'],401);
+        return;
+    }
+    if ($ackSequence>nextMessageSequence($record)-1) {
+        recordIpFailure($sourceIp);
+        sendJson(['ok'=>false,'error'=>'INVALID_MESSAGE_ACK'],400);
         return;
     }
     $now=time();
@@ -587,7 +697,9 @@ function runRotRegistrationStatusOperation(array $input) {
             'error'=>'CLOCK_SKEW',
             'serverTime'=>$now,
             'expiresIn'=>$record['status']==='ENDED'?0:max(0,$record['expiresAt']-$now),
-            'retryAfter'=>0
+            'retryAfter'=>0,
+            'messageSequence'=>$ackSequence,
+            'messages'=>[]
         ];
         $networkEvent['outcome']='CLOCK_SKEW';
         sendJson(signedRegistrationResponse($record,$body),409);
@@ -599,18 +711,24 @@ function runRotRegistrationStatusOperation(array $input) {
         $record=probeRegisteredRot($record);
     }
     $error='';
-    $updated=changeRegistry(function(&$registry) use ($record,$now,$gateway) {
+    $updated=changeRegistry(function(&$registry) use ($record,$now,$gateway,$ackSequence) {
         $key=registryKey($record['coin'],$record['rotId']);
         if (!isset($registry['rots'][$key]) || !is_array($registry['rots'][$key])) {return ['missing'=>true];}
         $current=&$registry['rots'][$key];
         if (!isset($current['registrationVersion'],$record['registrationVersion']) || !hash_equals($current['registrationVersion'],$record['registrationVersion'])) {return ['changed'=>true];}
-        $probeFields=['status','lastStatusAt','readyUntil','retryAt','statusLatencyMs','statusSamples','lastHeight','lastBlockHash','heightReference','checkpoints','checkpointFailures','consecutiveFailures','backoffUntil','endedAt','endedReason'];
+        if (!acknowledgeRotMessages($current,$ackSequence)) {return ['invalidAck'=>true];}
+        $oldStatus=isset($current['status'])?$current['status']:'CANDIDATE';
+        $probeFields=['status','statusReason','lastStatusAt','readyUntil','retryAt','statusLatencyMs','statusSamples','lastHeight','lastBlockHash','heightReference','checkpoints','checkpointFailures','consecutiveFailures','backoffUntil','endedAt','endedReason'];
         foreach ($probeFields as $field) {
             if (array_key_exists($field,$record)) {$current[$field]=$record[$field];}
         }
         $current['lastSeenAt']=$now;
         if ($current['status']!=='ENDED') {$current['expiresAt']=$now+$gateway['registrationLifetime'];}
-        return ['record'=>$current];
+        $newStatus=isset($current['status'])?$current['status']:$oldStatus;
+        $reason=isset($current['statusReason']) && $current['statusReason']!==''?$current['statusReason']:(isset($current['endedReason'])?$current['endedReason']:'');
+        $message=transitionMessage($oldStatus,$newStatus,$reason);
+        if ($message!==false) {queueRotMessage($current,$message['code'],$message['text'],$now);}
+        return ['record'=>$current,'transition'=>$message===false?null:['from'=>$oldStatus,'to'=>$newStatus,'reason'=>$reason]];
     },$error);
     if ($updated===false) {
         sendJson(['ok'=>false,'error'=>$error],503);
@@ -620,11 +738,21 @@ function runRotRegistrationStatusOperation(array $input) {
         sendJson(['ok'=>false,'error'=>'REGISTRATION_CHANGED'],409);
         return;
     }
+    if (isset($updated['invalidAck'])) {
+        sendJson(['ok'=>false,'error'=>'INVALID_MESSAGE_ACK'],400);
+        return;
+    }
     if (isset($updated['missing']) || !isset($updated['record']) || !is_array($updated['record'])) {
         sendJson(['ok'=>false,'error'=>'REGISTRATION_NOT_FOUND'],404);
         return;
     }
+    $transition=isset($updated['transition'])?$updated['transition']:null;
     $updated=$updated['record'];
+    if (is_array($transition)) {
+        writeHealthEvent(['kind'=>'ROT_STATUS','coin'=>$updated['coin'],'rotId'=>$updated['rotId'],'nickname'=>$updated['nickname'],'from'=>$transition['from'],'to'=>$transition['to'],'reason'=>$transition['reason']]);
+    }
+    $messages=pendingRotMessages($updated);
+    $messageSequence=count($messages)>0?(int)$messages[count($messages)-1]['sequence']:$ackSequence;
     $body=[
         'ok'=>true,
         'protocol'=>1,
@@ -635,7 +763,9 @@ function runRotRegistrationStatusOperation(array $input) {
         'status'=>$updated['status'],
         'expiresIn'=>$updated['status']==='ENDED'?0:max(0,$updated['expiresAt']-$now),
         'retryAfter'=>isset($updated['retryAt'])?max(0,$updated['retryAt']-$now):0,
-        'statusLatencyMs'=>isset($updated['statusLatencyMs'])?$updated['statusLatencyMs']:null
+        'statusLatencyMs'=>isset($updated['statusLatencyMs'])?$updated['statusLatencyMs']:null,
+        'messageSequence'=>$messageSequence,
+        'messages'=>$messages
     ];
     $networkEvent['rotNickname']=$updated['nickname'];
     $networkEvent['rotStatus']=$updated['status'];
@@ -731,6 +861,91 @@ function configureCoin($coin) {
     $gateway['maxZeroConfirmationObservers']=$coinConfiguration[$coin]['maxZeroConfirmationObservers'];
     $rots=rotsForCoin($coin);
     return true;
+}
+
+function routeableRotCount($coin) {
+    global $coinConfiguration;
+
+    if (!isset($coinConfiguration[$coin])) {return 0;}
+    $registered=registeredRotsForCoin($coin);
+    $endpoints=[];
+    foreach ($registered as $rot) {
+        if (isset($rot['host'],$rot['port'])) {$endpoints[endpointKey($rot['host'],$rot['port'])]=true;}
+    }
+    $health=legacyHealthForCoin($coin);
+    $now=time();
+    foreach ($coinConfiguration[$coin]['legacyRots'] as $rot) {
+        $endpoint=endpointKey($rot['host'],$rot['port']);
+        if (isset($endpoints[$endpoint])) {continue;}
+        $key=$coin.'|'.$endpoint;
+        if (isset($health[$key]['backoffUntil']) && (int)$health[$key]['backoffUntil']>$now) {continue;}
+        $endpoints[$endpoint]=true;
+    }
+    return count($endpoints);
+}
+
+function publicProxyInfo() {
+    global $gateway,$coinConfiguration;
+
+    if ($gateway['proxyId']===false || $gateway['publicUrl']===false) {return false;}
+    $counts=[];
+    foreach (array_keys($coinConfiguration) as $coin) {$counts[$coin]=routeableRotCount($coin);}
+    return [
+        'proxyId'=>$gateway['proxyId'],
+        'proxyUrl'=>$gateway['publicUrl'],
+        'walletOrigin'=>$gateway['origin'],
+        'acceptsRegistrations'=>$gateway['acceptsRegistrations'],
+        'acceptedCoins'=>array_values(array_keys($coinConfiguration)),
+        'routeableRots'=>$counts,
+        'observedAt'=>time()
+    ];
+}
+
+function runProxyPingOperation(array $input) {
+    global $gateway,$networkEvent;
+
+    $networkEvent['route']='proxyPing';
+    $nonce=isset($input['nonce'])?$input['nonce']:null;
+    if (!isset($input['protocol']) || $input['protocol']!==1 || !is_string($nonce) || !preg_match('/^[0-9a-f]{32}$/',$nonce) || $gateway['proxyId']===false) {
+        sendJson(['ok'=>false,'error'=>'INVALID_PROXY_PING'],400);
+        return;
+    }
+    $networkEvent['outcome']='OK';
+    sendJson(['ok'=>true,'protocol'=>1,'proxyId'=>$gateway['proxyId'],'nonce'=>$nonce]);
+}
+
+function runProxyInfoOperation() {
+    global $networkEvent;
+
+    $networkEvent['route']='proxyInfo';
+    $info=publicProxyInfo();
+    if ($info===false) {
+        sendJson(['ok'=>false,'error'=>'PROXY_INFO_UNAVAILABLE'],503);
+        return;
+    }
+    $networkEvent['outcome']='OK';
+    sendJson(array_merge(['ok'=>true,'protocol'=>1],$info));
+}
+
+function runProxyDirectoryOperation() {
+    global $gateway,$networkEvent;
+
+    $networkEvent['route']='proxyDirectory';
+    $info=publicProxyInfo();
+    if ($info===false) {
+        sendJson(['ok'=>false,'error'=>'PROXY_DIRECTORY_UNAVAILABLE'],503);
+        return;
+    }
+    $now=time();
+    $networkEvent['outcome']='SELF_ONLY';
+    sendJson([
+        'ok'=>true,
+        'protocol'=>1,
+        'generatedAt'=>$now,
+        'expiresAt'=>$now+86400,
+        'bootstrap'=>$gateway['proxyId'],
+        'proxies'=>[array_merge($info,['observedAt'=>$now])]
+    ]);
 }
 
 function orderRotsForRouting(array $rots) {
@@ -840,6 +1055,7 @@ function setRequestBudget($operation) {
     if ($operation==='history') {$seconds=40;}
     elseif ($operation==='broadcast' || $operation==='transactionStatus' || $operation==='zeroConfirmation') {$seconds=20;}
     elseif ($operation==='rotRegister' || $operation==='rotRegistrationStatus') {$seconds=15;}
+    elseif ($operation==='proxyPing' || $operation==='proxyInfo' || $operation==='proxyDirectory') {$seconds=5;}
     $requestDeadline=microtime(true)+$seconds;
 }
 
@@ -1139,6 +1355,7 @@ function probeRegisteredRot(array $record) {
     $record['lastStatusAt']=$now;
     if (!isset($result['technical']) || $result['technical']) {
         $record['status']='RECOVERING';
+        $record['statusReason']='STATUS_PROBE_FAILED';
         $record['readyUntil']=0;
         $record['retryAt']=$now+60;
         return $record;
@@ -1155,6 +1372,7 @@ function probeRegisteredRot(array $record) {
     $record['checkpoints']=$response['checkpoints'];
     if (!$response['ready'] || $response['recovering']) {
         $record['status']='RECOVERING';
+        $record['statusReason']='ROT_REPORTS_RECOVERING';
         $record['readyUntil']=0;
         $record['retryAt']=$now+60;
         return $record;
@@ -1170,13 +1388,14 @@ function probeRegisteredRot(array $record) {
     if (is_array($verdict) && isset($verdict['changed'])) {return $record;}
     if (!is_array($verdict) || !isset($verdict['checkpoint'],$verdict['heightReference'])) {
         $record['status']='RECOVERING';
+        $record['statusReason']='TRUST_EVALUATION_UNAVAILABLE';
         $record['readyUntil']=0;
         $record['retryAt']=$now+60;
         return $record;
     }
     $record['heightReference']=$verdict['heightReference'];
     $verdict=$verdict['checkpoint'];
-    if (($verdict==='READY' || $verdict==='LEADING') && !statusHeightAcceptable($record['coin'],$response['height'],$record['heightReference'])) {$verdict='RECOVERING';}
+    if (($verdict==='READY' || $verdict==='LEADING') && !statusHeightAcceptable($record['coin'],$response['height'],$record['heightReference'])) {$verdict='RECOVERING';$record['statusReason']='CHAIN_HEIGHT_LAG';}
     if ($verdict==='QUARANTINED') {
         $record['checkpointFailures']=isset($record['checkpointFailures'])?(int)$record['checkpointFailures']+1:1;
         if ($record['checkpointFailures']>=3) {
@@ -1188,6 +1407,9 @@ function probeRegisteredRot(array $record) {
         $record['checkpointFailures']=0;
     }
     $record['status']=$verdict;
+    if ($verdict==='LEADING' || $verdict==='READY') {$record['statusReason']='';}
+    elseif ($verdict==='QUARANTINED') {$record['statusReason']='CHECKPOINT_DISAGREEMENT';}
+    elseif ($verdict==='ENDED' && !isset($record['statusReason'])) {$record['statusReason']='REPEATED_CHECKPOINT_MISMATCH';}
     $record['readyUntil']=in_array($verdict,['LEADING','READY'],true)?$now+$gateway['statusFreshness']:0;
     $record['retryAt']=$verdict==='QUARANTINED'?$now+$gateway['quarantineSeconds']:($verdict==='CANDIDATE'?$now+300:($verdict==='RECOVERING'?$now+60:0));
     return $record;
@@ -1688,11 +1910,13 @@ function recordRotTechnicalFailure(array $result) {
     $protocol=$result['rotProtocol'];
     $registrationVersion=isset($result['registrationVersion'])?$result['registrationVersion']:null;
     $error='';
-    changeRegistry(function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result,$gateway) {
+    $change=changeRegistry(function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result,$gateway) {
+        $oldStatus='LEGACY_READY';
         if ($protocol===1) {
             $key=registryKey($coin,$rotId);
             if (!isset($registry['rots'][$key]) || !isset($registry['rots'][$key]['registrationVersion']) || !is_string($registrationVersion) || !hash_equals($registry['rots'][$key]['registrationVersion'],$registrationVersion)) {return false;}
             $record=&$registry['rots'][$key];
+            $oldStatus=isset($record['status'])?$record['status']:'CANDIDATE';
             $failureKind=isset($result['failureKind'])?$result['failureKind']:'';
             if ($failureKind==='STALE_HEIGHT') {
                 $record['status']='RECOVERING';
@@ -1716,8 +1940,13 @@ function recordRotTechnicalFailure(array $result) {
         $record['consecutiveFailures']=$failures;
         $record['lastFailureAt']=$now;
         $record['backoffUntil']=$now+min(300,5*(2**min(6,$failures-1)));
-        return true;
+        if ($failures===1 && $protocol===1) {queueRotMessage($record,'ROT_TECHNICAL_FAILURE','Proxy could not complete a ROT request',$now);}
+        $newStatus=$protocol===1 && isset($record['status'])?$record['status']:'LEGACY_BACKOFF';
+        return ['first'=>$failures===1,'failures'=>$failures,'from'=>$oldStatus,'to'=>$newStatus,'reason'=>isset($result['failureKind'])?$result['failureKind']:'ROT_TECHNICAL'];
     },$error);
+    if (is_array($change) && !empty($change['first'])) {
+        writeHealthEvent(['kind'=>'ROT_FAILURE','coin'=>$coin,'rotId'=>$rotId,'nickname'=>isset($result['rotNickname'])?$result['rotNickname']:null,'from'=>$change['from'],'to'=>$change['to'],'reason'=>$change['reason'],'failures'=>$change['failures']]);
+    }
 }
 
 function clearRotTechnicalFailure(array $result) {
@@ -1727,21 +1956,27 @@ function clearRotTechnicalFailure(array $result) {
     $protocol=$result['rotProtocol'];
     $registrationVersion=isset($result['registrationVersion'])?$result['registrationVersion']:null;
     $error='';
-    changeRegistry(function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result) {
+    $change=changeRegistry(function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result) {
         if ($protocol===1) {
             $key=registryKey($coin,$rotId);
             if (!isset($registry['rots'][$key]) || !isset($registry['rots'][$key]['registrationVersion']) || !is_string($registrationVersion) || !hash_equals($registry['rots'][$key]['registrationVersion'],$registrationVersion)) {return false;}
             $record=&$registry['rots'][$key];
+            $failures=isset($record['consecutiveFailures'])?(int)$record['consecutiveFailures']:0;
             $record['consecutiveFailures']=0;
             $record['backoffUntil']=0;
             unset($record['lastFailureAt']);
-            return true;
+            if ($failures>0) {queueRotMessage($record,'ROT_RECOVERED','Proxy completed a ROT request after a technical failure',time());}
+            return ['recovered'=>$failures>0,'failures'=>$failures,'status'=>isset($record['status'])?$record['status']:'READY'];
         }
         if (!isset($result['rotHost'],$result['rotPort'])) {return false;}
         $key=$coin.'|'.endpointKey($result['rotHost'],$result['rotPort']);
+        $failures=isset($registry['legacyHealth'][$key]['consecutiveFailures'])?(int)$registry['legacyHealth'][$key]['consecutiveFailures']:0;
         if (isset($registry['legacyHealth'][$key])) {unset($registry['legacyHealth'][$key]);}
-        return true;
+        return ['recovered'=>$failures>0,'failures'=>$failures,'status'=>'LEGACY_READY'];
     },$error);
+    if (is_array($change) && !empty($change['recovered'])) {
+        writeHealthEvent(['kind'=>'ROT_RECOVERY','coin'=>$coin,'rotId'=>$rotId,'nickname'=>isset($result['rotNickname'])?$result['rotNickname']:null,'to'=>$change['status'],'failures'=>$change['failures']]);
+    }
 }
 
 function recordAttempt(array $result,$attempt) {
@@ -2060,12 +2295,26 @@ function runGateway() {
         return;
     }
     setRequestBudget($input['operation']);
+    $networkEvent['proxyId']=$gateway['proxyId'];
+    if ($input['operation']==='proxyPing') {
+        runProxyPingOperation($input);
+        return;
+    }
+    if ($input['operation']==='proxyInfo') {
+        if (!isset($input['protocol']) || $input['protocol']!==1) {sendJson(['ok'=>false,'error'=>'INVALID_PROXY_INFO'],400);return;}
+        runProxyInfoOperation();
+        return;
+    }
+    if ($input['operation']==='proxyDirectory') {
+        if (!isset($input['protocol']) || $input['protocol']!==1) {sendJson(['ok'=>false,'error'=>'INVALID_PROXY_DIRECTORY'],400);return;}
+        runProxyDirectoryOperation();
+        return;
+    }
     $coin=canonicalCoin(isset($input['coin'])?$input['coin']:'EFL');
     if ($coin===false || !configureCoin($coin)) {
         sendJson(['ok'=>false,'error'=>'INVALID_COIN'],400);
         return;
     }
-    $networkEvent['proxyId']=$gateway['proxyId'];
     $networkEvent['coin']=$gateway['coin'];
     if ($input['operation']==='rotRegister') {
         runRotRegisterOperation($input);
