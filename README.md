@@ -1,6 +1,6 @@
 # CC-WALLET
 
-> **Canonical source:** hhttps://git.communitycoins.org/Communitycoins.Rooty/CC-WALLET  
+> **Canonical source:** https://git.communitycoins.org/Communitycoins.Rooty/CC-WALLET  
 > Mirrors on GitLab or GitHub may be read-only and may lag behind.
 
 CC-WALLET is a non-custodial browser wallet for legacy CommunityCoin networks.
@@ -12,6 +12,11 @@ The project started in 2023. A broad multicoin prototype was completed in
 January 2024 and development resumed in August 2026. The current work is not a
 cosmetic upgrade of that prototype: it establishes a new, deliberately narrow
 foundation on which additional coins can be enabled one at a time.
+
+## Status — 9 September 2026
+
+Wallet presented for beta-testing, just before the ROT-layer will be closed.
+relay/proxy-layer enters canary-modus, meaning it still offers a heardcoded ROT escape route but is being prepared for ROT-registry
 
 ## Status — 29 August 2026
 
