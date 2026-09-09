@@ -1,175 +1,14 @@
-/* [MULTI-COIN-005]
-Canonical multi-coin wallet with operational Auroracoin support.
-Base: - Derived from MULTI-COIN-004
+/* [CC-WALLET-001]
+Use one same-origin multi-coin proxy while preserving single-session wallet behavior.
+Base: - Derived from MULTI-COIN-019
 Changes:
-- [MULTI-COIN-005] Activate AUR through its ROT 0.8.4 gateway without changing transaction serialization
-- Configure AUR units, legacy fee tiers, observer ceiling and fixed derivation and transaction vectors
-- Keep operational mnemonic diagnostics coin-neutral as further wallet coins are activated
-- [MULTI-COIN-004] Remember confirmed outpoints without retaining spendable transaction data
-- Lock Send when a confirmed outpoint disappears outside this device's pending broadcast
-- Keep balance, Receive, history and backup readable until the user explicitly unlocks Send
-- Rebuild full state and ROT history for the affected coin before removing the explicit lock
-- [MULTI-COIN-003] Show currency names while selectors are closed and restore name plus ticker while opening
-- Remove the implied coin ticker from the native Balance column
-- Give balance icons intrinsic dimensions and version the wallet-owned browser assets
-- [MULTI-COIN-002] Replace the obsolete Balance-currency selection with all operational wallet coins
-- [MULTI-COIN-002] Replace the obsolete Balance-currency selection with all operational wallet coins
-- Show native balances, one shared reference-currency column and a reference-valued wallet total
-- Reuse only wallet-bound validated balance caches and distinguish an unknown balance from zero
-- Remove connection counts from the balance presentation
-- [MULTI-COIN-001] Activate DEM through its ROT gateway and DEM-capable bitcoinjs bundle
-- Switch financial state atomically with the selected operational wallet coin
-- Keep Receive rotation separate for EFL and DEM
-- Configure per-coin atomic units, decimal precision, fees, observers and test vectors
-- Show the transaction year in confirmed history
-- [EFL-SLICE-054] Preserve wallet behavior while identity and calculator presentation become more compact
-- [EFL-SLICE-053] Enlarge wallet identity and render compact Online or Offline status
-- Restrict the wallet-coin selector to fully connected members of EFL, CDN, AUR and DEM
-- Label calculator roles, route their settings controls and show descriptive native-select options
-- Bind Receive and Send actions visibly to the selected wallet coin
-- [EFL-SLICE-052] Replace six small toolbar controls with three full-target actions and a passive connection indicator
-- Remove the obsolete video animation, its overlay and its three script dependencies
-- Move references below Help and make the ROOTY brand non-interactive
-- Add a selected-coin invitation with a language-and-coin wallet QR
-- [EFL-SLICE-051] Accept every standard English BIP39 word count during seed and full-backup recovery
-- Keep an optional recovery-only BIP39 passphrase separate while accepting seed::passphrase input
-- Preserve the empty-passphrase derivation of existing and locally created wallets
-- [EFL-SLICE-050] Observe backup pastes through the document so the visible modal copy is handled
-- Show valid Receive amounts in the transaction title just like Send amounts
-- Synchronize confirmed balance into the calculator without overwriting user-entered transaction amounts
-- Let an explicit click on the balance restore its complete calculator conversion
-- [EFL-SLICE-049] Route the full Receive confirmation control and ROOTY logo through their intended actions
-- Cache only the last validated confirmed balance for immediate wallet-bound startup display
-- Move the calculator amount into the Send title and keep it synchronized
-- Detect a pasted full wallet backup while retaining explicit seed restoration
-- Keep Community Coins promotion inside the wallet and target the current wallet URL
-- [EFL-SLICE-048] Replace technical receipt data with a plain-language payment-confirmation instruction
-- Learn the gateway-provided observer count from every ordinary state response
-- Query those observers concurrently and render every verified partial result immediately
-- [EFL-SLICE-047] Render pending Send and observed Receive rows without persisting them before confirmation
-- Promote payments to IndexedDB HISTORY only after blockchain confirmation and remove rejected pending rows
-- Restore pending Send receipts after restart and confirm an active Receive panel immediately from an exact state snapshot
-- [EFL-SLICE-045] Remove device-inserted whitespace from payment amounts before display, QR generation and validation
-- Route clicks on every child of the inline Send scanner button to the same scanner action
-- Verify a complete Receive URI to populated Send form, including a space directly after the decimal point
-- [EFL-SLICE-044] Bootstrap confirmed wallet history once through ROT and persist it in IndexedDB
-- Record later Send, scanned receipts and newly observed incoming outputs without balance authority
-- Add a draggable one-row-peeking history drawer and reproduce outbound payment receipts
-- [EFL-SLICE-043] Give every zero-confirmation request exclusive generation ownership
-- Let a newly scanned receipt supersede and silence an older in-flight observation
-- Guarantee that only the current receipt can render status or schedule the next five-second check
-- [EFL-SLICE-042] Encode payment receipts as a compact versioned JSON array with a base64url txid
-- Render only the receipt QR at error correction M while leaving payment-request QR codes unchanged
-- Accept both new compact receipts and all existing expanded transaction-receipt JSON
-- [EFL-SLICE-041] Keep only one batched deterministic derivation canary in ordinary startup
-- Move full parser, planning, signing and receipt diagnostics behind an explicit console function
-- Derive address ranges and transaction input keys from one seed and BIP32 account root per operation
-- Record lightweight boot marks without delaying wallet readiness
-- [EFL-SLICE-040] Refresh confirmed receipt state immediately until its exact output reaches the wallet snapshot
-- Return to the ordinary one-minute state schedule as soon as the confirmed balance is synchronized
-- Keep observer counts in the Receive title while the five-second zero-confirmation observation is active
-- [EFL-SLICE-039] Collapse committed Send and observed Receive flows to one compact transaction panel
-- Keep the sender receipt screen-wide and stable until explicitly closed
-- Route the ordinary scanner by QR type and hide transaction identifiers from post-send presentation
-- Poll sender confirmation once per minute without zero-confirmation presentation
-- [EFL-SLICE-038] Close the mobile QR scanner completely before processing a payment receipt
-- Repeat a non-terminal payment observation after five seconds without a manual retry control
-- Use sober observer wording and stop only at confirmation or a verified output mismatch
-- Show the amount with the enlarged Receive QR and add an enlarged sender receipt QR with its JSON
-- [EFL-SLICE-037] Accept exact payment receipts for any locally derived active-wallet address through index 50
-- Preserve the receipt address and amount while ROT verifies the exact transaction output
-- Avoid background-refresh layout churn and add a screen-wide Receive QR overlay
-- [EFL-SLICE-036] Restore the HTML/CSS presentation contract for the existing Expert mode logic
-- [EFL-SLICE-034] Use the gateway that rejects duplicate ROT outpoints before wallet parsing
-- [EFL-SLICE-033] Show a public payment-receipt QR after accepted broadcast and let the active Receive session scan it
-- Aggregate exact txid, address and amount observations from every configured ROT without changing confirmed balance or spendability
-- Replace the obsolete central wallet-name claim with a repeatable local SET action
-- [EFL-SLICE-032] Remove the six-input ceiling and charge one minimum-fee tier per started group of six inputs
-- Select, sign and locally verify transactions across the complete current confirmed UTXO set
-- [EFL-SLICE-031] Issue Receive indices once, expand the atomic state horizon by ten through index 50 and then reuse older addresses
-- Persist wallet-bound Receive rotation state and scan indices 0 through 50 once after seed-only restoration
-- [EFL-SLICE-030] Route state, broadcast and transaction-status requests through one PHP URL
-- Identify each gateway request with one explicit operation without changing wallet behavior
-- [EFL-SLICE-029] Stop scheduling state requests after the activity focus expires
-- Remove the unused legacy reCalcOLD() implementation
-- [EFL-SLICE-028] Send the current checkpoint height and eleven per-address change heights
-- Merge only changed address records into the in-memory snapshot
-- Recalculate confirmations locally and request a full snapshot after start or wallet switch
-- [EFL-SLICE-027] Add a remembered Expert mode that defaults to off
-- Keep all validation and signing active while simplifying the ordinary Send presentation
-- Preserve a reviewed plan across checkpoint-only changes and revalidate its selected inputs
-- Separate initial broadcast, latest status and confirmed-state roundtrip measurements
-- Remove the destination Edit route and leave scanned destinations editable
-- [EFL-SLICE-026] Add an inline two-step broadcast confirmation after local verification
-- Submit only the already-signed raw transaction and its locally calculated txid
-- Compare ROT/Core outcomes with the local txid and display layered roundtrip timings
-- Persist only pending txid and input outpoints so accepted spends remain locked until chain follow-up
-- [EFL-SLICE-025] Guard document-level clicks without a parent element
-- Prove that exact-spend transactions omit the zero-value change output
-- Replace the unsigned plan warning after a signed result is available
-- [EFL-SLICE-024] Keep the sender-paid fee explanation in About instead of the Send flow
-- [EFL-SLICE-023] Derive the exact private key for every selected input index
-- Build and sign the planned legacy P2PKH transaction entirely in the browser
-- Produce raw transaction and local txid, then independently verify inputs and outputs
-- Keep the signed result checkpoint-bound in memory and provide no broadcast route
-- State that the sender pays the fee above the full recipient amount
-- [EFL-SLICE-022] Route new 5A interface and runtime messages through HTML translation sources
-- Wait for the selected language file before starting dynamic wallet presentation
-- Keep English as the deterministic fallback and support named placeholders in T()
-- Correct the Canada eCoin team domain and prevent duplicate English endorsements
-- [EFL-SLICE-021] Validate a local Send destination and exact eight-decimal amount
-- Select at most six confirmed inputs and reserve the configured fixed minimum fee
-- Route change to derivation index 0 and bind the immutable plan to a fresh checkpoint
-- Review all inputs and outputs without private-key use, raw transaction or broadcast
-- Keep the balance permanently readonly and route Scan into the main-screen Send view
-- [EFL-SLICE-020] Restore the existing multi-coin Balance dialog through its original button id
-- Refresh the Receive QR when Reference or Fiat input changes the supported-coin amount
-- Show confirmation time with checkpoint height and scale balances through eight decimals
-- Toggle a compact responsive layout while Receive occupies the wallet action area
-- [EFL-SLICE-019] Present the selected coin and confirmed balance as the wallet's primary card
-- Keep the calculator visible while Receive replaces the general action buttons
-- Rebuild the receive URI and QR one second after the amount changes
-- Retain the prototype modal Receive source for later reference without routing the button through it
-- [EFL-SLICE-018] Expire confirmed UTXOs independently from the low-frequency refresh scheduler
-- Abort and invalidate in-flight financial state when the active wallet is replaced
-- Keep each accepted snapshot immutable and replace it atomically at one checkpoint
-- Expose observed-balance status without persisting network-derived spendable state
-- [EFL-SLICE-017] Keep coin-specific state-service data inside supportedCoins
-- Remove EFL from every JavaScript variable and function name
-- Let derivation, state parsing, scheduling and Receive operate through a generic coin parameter
-- [EFL-SLICE-016] Replace continuous EFL polling with activity-driven focus and sleep scheduling
-- Retain the last observed calculator balance while keeping stale UTXOs unavailable to Send
-- Wake silently on startup, EFL selection, Receive, Send and renewed visible activity
-- [EFL-SLICE-015] Derive change index 0 and receive indices 1 through 10 for one live state request
-- Validate the complete relay response before exposing its balance or confirmed UTXOs
-- Keep the live EFL snapshot in memory and never persist it as spendable wallet state
-- Refresh through the fixed EFL-SLICE relay and fail closed on timeout or malformed state
-- [EFL-SLICE-014] Show the deterministic EFL receive address at index 1
-- Generate the QR from the same held address with the canonical e-gulden: URI
-- [EFL-SLICE-013] Restore valid 12-word and historical 24-word mnemonics through an explicit recovery field
-- Activate an existing matching wallet instead of creating a duplicate
-- [EFL-SLICE-012] Give the Seed button its own route and readonly seed dialog
-- Clear the displayed seed when the dialog closes and never inject it as HTML
-- [EFL-SLICE-011] Accept a valid historical 24-word mnemonic only with the six-ID backup shape
-- Keep twelve words mandatory for canonical five-ID wallets
-- [EFL-SLICE-010] Accept both the canonical five-ID and historical six-ID backup shape
-- Preserve the historical sixth server ID without reintroducing remote ID creation
-- [EFL-SLICE-009] Validate complete backup data and commit it before replacing localStorage
-- Keep the emergency wallet and reload only after the restored wallet record is complete
-- [EFL-SLICE-008] Queue kill after pending wallet transactions and wait for database deletion
-- Block new wallet actions during kill and clear localStorage only after deletion succeeds
-- [EFL-SLICE-007] Read and validate the selected wallet before replacing localStorage
-- Wait for the wallet read transaction to complete and block concurrent switches
-- [EFL-SLICE-006] Await wallet save and wallet list before create and startup continue
-- Remove the startup decision based on an uninitialised walletCount
-- [EFL-SLICE-005] Create twelve-word wallet entropy locally with crypto.getRandomValues exactly once
-- Remove the remote entropy trigger from the market response
-- [EFL-SLICE-004] Initialise the complete ROOTY version 1 database in one upgrade
-- Ignore the prototype CC database and report database name and version in logDatabaseStructure()
-- [EFL-SLICE-003] Serialize wallet database updates and resolve only after transaction commit
-- Close the configuration database before wallet schema upgrades can start
-- [EFL-SLICE-001] Automatically verify the fixed EFL mnemonic at indices 0, 1 and 10
-- Keep address derivation available as a small independently testable function
+- [CC-WALLET-001] Route EFL, CDN, AUR and DEM through ./proxy.php
+- Send the selected coin with every state, history, broadcast, status and zero-confirmation request
+- [MULTI-COIN-019] The newest wallet instance becomes leading and broadcasts CLOSE to older same-origin wallet instances
+- Keep one non-secret localStorage session marker as the hard guard when BroadcastChannel delivery is delayed or missed
+- Permanently disable older sessions instead of synchronizing or reloading their DOM/state
+- Keep wallet ID as an independent integrity guard; never use mnemonic or BIP39 passphrase as session identity
+- Retain IndexedDB identity guards, protected PIN/wallet management, Help routing and startup PIN focus
 */
 
 const screenWidth = window.innerWidth;
@@ -261,6 +100,17 @@ const settings=configurationDef()
 const bModal = new bootstrap.Modal($$$("#Modal"));
 var modal = document.getElementById('Modal');
 modal.addEventListener('hidden.bs.modal', function () {
+  if (modalContext==="grassroot"){
+    if (pinRequestAccepted){
+      var continuation=pinRequestContinuation
+      pinRequestAccepted=false
+      pinRequestContinuation=null
+      if (typeof continuation==="function"){setTimeout(continuation,0)}
+    }else{
+      pinRequestSequence++
+      pinRequestContinuation=null
+    }
+  }
   document.querySelectorAll('#walletSeedContent,#walletMnemonicInput,#walletMnemonicPassphrase,#walletMnemonicPassphraseRepeat').forEach(function(field){field.value=""})
   document.querySelectorAll('#walletMnemonicPassphraseShow').forEach(function(control){control.checked=false})
   if (rewindObject=="setupOwner") {setTimeout('dial("setupOwner",0,1)',1)}  
@@ -269,13 +119,18 @@ modal.addEventListener('hidden.bs.modal', function () {
   if (rewindObject=="sendRequest") {setTimeout('dial("sendRequest",0,0)',1)}
   rewindObject=""
 });
+modal.addEventListener('shown.bs.modal', function () {
+  if (modalContext!=="grassroot"){return}
+  var pinField=configurePinField($$$("#id_modalbody #idp"))
+  focusPinFieldAfterPresentation(pinField)
+});
 
 var rewindObject=""
 var readyState=false
 var modalContext
 var combos={}
 const helloWoldTimeOut=60000
-const internetRequestTimeout=5000
+const internetRequestTimeout=12000
 var flashTo=setTimeout("",50)
 const splashTimeout=2000
 const onlineTimeout=5000
@@ -358,7 +213,7 @@ change=addSupport(change,"pak","pakcoin","Pakcoin","pakcoin","pkr")
 change=addSupport(change,"rubtc","rubtc","Russian Bitcoin","russia","rub")
 change=addSupport(change,"boli","boli","Bolivarcoin","venezuela","vef")
 supportedCoins["efl"].stateService={
-  url:"https://eflslice.communitycoins.org/EFL-SLICE-048.php",
+  url:"./proxy.php",
   responseCoin:"EFL",
   uriScheme:"e-gulden:",
   unitsPerCoin:100000000,
@@ -393,8 +248,44 @@ supportedCoins["efl"].stateService={
 }
 supportedCoins["efl"].balance="0"
 supportedCoins["efl"].connections=0
+supportedCoins["cdn"].stateService={
+  url:"./proxy.php",
+  responseCoin:"CDN",
+  uriScheme:"canadaecoin:",
+  unitsPerCoin:100000000,
+  decimals:8,
+  changeIndex:0,
+  receiveIndex:1,
+  initialReceiveCount:10,
+  maximumReceiveIndex:50,
+  receiveBatchSize:10,
+  reuseResetRemaining:20,
+  focusDuration:10*60*1000,
+  focusInterval:60*1000,
+  requestTimeout:8000,
+  spendableAge:60*1000+8000,
+  feeTierInputs:6,
+  minimumFeeSats:100000,
+  maximumRawTransactionHex:65000,
+  broadcastTimeout:30000,
+  maximumZeroConfirmationObservers:1,
+  historyTimeout:45000,
+  broadcastStatusInterval:60000,
+  testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  testAddresses:{
+    0:"CaLdzPuXNq6ZhffF75V7TDDxeS1CPEvB7N",
+    1:"CUP9N8JcLqg4ocZRN3SdtoSmxsdsEK2eWv",
+    10:"CQHhgvAJMztgos41kHQ1N3Y8VmRhBFsUBg"
+  },
+  testPassphrase:"TREZOR",
+  testPassphraseAddress:"CTjx8kF5ZNMMPaMU5rcGiZczZYDuJfvF5x",
+  testSignedTxid:"c9e8f6b23367e6e0de53914aaa74af35a3d350e49243dc6873efc80464aa36de",
+  testSignedByteLength:374
+}
+supportedCoins["cdn"].balance="0"
+supportedCoins["cdn"].connections=0
 supportedCoins["aur"].stateService={
-  url:"https://aurslice.communitycoins.org/MULTI-COIN-005.php",
+  url:"./proxy.php",
   responseCoin:"AUR",
   uriScheme:"auroracoin:",
   unitsPerCoin:100000000,
@@ -430,7 +321,7 @@ supportedCoins["aur"].stateService={
 supportedCoins["aur"].balance="0"
 supportedCoins["aur"].connections=0
 supportedCoins["dem"].stateService={
-  url:"https://demslice.communitycoins.org/MULTI-COIN-001.php",
+  url:"./proxy.php",
   responseCoin:"DEM",
   uriScheme:"emark:",
   unitsPerCoin:1000000,
@@ -561,20 +452,22 @@ if (localStorage.getItem("language")!=null) {
     if (supportedLanguages[i]==urlLanguage){language=urlLanguage}
   }
 } else {
-  preferredLanguage=navigator.language.split('-')[0];
-  for (let i=0; i<supportedLanguages.length; i++) {
-    if (supportedLanguages[i]==preferredLanguage){language=preferredLanguage}
-  }
+  language=defaultLanguage
 }
 localStorage.setItem("language",language)
 
 if (localStorage.getItem("ids")==null) {
   for(var i=0;i<5;i++) {ids.push(b58())}
   localStorage.setItem("ids",JSON.stringify(ids))
+  var generatedWalletId=ids[2]
   for (i=1;i<5;i++) {ids[0]+=ids[i]}
   ids[0]+=`${stamp()}`;
   calculateSHA256Hash(ids[0])
   .then(data => {
+    var currentIds
+    try{currentIds=JSON.parse(localStorage.getItem("ids"))}catch(error){currentIds=null}
+    if ((!Array.isArray(currentIds))||(currentIds[2]!==generatedWalletId)){return}
+    ids=currentIds
     ids[0]=data
     localStorage.setItem("ids",JSON.stringify(ids))
   })
@@ -601,7 +494,7 @@ var translationReady
 if (language!=defaultLanguage) {
   translationReady=new Promise(function(resolve){
   const scriptLanguage = document.createElement('script');
-  scriptLanguage.src = `js/language_${language}.js?v=MULTI-COIN-005`;
+  scriptLanguage.src = `js/language_${language}.js?v=MULTI-COIN-014`;
   scriptLanguage.defer=true
   scriptLanguage.onload=function(){translate();resolve()}
   scriptLanguage.onerror=function(){translate();resolve()}
@@ -616,8 +509,6 @@ var ccRates={}
 var connections={}
 connections["cc-prices"]={state:"idle",lastTime:null,repeat:3500,url:"https://communitycoins.org/marketmerge/?latest"}
 connections["global-asset-prices"]={state:"idle",lastTime:null,repeat:3600,url:"https://communitycoins.org/marketmerge/?rates"}
-connections["mailbox"]={state:"idle",lastTime:null,repeat:600,url:"https://communitycoins.org/marketmerge/?mail"}
-connections["networks"]={state:"idle",lastTime:null,repeat:3600,url:"https://communitycoins.org/marketmerge/?networks"}
 var inputElement
 const operands=$$$('#operands').innerHTML.split("|")[0]
 var skipMemoChange=false
@@ -626,6 +517,14 @@ var walletSwitching=false
 var walletResetting=false
 var walletRestoring=false
 var walletUnlocking=false
+var tabWalletContext=null
+var walletSessionDisabled=false
+var walletContextAlerted=false
+var walletSessionMarker=null
+var walletSessionChannel=null
+var pinRequestSequence=0
+var pinRequestAccepted=false
+var pinRequestContinuation=null
 var dialogContext,paymentMail
 var currentReceiveRequest
 var receiveUpdateTimer
@@ -658,6 +557,10 @@ const expertModeStorageKey="expertMode"
 const receiveAddressStorageKey="receiveAddressState"
 const confirmedBalanceCacheStorageKey="confirmedBalanceCache"
 const mnemonicPassphraseStorageKey="bip39Passphrase"
+const walletStorageIdStorageKey="walletStorageId"
+const walletSessionMarkerStorageKey="walletSessionMarker"
+const walletSessionChannelName="cc-wallet-session"
+const legacyWalletContextStorageKeys=["activeWalletId","walletContextTransition"]
 const mnemonicWordCounts=[12,15,18,21,24]
 const historyPeekHeight=48
 const historyMaximumHeight=480
@@ -682,6 +585,230 @@ var scannerActive=false
 const qrConfig = { fps: 10, qrbox: 250 };
 var html5QrcodeScanner
 var all //ref. integr
+
+function storageKeys(){
+  var keys=[]
+  for (var index=0;index<localStorage.length;index++){
+    var key=localStorage.key(index)
+    if (key!=null){keys.push(key)}
+  }
+  return keys
+}
+function exportWalletStorage(){
+  var wallet={}
+  storageKeys().forEach(function(key){
+    if ((key===walletSessionMarkerStorageKey)||legacyWalletContextStorageKeys.includes(key)){return}
+    var value=localStorage.getItem(key)
+    if (value!=null){wallet[key]=value}
+  })
+  return wallet
+}
+function inspectWalletStorage(wallet,recordId=null){
+  try{
+    if ((wallet==null)||(Array.isArray(wallet))||(typeof wallet!=="object")||(typeof wallet.ids!=="string")||(typeof wallet.bip39!=="string")){return {valid:false,error:"Invalid wallet storage"}}
+    var selectedIds=JSON.parse(wallet.ids)
+    var mnemonicString=normalizeWalletMnemonic(wallet.bip39)
+    if ((!Array.isArray(selectedIds))||(selectedIds.length<5)||(selectedIds.length>6)||(selectedIds.some(function(id){return (typeof id!=="string")||(id==="")}))){return {valid:false,error:"Invalid wallet ids"}}
+    if ((recordId!=null)&&(selectedIds[2]!==recordId)){return {valid:false,error:"Wallet record id mismatch"}}
+    if ((wallet[walletStorageIdStorageKey]!=null)&&(String(wallet[walletStorageIdStorageKey])!==selectedIds[2])){return {valid:false,error:"Wallet storage id mismatch"}}
+    var words=mnemonicString===""?[]:mnemonicString.split(" ")
+    if ((!mnemonicWordCounts.includes(words.length))||(!mnemonic.check(mnemonicString))){return {valid:false,error:"Invalid wallet mnemonic"}}
+    return {valid:true,id:selectedIds[2],ids:selectedIds}
+  }catch(error){return {valid:false,error:error.message}}
+}
+function inspectStoredWalletRecord(record){
+  if ((record==null)||(typeof record!=="object")||(typeof record.id!=="string")||(typeof record.store!=="string")){return {valid:false,error:"Invalid wallet record"}}
+  try{
+    var wallet=JSON.parse(record.store)
+    var inspected=inspectWalletStorage(wallet,record.id)
+    inspected.wallet=wallet
+    return inspected
+  }catch(error){return {valid:false,error:error.message}}
+}
+function walletIdFromIdsValue(value){
+  try{
+    var selectedIds=JSON.parse(value)
+    if (Array.isArray(selectedIds)&&(selectedIds.length>2)&&(typeof selectedIds[2]==="string")&&(selectedIds[2]!=="")){return selectedIds[2]}
+  }catch(error){}
+  return null
+}
+function currentWalletId(){
+  return walletIdFromIdsValue(localStorage.getItem("ids"))
+}
+function createWalletSessionMarker(){
+  return Date.now().toString(36)+"-"+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)
+}
+function walletSessionMarkerMatches(){
+  return (walletSessionMarker!=null)&&(localStorage.getItem(walletSessionMarkerStorageKey)===walletSessionMarker)
+}
+function handleWalletSessionBroadcast(event){
+  if ((event==null)||(event.data!=="CLOSE")){return}
+  if (!walletSessionMarkerMatches()){disableWalletSession("broadcast:CLOSE")}
+}
+function claimWalletSession(){
+  walletSessionMarker=createWalletSessionMarker()
+  if (typeof BroadcastChannel!=="undefined"){
+    try{
+      walletSessionChannel=new BroadcastChannel(walletSessionChannelName)
+      walletSessionChannel.onmessage=handleWalletSessionBroadcast
+    }catch(error){walletSessionChannel=null}
+  }
+  localStorage.setItem(walletSessionMarkerStorageKey,walletSessionMarker)
+  if (walletSessionChannel!=null){walletSessionChannel.postMessage("CLOSE")}
+  return walletSessionMarker
+}
+function tabWalletContextMatches(){
+  if (!walletSessionMarkerMatches()){return false}
+  if (tabWalletContext==null){return true}
+  return currentWalletId()===tabWalletContext.id
+}
+function setWalletContextControlsDisabled(){
+  var wallet=$$$("#wallet")
+  if (wallet!=null){
+    wallet.setAttribute("aria-busy","true")
+    wallet.setAttribute("aria-disabled","true")
+    wallet.setAttribute("inert","")
+    wallet.style.pointerEvents="none"
+    wallet.style.opacity="0.65"
+  }
+  try{if ((document.activeElement!=null)&&(typeof document.activeElement.blur==="function")){document.activeElement.blur()}}catch(error){}
+}
+function walletContextMessage(){
+  var message=T("txtWalletChangedOtherWindow")
+  return message==null?"Wallet session disabled. Another tab or app window opened this wallet storage. This session has been stopped to prevent outdated wallet information from being used. Close this tab or window and continue there.":message
+}
+function showWalletSessionDisabled(){
+  var notice=document.getElementById("walletSessionDisabledNotice")
+  if (notice==null){
+    notice=document.createElement("div")
+    notice.id="walletSessionDisabledNotice"
+    notice.setAttribute("role","alert")
+    notice.style.cssText="position:fixed;z-index:2147483647;left:0;right:0;top:0;padding:14px 10px;background:#fff;color:#b00020;font-weight:700;text-align:center;border-bottom:3px solid #b00020"
+    document.body.appendChild(notice)
+  }
+  notice.textContent="WALLET SESSION DISABLED - CLOSE THIS TAB"
+}
+function disableWalletSession(reason="wallet-context-changed"){
+  if (!walletSessionDisabled){
+    walletSessionDisabled=true
+    readyState=false
+    clearTimeout(onlineTO)
+    clearTimeout(stateRefreshTimer)
+    clearTimeout(receiveUpdateTimer)
+    clearBroadcastStatusTimer()
+    clearConfirmedReceiptSyncTimer()
+    if (stateRequestController!=null){stateRequestController.abort()}
+    if (broadcastRequestController!=null){broadcastRequestController.abort()}
+    if (zeroConfirmationController!=null){zeroConfirmationController.abort()}
+    if (walletSessionChannel!=null){try{walletSessionChannel.close()}catch(error){};walletSessionChannel=null}
+    try{clearLocalSendPlan()}catch(error){}
+    setWalletContextControlsDisabled()
+    showWalletSessionDisabled()
+    console.warn("Wallet session disabled:",reason)
+  }
+  if (!walletContextAlerted){
+    walletContextAlerted=true
+    setTimeout(function(){alert(walletContextMessage())},0)
+  }
+  return false
+}
+function assertWalletContext(operation="wallet-operation",throwOnMismatch=true){
+  if ((!walletSessionDisabled)&&tabWalletContextMatches()){return true}
+  disableWalletSession(operation)
+  if (throwOnMismatch){
+    var error=new Error("Wallet session disabled by another window")
+    error.code="WALLET_SESSION_DISABLED"
+    throw error
+  }
+  return false
+}
+function initializeWalletContext(){
+  var id=currentWalletId()
+  if (id==null){throw new Error("Invalid active wallet context")}
+  legacyWalletContextStorageKeys.forEach(function(key){localStorage.removeItem(key)})
+  var storageId=localStorage.getItem(walletStorageIdStorageKey)
+  if (storageId==null){localStorage.setItem(walletStorageIdStorageKey,id)}
+  else if (storageId!==id){throw new Error("Wallet storage identity mismatch")}
+  tabWalletContext={id:id}
+  walletSessionDisabled=false
+  walletContextAlerted=false
+  return tabWalletContext
+}
+function replaceActiveWalletStorage(wallet,selectedIds){
+  var inspected=inspectWalletStorage(wallet,selectedIds&&selectedIds[2])
+  if ((!inspected.valid)||(!Array.isArray(selectedIds))||(inspected.id!==selectedIds[2])){throw new Error("Invalid target wallet data")}
+  var targetId=inspected.id
+  var targetIds=JSON.stringify(selectedIds)
+  localStorage.setItem("ids",targetIds)
+  storageKeys().forEach(function(key){
+    if ((key==="ids")||(key===walletStorageIdStorageKey)||(key===walletSessionMarkerStorageKey)||legacyWalletContextStorageKeys.includes(key)){return}
+    if (!Object.prototype.hasOwnProperty.call(wallet,key)){localStorage.removeItem(key)}
+  })
+  for (const key in wallet){
+    if ((key==="ids")||(key===walletStorageIdStorageKey)||(key===walletSessionMarkerStorageKey)||legacyWalletContextStorageKeys.includes(key)){continue}
+    localStorage.setItem(key,String(wallet[key]))
+  }
+  legacyWalletContextStorageKeys.forEach(function(key){localStorage.removeItem(key)})
+  localStorage.setItem("ids",targetIds)
+  localStorage.setItem(walletStorageIdStorageKey,targetId)
+  ids=selectedIds.slice()
+  var finalContext=inspectWalletStorage(exportWalletStorage(),targetId)
+  if ((!finalContext.valid)||(localStorage.getItem(walletStorageIdStorageKey)!==targetId)){throw new Error("Wallet switch verification failed")}
+  return true
+}
+function resetActiveWalletStorage(values={}){
+  localStorage.removeItem("ids")
+  storageKeys().forEach(function(key){if ((key!=="ids")&&(key!==walletSessionMarkerStorageKey)){localStorage.removeItem(key)}})
+  for (const key in values){
+    if ((key==="ids")||(key===walletSessionMarkerStorageKey)||legacyWalletContextStorageKeys.includes(key)){continue}
+    localStorage.setItem(key,String(values[key]))
+  }
+  ids=[]
+  return true
+}
+async function readStoredWallet(id){
+  const db=await openDatabase()
+  try{
+    return await new Promise(function(resolve,reject){
+      const transaction=db.transaction("wallets","readonly")
+      const request=transaction.objectStore("wallets").index("id").get(id)
+      var record
+      request.onsuccess=function(){record=request.result}
+      request.onerror=function(event){reject(event.target.error)}
+      transaction.oncomplete=function(){resolve(record)}
+      transaction.onerror=function(event){reject(event.target.error||transaction.error)}
+      transaction.onabort=function(){reject(transaction.error||new Error("Wallet read aborted"))}
+    })
+  }finally{db.close()}
+}
+async function recoverInterruptedWalletReplacement(){
+  var id=currentWalletId()
+  var storageId=localStorage.getItem(walletStorageIdStorageKey)
+  if ((id==null)||(storageId==null)||(storageId===id)){return false}
+  var candidates=[id,storageId]
+  for (var index=0;index<candidates.length;index++){
+    var candidateId=candidates[index]
+    var record
+    try{record=await readStoredWallet(candidateId)}catch(error){record=null}
+    if (record==null){continue}
+    var stored=inspectStoredWalletRecord(record)
+    if (!stored.valid){continue}
+    replaceActiveWalletStorage(stored.wallet,stored.ids)
+    console.warn("Recovered interrupted wallet replacement from stored wallet",candidateId)
+    return true
+  }
+  return false
+}
+function handleWalletStorageEvent(event){
+  if ((event.key===walletSessionMarkerStorageKey)||(event.key===null)){
+    if (!walletSessionMarkerMatches()){disableWalletSession("storage:wallet-session")}
+    if (event.key===walletSessionMarkerStorageKey){return}
+  }
+  if (tabWalletContext==null){return}
+  if ((event.key!==null)&&(event.key!=="ids")){return}
+  var eventWalletId=event.key==="ids"?walletIdFromIdsValue(event.newValue):currentWalletId()
+  if (eventWalletId!==tabWalletContext.id){disableWalletSession("storage:"+(event.key==null?"clear":event.key))}
+}
 
 function getStateService(coin=stateCoin){
   var service=supportedCoins[coin]&&supportedCoins[coin].stateService
@@ -811,6 +938,7 @@ function isReceiveAddressState(state,coin=stateCoin){
   return true
 }
 function getReceiveAddressState(coin=stateCoin){
+  assertWalletContext("receive-state")
   var key=receiveAddressKey(coin)
   var raw=localStorage.getItem(key)
   if (raw!=null){
@@ -824,6 +952,7 @@ function getReceiveAddressState(coin=stateCoin){
   return state
 }
 function persistReceiveAddressState(state,coin=stateCoin){
+  assertWalletContext("receive-state-save")
   localStorage.setItem(receiveAddressKey(coin),JSON.stringify(state))
   updateDb().catch(function(error){console.error("Unable to save Receive rotation:",error)})
   return state
@@ -894,11 +1023,13 @@ function selectReceiveAddressIndex(snapshot=null,coin=stateCoin){
   return {index:index,horizonExpanded:horizonExpanded,state:state}
 }
 function persistPendingBroadcast(record){
+  assertWalletContext("pending-broadcast-save")
   var store=readPendingBroadcastStore()
   store[record.fingerprint]=record
   localStorage.setItem(pendingBroadcastStorageKey,JSON.stringify(store))
 }
 function removePendingBroadcast(record){
+  assertWalletContext("pending-broadcast-remove")
   if (record==null){return}
   var store=readPendingBroadcastStore()
   delete store[record.fingerprint]
@@ -968,6 +1099,7 @@ function expectedPendingOutpoints(coin=stateCoin){
   return expected
 }
 function persistConfirmedOutpointWatch(snapshot,coin=stateCoin){
+  assertWalletContext("confirmed-outpoint-save")
   var store=readConfirmedOutpointWatchStore()
   var record={
     version:1,
@@ -1011,6 +1143,7 @@ function updateWalletSpendLockPresentation(){
   return locked
 }
 function persistWalletSpendLock(coin,outpoints){
+  assertWalletContext("wallet-spend-lock")
   if (isWalletSpendLocked()){return false}
   var record={version:1,walletId:historyWalletId(),reason:"unexpected-spend",coin:coin,detectedAt:Date.now(),outpointCount:outpoints.length}
   localStorage.setItem(walletSpendLockStorageKey,JSON.stringify(record))
@@ -1021,6 +1154,7 @@ function persistWalletSpendLock(coin,outpoints){
   return record
 }
 async function resynchronizeLockedWallet(lock){
+  assertWalletContext("wallet-unlock-synchronization")
   var coin=lock.coin
   if (!operationalWalletCoins().includes(coin)){throw new Error(T("txtWalletSynchronizationFailed"))}
   var walletId=historyWalletId()
@@ -1030,6 +1164,7 @@ async function resynchronizeLockedWallet(lock){
   var addresses=deriveWalletAddresses(mnemonicString,coin,service.maximumReceiveIndex)
   var snapshot=freezeStateSnapshot(await fetchState(addresses,null,coin))
   var history=await fetchHistory(addresses,coin)
+  assertWalletContext("wallet-unlock-response")
   var currentLock=readWalletSpendLock()
   if ((historyWalletId()!==walletId)||(currentLock==null)||(currentLock.coin!==lock.coin)||(currentLock.detectedAt!==lock.detectedAt)||(history.height<snapshot.height)||((history.height===snapshot.height)&&(history.blockHash!==snapshot.blockHash))){throw new Error(T("txtWalletSynchronizationFailed"))}
 
@@ -1056,6 +1191,7 @@ async function resynchronizeLockedWallet(lock){
   return Object.freeze({coin:coin,snapshot:snapshot,history:history})
 }
 async function unlockWalletSpend(){
+  if (!assertWalletContext("wallet-unlock",false)){return false}
   if (walletUnlocking){return false}
   var lock=readWalletSpendLock()
   if (lock==null){updateWalletSpendLockPresentation();return false}
@@ -1087,6 +1223,7 @@ async function unlockWalletSpend(){
   }
 }
 function requireWalletSpendUnlocked(){
+  if (!assertWalletContext("send",false)){return false}
   if (!isWalletSpendLocked()){return true}
   clearLocalSendPlan(T("txtWalletLockedSend"))
   updateWalletSpendLockPresentation()
@@ -1094,6 +1231,7 @@ function requireWalletSpendUnlocked(){
   return false
 }
 function observeConfirmedOutpoints(snapshot,coin=stateCoin){
+  assertWalletContext("confirmed-outpoint-observation")
   var previous=readConfirmedOutpointWatch(coin)
   var current=persistConfirmedOutpointWatch(snapshot,coin)
   var unexpected=[]
@@ -1185,14 +1323,50 @@ function updateCoinStateStatus(coin=stateCoin){
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-async function waitForValidPin(){
+function configurePinField(pinField){
+  if (pinField==null){return null}
+  pinField.type="password"
+  pinField.autocomplete="off"
+  pinField.setAttribute("autocapitalize","none")
+  pinField.setAttribute("spellcheck","false")
+  return pinField
+}
+function focusPinField(pinField){
+  if (pinField==null){return false}
+  try{pinField.focus({preventScroll:true})}catch(error){pinField.focus()}
+  return true
+}
+function focusPinFieldAfterPresentation(pinField){
+  focusPinField(pinField)
+  setTimeout(function(){
+    if ((pinField!=null)&&document.body.contains(pinField)){focusPinField(pinField)}
+  },100)
+}
+async function waitForValidPin(requestId,allowKill=false){
   let old="old"
-  while(settings.pinDefined()&&(settings.Hash()!==await calculateSHA256Hash($$$('#idp').value+settings.Birth()))) {
-    while (settings.pinDefined()&&($$$('#idp').value==old)) {await delay(100)}
-    old=$$$('#idp').value
+  while(requestId===pinRequestSequence){
+    var pinField=$$$('#id_modalbody #idp')
+    if (pinField==null){return false}
+    if (!settings.pinDefined()){break}
+    if (allowKill&&(pinField.value==="kill")){
+      pinRequestContinuation=function(){
+        configurationReset("kill").catch(function(error){console.error("Unable to remove wallet configuration:",error)})
+      }
+      break
+    }
+    var birth=settings.Birth()
+    var hash=settings.Hash()
+    if ((birth!=null)&&(hash!=null)&&(hash===await calculateSHA256Hash(pinField.value+birth))){break}
+    if (requestId!==pinRequestSequence){return false}
+    while ((requestId===pinRequestSequence)&&settings.pinDefined()&&(pinField.value==old)) {await delay(100)}
+    if (requestId!==pinRequestSequence){return false}
+    old=pinField.value
   }
+  if (requestId!==pinRequestSequence){return false}
+  pinRequestAccepted=true
   bModal.hide()
   $$$("#Modal").style.background="none"
+  return true
 }
 function stopFlash(){
   for (const combo in combos) {$$$('#input'+combo).style.backgroundColor='white'}
@@ -1250,12 +1424,15 @@ function translate(){
 }
 function refreshCombos(){
   try{
-    rates=JSON.parse(localStorage.getItem("rates")).rates
-    ccRates=JSON.parse(localStorage.getItem("ccRates"))
-  }catch(e){
-    setTimeout("refreshCombos()",1000)
-    return
-  }
+    var storedRates=JSON.parse(localStorage.getItem("rates"))
+    if ((storedRates!=null)&&(typeof storedRates==="object")&&(storedRates.rates!=null)&&(typeof storedRates.rates==="object")){rates=storedRates.rates}
+  }catch(error){}
+  try{
+    var storedCommunityRates=JSON.parse(localStorage.getItem("ccRates"))
+    if ((storedCommunityRates!=null)&&(typeof storedCommunityRates==="object")){ccRates=storedCommunityRates}
+  }catch(error){}
+  rates=applyCommunityCoinRates(rates,ccRates)
+  if (Object.keys(rates).length>0){storeRates()}
   for (const combo in combos) {
     const comboOptions=combos[combo]['selected'].split("|")
     const active=combos[combo]['active']
@@ -1295,7 +1472,7 @@ function calculatorOptionLabels(code){
   else if ((rates!=undefined)&&(rates[code]!=undefined)&&(typeof rates[code].name==="string")){name=rates[code].name}
   var ticker=String(code).toUpperCase()
   if ((name==="")||(name.toLowerCase()===String(code).toLowerCase())){return {compact:ticker,full:ticker}}
-  return {compact:name,full:name+" · "+ticker}
+  return {compact:name,full:name+" \u00B7 "+ticker}
 }
 function calculatorOptionLabel(code){return calculatorOptionLabels(code).full}
 function expandCurrencySelectLabels(comboBox){
@@ -1393,6 +1570,7 @@ function updateLayout() {
 function handleClick(event) {
   clickedIt=Date.now()
   if (walletResetting||walletRestoring||walletUnlocking){return}
+  if (!assertWalletContext("interaction",false)){return}
   recordStateActivity("click")
 
   var clickedElement = event.target;
@@ -1492,7 +1670,7 @@ function handleClick(event) {
   if (clickedId == "idRequestSpecific") {}
   if (clickedId == "idRequestShort") {}
   if ((clickedId=="owner")||(clickedId=="ownerLabel")||(clickedId=="menuOwner")) {dial("setupOwner",0,1);}
-  if (clickedId=="menuPin") {dial("setupp",0,1);}
+  if (clickedId=="menuPin") {openPinSettings();}
   if (clickedId.substr(0,14)=="menuCurrencies") {rewindObject=clickedId;dial(clickedId,0,1);}
   if (clickedId=="id_setting") {dial("setup",0,0)}
   if (clickedId=="id_question") {dial("helpMain",0,0)}
@@ -1532,26 +1710,48 @@ function handleClick(event) {
   if (clickedId=="searchButton") {
     $$$('#id_modalbody').insertBefore($$$('#panel-calc'),$$$('#idSendInfo'))
   }
-  if (clickedId.substr(0,8)=="idManage") {dial("manage",0,0)}
+  if (clickedId.substr(0,8)=="idManage") {openWalletManagement()}
   if ((clickedId=="balanceButton")||(clickedId=="idPaymentIcon")) {dial("balance",0,0)}
   if (clickedId=="nameClaim") {setLocalWalletName()}
   if (clickedId=="extraInfo") {setTimeout('switchExtraInfo()',1)}
 }
-function getPin(){
+function getPin(onValid=null,allowCancel=false,allowKill=false){
     modalContext="grassroot"
     diaLog=modalContext
+    pinRequestSequence++
+    var requestId=pinRequestSequence
+    pinRequestAccepted=false
+    pinRequestContinuation=typeof onValid==="function"?onValid:null
     $$$("#id_modalbody").innerHTML=$$$(`#${"en_"+diaLog}`).innerHTML
+    var pinField=configurePinField($$$("#id_modalbody #idp"))
     $$$("#Modal").style.backgroundColor="#AEBB8F"
     title=$$$(`#${"en_"+diaLog}`).getAttribute('title');
     if (title!=undefined) {$$$("#ModalTitle").innerHTML=title}
     updateLayout()
     if (!$$$("#buttonHelp").classList.contains("invisible")) {$$$("#buttonHelp").classList.toggle("invisible")}
     if (!$$$("#save").classList.contains("invisible")) {$$$("#save").classList.toggle("invisible")}
-    if (!$$$("#exit0").classList.contains("invisible")) {$$$("#exit0").classList.toggle("invisible")}
-    if (!$$$("#exit1").classList.contains("invisible")) {$$$("#exit1").classList.toggle("invisible")}
+    ;["#exit0","#exit1"].forEach(function(selector){
+      var control=$$$(selector)
+      if (control==null){return}
+      if (allowCancel){control.classList.remove("invisible")}else{control.classList.add("invisible")}
+    })
     bModal.show()
-    setTimeout(() => {$$$('#idp').focus()}, 100);
-    waitForValidPin()
+    focusPinFieldAfterPresentation(pinField)
+    waitForValidPin(requestId,allowKill)
+}
+function openWalletManagement(){
+  if (!assertWalletContext("wallet-management-access",false)){return false}
+  var openManagement=function(){dial("manage",0,0)}
+  if (settings.Pin()===false){openManagement();return true}
+  getPin(openManagement,true)
+  return true
+}
+function openPinSettings(){
+  if (!assertWalletContext("pin-settings-access",false)){return false}
+  var openSettings=function(){dial("setupp",0,1)}
+  if (settings.Pin()===false){openSettings();return true}
+  getPin(openSettings,true,true)
+  return true
 }
 function setOwner(){
   if (localStorage.getItem("owner_inHeader")=="1") {
@@ -1609,27 +1809,83 @@ async function fetchdata(url, timeoutDuration, type) {
       throw new Error(`Fetch or JSON parsing error: ${error.message}`);
   }
 }
+function calculatorRate(currency){
+  currency=String(currency||"").toLowerCase()
+  if (currency==="btc"){
+    if ((rates!=null)&&(rates.btc!=null)&&(typeof rates.btc==="object")){
+      var storedBitcoinRate=Number(rates.btc.value)
+      if (Number.isFinite(storedBitcoinRate)&&(storedBitcoinRate>0)){return storedBitcoinRate}
+    }
+    return 100000000
+  }
+  if ((rates==null)||(rates[currency]==null)||(typeof rates[currency]!=="object")){return null}
+  var value=Number(rates[currency].value)
+  return (Number.isFinite(value)&&(value>0))?value:null
+}
+function calculatorConvert(amount,sourceCurrency,targetCurrency){
+  var sourceRate=calculatorRate(sourceCurrency)
+  var targetRate=calculatorRate(targetCurrency)
+  var numericAmount=Number(amount)
+  if ((sourceRate==null)||(targetRate==null)||(!Number.isFinite(numericAmount))){return null}
+  var converted=numericAmount/sourceRate*targetRate
+  return Number.isFinite(converted)?converted:null
+}
+function markCalculatorUnavailable(input){
+  if (input!=null){flash(input,'red')}
+}
 function flash(e,color) {
-  // if (!readyState) {return}
-  currency=$$$("#combo"+e.id.substr(5)).value // Lets worry about decimals here
-  e.value=Number(e.value).toFixed(8)
-  if (rates[currency]!=undefined) {
-    if (rates[currency].type=="fiat"){e.value=Number(e.value).toFixed(2)}
+  if (e==null){return}
+  if ((typeof e.id==="string")&&(e.id.substr(0,5)==="input")){
+    var combo=$$$("#combo"+e.id.substr(5))
+    var currency=combo==null?"":combo.value
+    var numericValue=Number(e.value)
+    if (Number.isFinite(numericValue)){
+      e.value=numericValue.toFixed(8)
+      if ((rates!=null)&&(rates[currency]!=undefined)&&(rates[currency].type==="fiat")){e.value=numericValue.toFixed(2)}
+      e.value=trim0(e.value)
+    }
   }
-  e.value=trim0(e.value)
-  
   clearTimeout(flashTo)
-  if (!color==undefined) {
-    e.style.backgroundColor=color
-  } else {
-    e.style.backgroundColor='yellow'
+  e.style.backgroundColor=(color!==undefined)?color:'yellow'
+  flashTo=setTimeout("stopFlash()",1000)
+}
+function applyCommunityCoinRates(targetRates,prices){
+  if ((targetRates==null)||(typeof targetRates!=="object")||Array.isArray(targetRates)){targetRates={}}
+  if ((prices==null)||(typeof prices!=="object")){prices={}}
+  var bitcoinRate=100000000
+  if ((targetRates.btc!=null)&&(Number.isFinite(Number(targetRates.btc.value)))&&(Number(targetRates.btc.value)>0)){bitcoinRate=Number(targetRates.btc.value)}
+  if ((targetRates.btc==null)||(typeof targetRates.btc!=="object")){targetRates.btc={}}
+  targetRates.btc.name=targetRates.btc.name||"Bitcoin"
+  targetRates.btc.value=bitcoinRate
+  targetRates.btc.type=targetRates.btc.type||"crypto"
+  for (const currency in supportedCoins) {
+    var price=Number(prices[currency])
+    if (Number.isFinite(price)&&(price>0)) {
+      if ((targetRates[currency]==null)||(typeof targetRates[currency]!=="object")){targetRates[currency]={}}
+      targetRates[currency].name=supportedCoins[currency].name
+      targetRates[currency].value=bitcoinRate/price
+      targetRates[currency].type=targetRates[currency].type||"crypto"
+    }
   }
-  flashTo=setTimeout("stopFlash()",1000)  
+  return targetRates
+}
+function storeRates(){
+  var storedRates={}
+  try{
+    storedRates=JSON.parse(localStorage.getItem("rates"))
+    if ((storedRates==null)||(typeof storedRates!=="object")||Array.isArray(storedRates)){storedRates={}}
+  }catch(error){storedRates={}}
+  storedRates.rates=rates
+  localStorage.setItem("rates",JSON.stringify(storedRates))
 }
 function helloWorld(){
+  if (walletSessionDisabled){return}
   try{
-    rates=JSON.parse(localStorage.getItem("rates")).rates
-    ccRates=JSON.parse(localStorage.getItem("ccRates"))
+    var storedRates=JSON.parse(localStorage.getItem("rates"))
+    if ((storedRates!=null)&&(storedRates.rates!=null)){rates=storedRates.rates}
+    var storedCommunityRates=JSON.parse(localStorage.getItem("ccRates"))
+    if ((storedCommunityRates!=null)&&(typeof storedCommunityRates==="object")){ccRates=storedCommunityRates}
+    rates=applyCommunityCoinRates(rates,ccRates)
   }catch(e){}
   
   for (const key in connections) {
@@ -1638,79 +1894,39 @@ function helloWorld(){
       let duration=connection.repeat
       let activity=(Date.now()-clickedIt)/1000;
 
-      if (connection.lastTime!=null) {duration=(Date.now()-connection.lastTime)/1000} // How long ago
-      if (!connection.busy && (duration>=connection.repeat) && (activity<duration)) { // Has there been useractivity
+      if (connection.lastTime!=null) {duration=(Date.now()-connection.lastTime)/1000}
+      if (!connection.busy && (duration>=connection.repeat) && (activity<duration)) {
         connections[key].busy=true
         var test
-        if ((key=="cc-prices")&&(ids.length==5)){test="&"+ids[1]}else{test=""}
-        if (key=="mailbox"){test="&"+ids[1]}
-        if (key=="networks"){test="&all"}
+        if ((key==="cc-prices")&&(ids.length==5)){test="&"+ids[1]}else{test=""}
         console.log(">>>"+connection.url+test)
         fetchdata(connection.url+test, internetRequestTimeout)
         .then(data => {
           connections[key].busy=false
-          if (key!="global-asset-prices") {
+          if (key!=="global-asset-prices") {
             data.lastTime=Date.now()
             connections[key].lastTime=Date.now()
           }
-          if (key=="global-asset-prices") {
-            if ((data["rates"]!=undefined)&&(ccRates!=undefined)) { 
+          if (key==="global-asset-prices") {
+            if (data["rates"]!=undefined) {
               console_log(`${stamp()} global-asset-prices`)
-              for (const currency in supportedCoins) { // cc-prices are leading
-                if ((data.rates[currency]==undefined)&&(ccRates[currency]==undefined)) {
-                  data.rates[currency]={'name':supportedCoins[currency].name,'value':100000000}
-                } else if (data.rates[currency]==undefined) {
-                  data.rates[currency]={'name':supportedCoins[currency].name,'value':1/ccRates[currency]}
-                }
-              }
+              data.rates=applyCommunityCoinRates(data.rates,ccRates)
               localStorage.setItem("rates",JSON.stringify(data))
-              rates=JSON.parse(localStorage.getItem("rates")).rates
+              rates=data.rates
               refreshCurrencyAvailability()
-              setTimeout(() => {reCalc()},100);
+              setTimeout(() => {reCalc();renderBalanceOverview()},100);
               data.lastTime=Date.now()
               connections[key].lastTime=Date.now()
             }
-          } else if (key=="cc-prices") {
+          } else if (key==="cc-prices") {
             if (data["efl"]!=undefined) {
               console_log(`${stamp()} cc-prices`)
-              localStorage.setItem("ccRates",JSON.stringify(data))
-              if (rates==undefined) {rates["efl"]={'name':'efl','value':100000000}}
-              ccRates=JSON.parse(localStorage.getItem("ccRates"))
-              var change=false 
-              for (const currency in supportedCoins) {
-                if ((rates[currency]==undefined)&&(ccRates[currency]==undefined)) {
-                  rates[currency]={'name':supportedCoins[currency].name,'value':100000000}
-                  change=true
-                } else if (rates[currency]==undefined) {
-                  rates[currency]={'name':supportedCoins[currency].name,'value':1/ccRates[currency]}
-                  change=true
-                }
-              } 
-              if (change) {localStorage.setItem("rates",JSON.stringify(rates))}
-              setTimeout(() => {reCalc()},100)
-            }
-          } else if (key=="networks") {
-            console_log(`${stamp()} cc-networks`)
-            for (const currency in supportedCoins) {
-              if (data[currency]!=undefined){
-                supportedCoins[currency].connections=data[currency]
-              }
-            }
-          } else if (key=="mailbox") {
-            if (data["mail"]!=undefined) {
-              if (data["mail"]=="1") { // TODO first fetch this mail before alerting the user
-                if ($$$('#idMail').classList.contains('bi-mailbox2')) {
-                  $$$('#idMail').classList.remove('bi-mailbox2');
-                  $$$('#idMail').classList.add('bi-mailbox2-flag'); 
-                  $$$('#idMail').classList.add('red'); 
-                }
-              } else {
-                if ($$$('#idMail').classList.contains('bi-mailbox2-flag')) {
-                  $$$('#idMail').classList.remove('bi-mailbox2-flag');
-                  $$$('#idMail').classList.add('bi-mailbox2');
-                  $$$('#idMail').classList.remove('red');
-                }                
-              }
+              ccRates=data
+              localStorage.setItem("ccRates",JSON.stringify(ccRates))
+              rates=applyCommunityCoinRates(rates,ccRates)
+              storeRates()
+              refreshCurrencyAvailability()
+              setTimeout(() => {reCalc();renderBalanceOverview()},100)
             }
           }
         })
@@ -1746,7 +1962,7 @@ function syncBalanceToCalculator(coin=stateCoin,force=false){
     supportedCombo.value=coin
     combos["Supported"]['active']=coin
     localStorage.setItem("combos",JSON.stringify(combos))
-    $$$("#idPaymentIcon").src="img/"+supportedCoins[coin].coin+".png"
+    $$$('#idPaymentIcon').src="img/"+supportedCoins[coin].coin+".png"
   }
   supportedInput.value=coin===stateCoin?getDisplayedBalance(coin):String(supportedCoins[coin].balance||"0")
   try{reCalc(supportedInput,true)}catch(error){}
@@ -1762,121 +1978,89 @@ function clearAutomaticCalculatorBalance(){
   calculatorShowsBalance=false
   return true
 }
+function updateCalculatorTarget(amount,sourceCurrency,targetRole,showUnavailable){
+  var targetInput=$$$("#input"+targetRole)
+  var targetCombo=$$$("#combo"+targetRole)
+  if ((targetInput==null)||(targetCombo==null)){return false}
+  var converted=calculatorConvert(amount,sourceCurrency,targetCombo.value)
+  if (converted==null){
+    if (showUnavailable){markCalculatorUnavailable(targetInput)}
+    return false
+  }
+  targetInput.value=converted
+  flash(targetInput)
+  return true
+}
 function reCalc(e,changedInput=true) {
-  var id
-  if ((ccRates==undefined)) {return}  //||!readyState
-  if (e==undefined) {id=""} else {id=e.id}
-  if (changedInput&&((id==="inputReference")||(id==="inputFiat")||(id==="inputSupported"))){calculatorShowsBalance=false}
-  var balance=0;cValue=0
-  if (id=="") {//No combo/selection change
-    try{ // you cannot affort to crash here before the wallet is loaded
-      if (supportedCoins[comboBalance.value]==undefined){//recalc Balance
-        for (const currency in supportedCoins) {
-          cValue=rates[currency].value
-          if (supportedCoins[currency].balance>0) {balance+=supportedCoins[currency].balance/cValue}
-        }
-        $$$('#inputBalance').value=balance*rates[$$$('#comboBalance').value].value
+  var id=e==undefined?"":(typeof e==="string"?e:e.id)
+  var roles={inputReference:"Reference",inputFiat:"Fiat",inputSupported:"Supported"}
+  if (changedInput&&(roles[id]!=undefined)){calculatorShowsBalance=false}
+  var completed=true
+
+  if (id==="") {
+    if (supportedCoins[comboBalance.value]==undefined){
+      var balance=0
+      var balanceComplete=true
+      for (const currency in supportedCoins) {
+        var coinBalance=Number(supportedCoins[currency].balance)
+        if (!(coinBalance>0)){continue}
+        var rate=calculatorRate(currency)
+        if (rate==null){balanceComplete=false;continue}
+        balance+=coinBalance/rate
+      }
+      var balanceRate=calculatorRate($$$('#comboBalance').value)
+      if (balanceComplete&&(balanceRate!=null)){
+        $$$('#inputBalance').value=balance*balanceRate
         flash($$$('#inputBalance'))
       }
-      currency=$$$('#comboSupported').value;
-      cValue=rates[currency].value
-      balance=$$$('#inputSupported').value/cValue
-      currency=$$$('#comboFiat').value
-      cValue=rates[currency].value
-      $$$('#inputFiat').value=balance*cValue
-      flash($$$('#inputFiat'))
-      currency=$$$('#comboReference').value
-      cValue=rates[currency].value
-      $$$('#inputReference').value=balance*cValue
-      flash($$$('#inputReference'))
-    } catch(e) {
-      flash($$$('#comboReference'),'red')
-      flash($$$('#inputFiat'),'red')
-      flash($$$('#inputSupported'),'red')
     }
-  }
-  if (id=="inputReference") {
-    if (changedInput) {
-      currency=$$$('#comboReference').value
-      cValue=rates[currency].value
-      balance=$$$('#inputReference').value/cValue
-      currency=$$$('#comboFiat').value
-      cValue=rates[currency].value
-      $$$('#inputFiat').value=balance*cValue
-      flash($$$('#inputFiat'))
-      currency=$$$('#comboSupported').value
-      cValue=rates[currency].value
-      $$$('#inputSupported').value=balance*cValue
-      flash($$$('#inputSupported'))
+    var supportedCombo=$$$('#comboSupported')
+    var supportedInput=$$$('#inputSupported')
+    if ((supportedCombo!=null)&&(supportedInput!=null)){
+      var referenceComplete=updateCalculatorTarget(supportedInput.value,supportedCombo.value,"Reference",false)
+      var fiatComplete=updateCalculatorTarget(supportedInput.value,supportedCombo.value,"Fiat",false)
+      completed=referenceComplete&&fiatComplete
+    }
+  } else if (roles[id]!=undefined) {
+    var role=roles[id]
+    var sourceInput=$$$("#"+id)
+    var sourceCombo=$$$("#combo"+role)
+    if ((sourceInput==null)||(sourceCombo==null)){completed=false}
+    else if (changedInput){
+      var sourceRate=calculatorRate(sourceCombo.value)
+      if (sourceRate==null){
+        markCalculatorUnavailable(sourceInput)
+        completed=false
+      }else{
+        var targetCompleted=true
+        ;["Reference","Fiat","Supported"].forEach(function(targetRole){
+          if (targetRole===role){return}
+          if (!updateCalculatorTarget(sourceInput.value,sourceCombo.value,targetRole,true)){targetCompleted=false}
+        })
+        completed=targetCompleted
+      }
     } else {
-      currency=combos["Reference"].old.replace(/\|/g,"")
-      cValue=rates[currency].value
-      balance=$$$('#inputReference').value/cValue
-      currency=$$$('#comboReference').value
-      cValue=rates[currency].value
-      $$$('#inputReference').value=balance*cValue
-      flash($$$('#inputReference'))
+      var oldCurrency=String(combos[role].old||"").replace(/\|/g,"")
+      var convertedValue=calculatorConvert(sourceInput.value,oldCurrency,sourceCombo.value)
+      if (convertedValue==null){
+        markCalculatorUnavailable(sourceInput)
+        completed=false
+      }else{
+        sourceInput.value=convertedValue
+        flash(sourceInput)
+      }
     }
   }
-  if (id=="inputFiat") {
-    if (changedInput) {
-      currency=$$$('#comboFiat').value
-      cValue=rates[currency].value
-      balance=$$$('#inputFiat').value/cValue
-      currency=$$$('#comboReference').value
-      cValue=rates[currency].value
-      $$$('#inputReference').value=balance*cValue
-      flash($$$('#inputReference'))
-      currency=$$$('#comboSupported').value
-      cValue=rates[currency].value
-      $$$('#inputSupported').value=balance*cValue
-      flash($$$('#inputSupported'))
-    } else {
-      currency=combos["Fiat"].old.replace(/\|/g,"")
-      cValue=rates[currency].value
-      balance=$$$('#inputFiat').value/cValue
-      currency=$$$('#comboFiat').value
-      cValue=rates[currency].value
-      $$$('#inputFiat').value=balance*cValue
-      flash($$$('#inputFiat'))      
-    }
-  }
-  if (id=="inputSupported") {
-    if (changedInput) {
-      currency=$$$('#comboSupported').value
-      cValue=rates[currency].value
-      balance=$$$('#inputSupported').value/cValue
-      currency=$$$('#comboReference').value
-      cValue=rates[currency].value
-      $$$('#inputReference').value=balance*cValue
-      flash($$$('#inputReference'))
-      currency=$$$('#comboFiat').value
-      cValue=rates[currency].value
-      $$$('#inputFiat').value=balance*cValue
-      flash($$$('#inputFiat'))
-    } else {
-      currency=combos["Supported"].old.replace(/\|/g,"")
-      cValue=rates[currency].value
-      balance=$$$('#inputSupported').value/cValue
-      currency=$$$('#comboSupported').value
-      cValue=rates[currency].value
-      $$$('#inputSupported').value=balance*cValue
-      flash($$$('#inputSupported'))      
-    }
-  }
-  if (id=="inputBalance") {
-    if (changedInput) { // while testing
-      
-    }
-  }
+
   var receiveView=$$$('#idReceiveView')
   var sendView=$$$('#idSendView')
-  if ((id==="inputReference")||(id==="inputFiat")||(id==="inputSupported")){
+  if (roles[id]!=undefined){
     if ((receiveView!=null)&&(!receiveView.classList.contains('hidden'))&&(transactionPresentation==="receiveRequest")){scheduleReceiveUpdate()}
     if ((sendView!=null)&&(!sendView.classList.contains('hidden'))&&(transactionPresentation==="sendEdit")){clearLocalSendPlan(T("txtAmountChanged"))}
   }
   if (transactionPresentation==="receiveRequest"){updateReceiveTitle()}
   if (transactionPresentation==="sendEdit"){updateSendTitle()}
+  return completed
 }
 function add(a,b) {
   const maxDecimalPlaces = Math.max(a.includes('.')?a.split('.')[1].length:0,b.includes('.')?b.split('.')[1].length:0);
@@ -2025,6 +2209,62 @@ function T(id,values={}) {
   for (const key in values){text=text.split("{"+key+"}").join(String(values[key]))}
   return text
 }
+const walletHelpTweetFallbackUrl="https://wallet.communitycoins.org/tweets.json"
+const walletHelpTweetKeys=Object.freeze(["feedback","getCoins","spendAccept","community","walletProblem"])
+var walletHelpTweets={}
+function validHelpTweetUrl(value){
+  if (typeof value!=="string"){return null}
+  try{
+    var url=new URL(value)
+    var host=url.hostname.toLowerCase()
+    if (url.protocol!=="https:"){return null}
+    if (!["x.com","www.x.com","twitter.com","www.twitter.com"].includes(host)){return null}
+    return url.toString()
+  }catch(error){return null}
+}
+function normalizedHelpTweetConfig(data){
+  var source=(data!=null)&&(typeof data==="object")&&data.help!=null&&typeof data.help==="object"?data.help:data
+  var normalized={}
+  if ((source==null)||(typeof source!=="object")){return normalized}
+  walletHelpTweetKeys.forEach(function(key){
+    var url=validHelpTweetUrl(source[key])
+    if (url!=null){normalized[key]=url}
+  })
+  if ((normalized.walletProblem==null)&&(normalized.feedback!=null)){normalized.walletProblem=normalized.feedback}
+  return normalized
+}
+async function fetchHelpTweetConfig(url,timeoutMs=3000){
+  var controller=new AbortController()
+  var timeout=setTimeout(function(){controller.abort()},timeoutMs)
+  try{
+    var response=await fetch(url,{cache:"no-store",signal:controller.signal})
+    if (!response.ok){return null}
+    return normalizedHelpTweetConfig(await response.json())
+  }catch(error){return null}
+  finally{clearTimeout(timeout)}
+}
+function helpTweetConfigComplete(config){
+  return walletHelpTweetKeys.every(function(key){return validHelpTweetUrl(config&&config[key])!=null})
+}
+function applyHelpTweetConfig(config){
+  walletHelpTweets=normalizedHelpTweetConfig(config)
+  walletHelpTweetKeys.forEach(function(key){
+    var url=walletHelpTweets[key]
+    document.querySelectorAll('[data-help-tweet="'+key+'"]').forEach(function(link){
+      if (url!=null){link.href=url;link.removeAttribute("aria-disabled")}else{link.removeAttribute("href");link.setAttribute("aria-disabled","true")}
+    })
+    document.querySelectorAll('[data-help-tweet-row="'+key+'"]').forEach(function(row){row.hidden=(url==null)})
+  })
+  return walletHelpTweets
+}
+async function loadHelpTweetConfig(){
+  var local=await fetchHelpTweetConfig("./tweets.json",1500)
+  if (helpTweetConfigComplete(local)){applyHelpTweetConfig(local);return walletHelpTweets}
+  var fallback=await fetchHelpTweetConfig(walletHelpTweetFallbackUrl,3000)
+  var merged=Object.assign({},fallback||{},local||{})
+  applyHelpTweetConfig(merged)
+  return walletHelpTweets
+}
 function selectedPromotionCoin(){
   var selected=$$$('#comboSupported')
   if ((selected!=null)&&(supportedCoins[selected.value]!=undefined)){return selected.value}
@@ -2039,7 +2279,12 @@ function promotionCountry(coin){
   return names[coin]||T("txtPromotionHomeCommunity")
 }
 function promotionWalletUrl(coin){
-  return "https://communitycoins.org/wallet?language="+encodeURIComponent(language)+"&coin="+encodeURIComponent(coin)
+  var walletUrl=new URL(window.location.href)
+  walletUrl.search=""
+  walletUrl.hash=""
+  walletUrl.searchParams.set("language",language)
+  walletUrl.searchParams.set("coin",coin)
+  return walletUrl.toString()
 }
 function renderPromotion(){
   var coin=selectedPromotionCoin()
@@ -2048,8 +2293,11 @@ function renderPromotion(){
   $$$('#idPromotionTitle').textContent=T("txtPromotionTitle",{coin:coinData.name})
   $$$('#idPromotionIntro').textContent=T("txtPromotionIntro",{coin:coinData.name,country:promotionCountry(coin)})
   $$$('#idQrcode').innerHTML=""
+  var walletUrl=promotionWalletUrl(coin)
   var qrcode=new QRCode("idQrcode")
-  qrcode.makeCode(promotionWalletUrl(coin))
+  qrcode.makeCode(walletUrl)
+  var destination=$$$('#idPromotionDestination')
+  if (destination!=null){destination.textContent=new URL(walletUrl).origin+new URL(walletUrl).pathname}
   return true
 }
 function applyTranslatedAttributes(){
@@ -2094,6 +2342,7 @@ function setExtraInfo(){
   if (localStorage.getItem("extraInfo")=="true") {$$$('#extraInfo').checked=true} else {$$$('#extraInfo').checked=false}
 }
 async function buildWalletView(){
+  if (!assertWalletContext("wallet-management",false)){return []}
   await updateDb()
   if (walletResetting){return []}
   return buildWalletView_()
@@ -2134,22 +2383,25 @@ async function buildWalletView_() {
       const cursor=event.target.result
       if (cursor) {
         const sequence=wallets.length+1
+        var integrity=inspectStoredWalletRecord(cursor.value)
         var ownerField=""
         const short=cursor.value.id.substr(0,6)
-        if (cursor.value.owner==null){
+        if (!integrity.valid){
+          ownerField=`[invalid ${short}...]`
+        } else if (cursor.value.owner==null){
           ownerField=`[${short}...]`
         } else {
           ownerField=cursor.value.owner.trim().toLowerCase()
           if (ownerField=="") {ownerField=`[${short}...]`}
         }
-        wallets.push({id:cursor.value.id,name:ownerField})
+        wallets.push({id:cursor.value.id,name:ownerField,valid:integrity.valid})
         if (cursor.value.id==ids[2]){collection+=`<tr style='cursor:pointer' class="table-active" onclick="activateWallet(this,'${cursor.value.id}')"><td>${txtActive}</td>`
         } else {
           collection+=`<tr style='cursor:pointer' onclick="activateWallet(this,'${cursor.value.id}')"><td></td>`
         }
         if (ownerField[0]=="[") {ownerField=`<span class=small>${ownerField}</span>`}
         collection+=`<td>${ownerField}</td>`
-        collection+=`<td>${cursor.value.note}</td><td>${sequence}</td></tr>`
+        collection+=`<td>${integrity.valid?cursor.value.note:"INVALID"}</td><td>${sequence}</td></tr>`
         cursor.continue()
       }
     }
@@ -2159,6 +2411,7 @@ async function buildWalletView_() {
   })
 }
 function showWalletSeed(){
+  if (!assertWalletContext("wallet-seed",false)){return false}
   const seed=localStorage.getItem("bip39")
   const seedField=$$$('#walletSeedContent')
   if ((seed==null)||(seedField==null)||(!mnemonic.check(seed))){return false}
@@ -2179,8 +2432,7 @@ async function dial(diaLog,help,save) {
     if (wallets.length>=walletMaximum) {alert($$$('#txtAlertNewWallet').innerHTML); return}
     if (confirm($$$('#txtNewWallet').innerHTML)) {
         resetWalletState("wallet-create")
-        localStorage.clear()
-        localStorage.setItem("language",language)
+        resetActiveWalletStorage({language:language})
         location.reload()
         return
     }
@@ -2349,9 +2601,12 @@ async function dial(diaLog,help,save) {
       return
     }
   }
+  var pinField=configurePinField($$$('#id_modalbody #idp'))
   bModal.show()
+  if (pinField!=null){focusPinFieldAfterPresentation(pinField)}
 }
 function submit() {  // Modal OK-button
+  if (!assertWalletContext("wallet-settings",false)){return false}
   if (modalContext=="setupOwner"){
     var name=$$$("#idOwner").value.trim().replace(/\s+/g," ")
     if ((name.length>32)||(!/^[0-9A-Za-z@. ]*$/.test(name))){
@@ -2397,6 +2652,7 @@ function saveBackupAs(){
   downloadTextFile("communitycoins_wallet_"+owner, $$$('#backupContent').value)
 }
 function generateBackup() {
+  assertWalletContext("wallet-backup")
   var result=false
   var owner=localStorage.getItem("owner")
   if (owner==null) {owner="..."}
@@ -2410,7 +2666,7 @@ function generateBackup() {
   //const backupBinary=String.fromCharCode.apply(null, backupUint8);
   //const backupBase64=btoa(backupBinary);
   $$$("#labelBackupContent").innerHTML=backupNote+"<br>"
-  $$$("#backupContent").textContent=Array.from(window.pako.deflate(JSON.stringify(localStorage))).map(byte => ('0' + byte.toString(16)).slice(-2)).join('');
+  $$$("#backupContent").textContent=Array.from(window.pako.deflate(JSON.stringify(exportWalletStorage()))).map(byte => ('0' + byte.toString(16)).slice(-2)).join('');
 }
 function parseWalletBackup(backupText){
   const text=backupText.trim()
@@ -2443,6 +2699,7 @@ function parseWalletBackup(backupText){
   return {wallet:wallet,ids:selectedIds}
 }
 function saveWalletBackup(wallet,selectedIds){
+  assertWalletContext("backup-record-save")
   const walletStore=JSON.stringify(wallet)
   return queueDatabase(async function(){
     const db=await openDatabase()
@@ -2455,6 +2712,7 @@ function saveWalletBackup(wallet,selectedIds){
         transaction.onerror=(event)=>{reject(event.target.error||transaction.error)}
         transaction.onabort=()=>{reject(transaction.error||new Error("Wallet restore aborted"))}
         request.onsuccess=(event)=>{
+          if (!tabWalletContextMatches()){try{transaction.abort()}catch(error){};return}
           const cursor=event.target.result
           const data={
             id:selectedIds[2],
@@ -2475,6 +2733,7 @@ function saveWalletBackup(wallet,selectedIds){
   })
 }
 async function restoreWalletBackup(backupText){
+  if (!assertWalletContext("backup-restore",false)){return false}
   if (walletRestoring){return false}
   walletRestoring=true
   try{
@@ -2491,11 +2750,10 @@ async function restoreWalletBackup(backupText){
     }
     await saveWalletBackup(backup.wallet,backup.ids)
     await clearWalletHistory(String(backup.ids[2]))
+    assertWalletContext("backup-restore-commit")
     resetWalletState("backup-restore")
-    localStorage.clear()
     if (backup.wallet.log!=undefined) {LOG=backup.wallet.log;delete backup.wallet.log} else {LOG=""}
-    for (const key in backup.wallet){localStorage.setItem(key,backup.wallet[key])}
-    ids=backup.ids
+    replaceActiveWalletStorage(backup.wallet,backup.ids)
     console_log("Wallet backup restored successfully")
     location.reload()
     return true
@@ -2610,9 +2868,11 @@ function findWalletByMnemonic(mnemonicString,passphrase=""){
       const cursor=event.target.result
       if (cursor){
         try{
-          const storedWallet=JSON.parse(cursor.value.store)
-          if ((typeof storedWallet.bip39==="string")&&(normalizeWalletMnemonic(storedWallet.bip39)===mnemonicString)&&(normalizeMnemonicPassphrase(storedWallet[mnemonicPassphraseStorageKey]||"")===normalizedPassphrase)){
-            foundId=cursor.value.id
+          const inspected=inspectStoredWalletRecord(cursor.value)
+          if (inspected.valid){
+            var storedMnemonic=normalizeWalletMnemonic(inspected.wallet.bip39)
+            var storedPassphrase=normalizeMnemonicPassphrase(inspected.wallet[mnemonicPassphraseStorageKey]||"")
+            if ((storedMnemonic===mnemonicString)&&(storedPassphrase===normalizedPassphrase)){foundId=cursor.value.id}
           }
         }catch(error){}
         cursor.continue()
@@ -2625,7 +2885,7 @@ function balanceRecord(coin){
     return {known:true,balanceSats:walletState.snapshot.balanceSats,balance:formatSats(walletState.snapshot.balanceSats,coin)}
   }
   var cached=readConfirmedBalanceCache(coin)
-  if (cached==null){return {known:false,balanceSats:null,balance:"—"}}
+  if (cached==null){return {known:false,balanceSats:null,balance:"\u2014"}}
   return {known:true,balanceSats:cached.balanceSats,balance:formatSats(cached.balanceSats,coin)}
 }
 function referenceDecimals(currency){
@@ -2643,7 +2903,7 @@ function convertBalance(balance,coin,reference){
   return Number.isFinite(converted)?converted:null
 }
 function formatReferenceBalance(value,currency){
-  if (!Number.isFinite(value)){return "—"}
+  if (!Number.isFinite(value)){return "\u2014"}
   return trim0(value.toFixed(referenceDecimals(currency)))
 }
 function activateReferenceCurrency(currency){
@@ -2665,6 +2925,16 @@ function appendBalanceCell(row,tag,className,text){
   if (text!=null){cell.textContent=text}
   row.appendChild(cell)
   return cell
+}
+function compareBalanceRecords(left,right){
+  var leftKnown=Number.isFinite(left.converted)
+  var rightKnown=Number.isFinite(right.converted)
+  if (leftKnown!==rightKnown){return leftKnown?-1:1}
+  if (leftKnown){
+    var difference=right.converted-left.converted
+    if (difference!==0){return difference}
+  }
+  return left.coin.localeCompare(right.coin)
 }
 function renderBalanceOverview(){
   var container=$$$("#id_balance")
@@ -2706,9 +2976,15 @@ function renderBalanceOverview(){
   var total=0
   var complete=true
   var activeCoin=$$$("#comboSupported").value
-  operationalWalletCoins().forEach(function(coin){
+  var records=operationalWalletCoins().map(function(coin){
     var record=balanceRecord(coin)
-    var converted=record.known?convertBalance(record.balance,coin,reference):null
+    record.coin=coin
+    record.converted=record.known?convertBalance(record.balance,coin,reference):null
+    return record
+  })
+  records.sort(compareBalanceRecords)
+  records.forEach(function(record){
+    var coin=record.coin
     var row=document.createElement("tr")
     if (coin===activeCoin){row.className="table-active"}
     var coinCell=appendBalanceCell(row,"td","balance-coin-column",null)
@@ -2722,22 +2998,15 @@ function renderBalanceOverview(){
     icon.alt=""
     icon.width=38
     icon.height=38
-    var identity=document.createElement("span")
-    identity.className="balance-coin-identity"
-    var name=document.createElement("div")
-    name.className="balance-coin-name"
-    name.textContent=supportedCoins[coin].name
-    var ticker=document.createElement("div")
+    var ticker=document.createElement("span")
     ticker.className="balance-coin-ticker"
     ticker.textContent=coin.toUpperCase()
-    identity.appendChild(name)
-    identity.appendChild(ticker)
     coinButton.appendChild(icon)
-    coinButton.appendChild(identity)
+    coinButton.appendChild(ticker)
     coinCell.appendChild(coinButton)
     appendBalanceCell(row,"td","right-align balance-native",record.balance)
-    appendBalanceCell(row,"td","right-align balance-reference",formatReferenceBalance(converted,reference))
-    if ((!record.known)||(converted==null)){complete=false}else{total+=converted}
+    appendBalanceCell(row,"td","right-align balance-reference",formatReferenceBalance(record.converted,reference))
+    if ((!record.known)||(record.converted==null)){complete=false}else{total+=record.converted}
     body.appendChild(row)
   })
   table.appendChild(body)
@@ -2746,7 +3015,7 @@ function renderBalanceOverview(){
   var totalRow=document.createElement("tr")
   var totalLabel=appendBalanceCell(totalRow,"th","right-align",T("txtTotal"))
   totalLabel.colSpan=2
-  appendBalanceCell(totalRow,"th","right-align balance-total",complete?formatReferenceBalance(total,reference):"—")
+  appendBalanceCell(totalRow,"th","right-align balance-total",complete?formatReferenceBalance(total,reference):"\u2014")
   footer.appendChild(totalRow)
   table.appendChild(footer)
   container.appendChild(table)
@@ -2758,6 +3027,7 @@ function renderBalanceOverview(){
   return true
 }
 async function restoreWalletMnemonic(mnemonicText,passphrase="",repeatedPassphrase=""){
+  if (!assertWalletContext("mnemonic-restore",false)){return false}
   if (walletRestoring){return false}
   walletRestoring=true
   try{
@@ -2783,12 +3053,12 @@ async function restoreWalletMnemonic(mnemonicText,passphrase="",repeatedPassphra
       walletRestoring=false
       return false
     }
+    assertWalletContext("mnemonic-restore-commit")
     resetWalletState("mnemonic-restore")
-    localStorage.clear()
-    localStorage.setItem("language",language)
-    localStorage.setItem("bip39",mnemonicString)
-    if (recovery.passphrase!==""){localStorage.setItem(mnemonicPassphraseStorageKey,recovery.passphrase)}
-    localStorage.setItem(receiveAddressKey(stateCoin),JSON.stringify(createReceiveAddressState(getStateService(stateCoin).maximumReceiveIndex,stateCoin)))
+    var restoredValues={language:language,bip39:mnemonicString}
+    if (recovery.passphrase!==""){restoredValues[mnemonicPassphraseStorageKey]=recovery.passphrase}
+    restoredValues[receiveAddressKey(stateCoin)]=JSON.stringify(createReceiveAddressState(getStateService(stateCoin).maximumReceiveIndex,stateCoin))
+    resetActiveWalletStorage(restoredValues)
     sessionStorage.setItem("walletMnemonicRestore","1")
     location.reload()
     return true
@@ -2903,6 +3173,7 @@ function scan(){
 }
 // DB
 function deleteWallet(nr){
+  if (!assertWalletContext("wallet-delete",false)){return false}
   const request = indexedDB.open(dbName);
   request.onsuccess = (event) => {
     const db=event.target.result;
@@ -2911,15 +3182,17 @@ function deleteWallet(nr){
     const myIndex=objectStore.index("id");
     const getKeyRequest = myIndex.getKey(nr);
     getKeyRequest.onsuccess = () => {
+      if (!assertWalletContext("wallet-delete-write",false)){try{transaction.abort()}catch(error){};return}
       const request=objectStore.delete(getKeyRequest.result)
     };
     transaction.oncomplete = async function () {
+      if (!assertWalletContext("wallet-delete-complete",false)){db.close();return}
       console_log('Record with key', nr, 'has been deleted.');
       db.close()
       try{await clearWalletHistory(String(nr))}catch(error){console.error("Unable to delete wallet history:",error)}
       if ((wallets.length==1)||(nr==ids[2])){
         resetWalletState("wallet-delete")
-        localStorage.clear()
+        resetActiveWalletStorage({language:language})
         location.reload()
       }else{
         buildWalletView_()
@@ -2932,6 +3205,7 @@ function deleteWallet(nr){
   }
 }
 async function loadWallet(id){
+  if (!assertWalletContext("wallet-switch",false)){return false}
   if (walletSwitching){return false}
   walletSwitching=true
   try{
@@ -2956,14 +3230,14 @@ async function loadWallet(id){
       }
     })
     if (data==undefined){throw new Error("Wallet not found")}
-    const wallet=JSON.parse(data.store)
-    const selectedIds=JSON.parse(wallet.ids)
-    if ((!Array.isArray(selectedIds))||(selectedIds[2]!=id)){throw new Error("Invalid wallet data")}
+    assertWalletContext("wallet-switch-commit")
+    const inspected=inspectStoredWalletRecord(data)
+    if (!inspected.valid){throw new Error("Invalid wallet data: "+inspected.error)}
+    const wallet=inspected.wallet
+    const selectedIds=inspected.ids
     resetWalletState("wallet-switch")
-    localStorage.clear()
     if (wallet.log!=undefined) {LOG=wallet.log;delete wallet.log} else {LOG=""}
-    for (const key in wallet){localStorage.setItem(key,wallet[key])}
-    ids=selectedIds
+    replaceActiveWalletStorage(wallet,selectedIds)
     location.reload()
     return true
   }catch(error){
@@ -2996,6 +3270,7 @@ function deleteWalletDatabase(){
   }))
 }
 async function configurationReset(pin) {
+  if (!assertWalletContext("wallet-configuration",false)){return false}
   if (pin=='kill') {
     walletResetting=true
     readyState=false
@@ -3004,7 +3279,7 @@ async function configurationReset(pin) {
     try{
       await deleteWalletDatabase()
       console_log("ROOTY removed")
-      localStorage.clear()
+      resetActiveWalletStorage({})
       location.reload()
       return true
     }catch(error){
@@ -3014,6 +3289,7 @@ async function configurationReset(pin) {
   }
   const now = stamp();
   const hash = await calculateSHA256Hash(pin+now)
+  if (!assertWalletContext("wallet-configuration-write",false)){return false}
   const db=await openDatabase()
   return new Promise((resolve,reject)=>{
     const transaction = db.transaction("SETTINGS", 'readwrite');
@@ -3033,6 +3309,7 @@ async function configurationReset(pin) {
       reject(transaction.error||new Error("Configuration update aborted"))
     }
     getRequest.onsuccess = function(event) {
+      if (!tabWalletContextMatches()){try{transaction.abort()}catch(error){};return}
       const record = event.target.result;
       if (record) {
         record.birth=now
@@ -3197,6 +3474,9 @@ function mergeHistoryRecord(existing,record){
 }
 function upsertHistoryRecords(records,peek=false){
   if (!Array.isArray(records)||records.length===0){return Promise.resolve(0)}
+  if (!assertWalletContext("history-upsert",false)){return Promise.reject(new Error("Wallet session disabled by another window"))}
+  var walletId=tabWalletContext.id
+  if (records.some(function(record){return record.WALLET!==walletId})){return Promise.reject(new Error("History wallet identity mismatch"))}
   if (records.some(function(record){return record.TYPE==="EVENT"&&record.STATUS!=="CONFIRMED"})){return Promise.reject(new Error("Only confirmed history can be persisted"))}
   return queueDatabase(async function(){
     const db=await openDatabase()
@@ -3212,6 +3492,7 @@ function upsertHistoryRecords(records,peek=false){
         records.forEach(function(record){
           const request=index.get(record.HASH)
           request.onsuccess=()=>{
+            if (!tabWalletContextMatches()){try{transaction.abort()}catch(error){};return}
             if (request.result==null){inserted++}
             store.put(mergeHistoryRecord(request.result,record))
           }
@@ -3226,6 +3507,7 @@ function upsertHistoryRecords(records,peek=false){
 }
 function clearWalletHistory(walletId){
   if ((typeof walletId!=="string")||(walletId==="")){return Promise.resolve(0)}
+  if (!assertWalletContext("history-clear",false)){return Promise.reject(new Error("Wallet session disabled by another window"))}
   return queueDatabase(async function(){
     const db=await openDatabase()
     try{
@@ -3237,6 +3519,7 @@ function clearWalletHistory(walletId){
         transaction.onerror=(event)=>{reject(event.target.error||transaction.error)}
         transaction.onabort=()=>{reject(transaction.error||new Error("History reset aborted"))}
         request.onsuccess=(event)=>{
+          if (!tabWalletContextMatches()){try{transaction.abort()}catch(error){};return}
           const cursor=event.target.result
           if (cursor){removed++;cursor.delete();cursor.continue()}
         }
@@ -3245,6 +3528,7 @@ function clearWalletHistory(walletId){
   })
 }
 function replaceWalletCoinHistory(history,coin=stateCoin){
+  assertWalletContext("history-replace")
   var walletId=historyWalletId()
   if ((walletId==="")||(history==null)||(!Array.isArray(history.events))){return Promise.reject(new Error("Invalid replacement history"))}
   var records=history.events.map(function(event){return makeHistoryRecord(walletId,coin,event.direction,event.txid,event.vout,event.valueSats,event.address,event.blockTime,"CONFIRMED",event.blockHeight,event.blockTime)})
@@ -3260,6 +3544,7 @@ function replaceWalletCoinHistory(history,coin=stateCoin){
         transaction.onerror=(event)=>{reject(event.target.error||transaction.error)}
         transaction.onabort=()=>{reject(transaction.error||new Error("History replacement aborted"))}
         request.onsuccess=(event)=>{
+          if (!tabWalletContextMatches()){try{transaction.abort()}catch(error){};return}
           const cursor=event.target.result
           if (cursor){
             if (cursor.value.COIN===coin){cursor.delete()}
@@ -3277,6 +3562,7 @@ function replaceWalletCoinHistory(history,coin=stateCoin){
 }
 function removeUnconfirmedHistoryRecords(walletId,coin){
   if ((typeof walletId!=="string")||(walletId==="")){return Promise.resolve(0)}
+  if (!assertWalletContext("history-cleanup",false)){return Promise.reject(new Error("Wallet session disabled by another window"))}
   return queueDatabase(async function(){
     const db=await openDatabase()
     try{
@@ -3288,6 +3574,7 @@ function removeUnconfirmedHistoryRecords(walletId,coin){
         transaction.onerror=(event)=>{reject(event.target.error||transaction.error)}
         transaction.onabort=()=>{reject(transaction.error||new Error("History cleanup aborted"))}
         request.onsuccess=(event)=>{
+          if (!tabWalletContextMatches()){try{transaction.abort()}catch(error){};return}
           const cursor=event.target.result
           if (cursor){
             var record=cursor.value
@@ -3336,7 +3623,7 @@ async function fetchHistory(addresses,coin=stateCoin){
   var timeout=setTimeout(function(){controller.abort()},service.historyTimeout)
   var started=performance.now()
   try{
-    var response=await fetch(service.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"history",addresses:addresses}),cache:"no-store",signal:controller.signal})
+    var response=await fetch(service.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"history",coin:service.responseCoin,addresses:addresses}),cache:"no-store",signal:controller.signal})
     var data=await response.json()
     data.clientMs=Math.round(performance.now()-started)
     data.httpStatus=response.status
@@ -3378,6 +3665,7 @@ function recordSentHistory(record,status="OFFERED"){
   })
 }
 function recordSnapshotHistory(snapshot,coin=stateCoin){
+  assertWalletContext("history-record")
   var walletId=historyWalletId()
   if ((walletId==="")||(snapshot==null)||(!Array.isArray(snapshot.utxos))){return Promise.resolve(false)}
   return readHistoryRecords(walletId,coin,false).then(function(existing){
@@ -3388,6 +3676,7 @@ function recordSnapshotHistory(snapshot,coin=stateCoin){
   })
 }
 function synchronizeHistory(snapshot,addresses,coin=stateCoin){
+  if (!assertWalletContext("history-synchronize",false)){return Promise.resolve(false)}
   var walletId=historyWalletId()
   ensureConfirmedHistoryOnly(walletId,coin).then(function(){return ensureHistoryBootstrap(addresses,coin)}).then(function(ready){
     if (ready){return recordSnapshotHistory(snapshot,coin)}
@@ -3449,7 +3738,7 @@ function renderHistory(){
       time.textContent=historyDisplayTime(record)
       var amount=document.createElement("span")
       amount.className="history-amount "+record.DIRECTION.toLowerCase()
-      amount.textContent=(record.DIRECTION==="IN"?"+":"−")+formatSats(record.AMOUNT_SATS,coin)
+      amount.textContent=(record.DIRECTION==="IN"?"+":"\u2212")+formatSats(record.AMOUNT_SATS,coin)
       var address=document.createElement("span")
       address.className="history-address"
       address.textContent=record.DIRECTION==="OUT"?record.ADDRESS:""
@@ -3489,10 +3778,15 @@ function endHistoryDrag(event){
   if (!moved){toggleHistoryDrawer()}
 }
 function saveActiveWallet(db){
+  assertWalletContext("wallet-database-save")
+  var wallet=exportWalletStorage()
+  var inspected=inspectWalletStorage(wallet,tabWalletContext.id)
+  if ((!inspected.valid)||(inspected.id!==tabWalletContext.id)||(ids[2]!==tabWalletContext.id)){return Promise.reject(new Error("Wallet database identity mismatch"))}
+  var walletStore=JSON.stringify(wallet)
   return new Promise((resolve,reject)=>{
     const transaction=db.transaction("wallets","readwrite")
     const objectStore=transaction.objectStore("wallets")
-    const request=objectStore.index("id").openCursor(IDBKeyRange.only(ids[2]))
+    const request=objectStore.index("id").openCursor(IDBKeyRange.only(tabWalletContext.id))
     var action="saved"
     transaction.oncomplete=()=>{
       console_log(`${stamp()} Wallet data ${action} successfully`)
@@ -3501,19 +3795,24 @@ function saveActiveWallet(db){
     transaction.onerror=(event)=>{reject(event.target.error||transaction.error)}
     transaction.onabort=()=>{reject(transaction.error||new Error("Wallet update aborted"))}
     request.onsuccess=(event)=>{
+      if (!tabWalletContextMatches()){
+        try{transaction.abort()}catch(error){}
+        return
+      }
       const cursor=event.target.result
       if (cursor){
         action="updated"
         const data=cursor.value
-        data.owner=localStorage.getItem("owner")
-        data.store=JSON.stringify(localStorage)
+        if (data.id!==tabWalletContext.id){try{transaction.abort()}catch(error){};return}
+        data.owner=wallet.owner||""
+        data.store=walletStore
         data.note=stamp()
         cursor.update(data)
       }else{
         objectStore.add({
-          id:ids[2],
-          owner:localStorage.getItem("owner"),
-          store:JSON.stringify(localStorage),
+          id:tabWalletContext.id,
+          owner:wallet.owner||"",
+          store:walletStore,
           note:stamp()
         })
       }
@@ -3522,6 +3821,7 @@ function saveActiveWallet(db){
 }
 function updateDb(){
   if (walletResetting){return Promise.reject(new Error("Wallet reset in progress"))}
+  if (!assertWalletContext("wallet-database-update",false)){return Promise.reject(new Error("Wallet session disabled by another window"))}
   return queueDatabase(async function(){
     console_log(stamp()+" update")
     const db=await openDatabase()
@@ -3535,6 +3835,7 @@ function updateDb(){
 async function activateWallet(e,id){
   const found=wallets.find(obj=>obj.id==id)
   if (found){
+    if (found.valid===false){alert("Stored wallet record is inconsistent and was not opened");return false}
     if (found.id==ids[2]) {
       alert("This wallet is already active")
     } else {
@@ -4054,8 +4355,8 @@ function parseStateResponse(data,expectedAddresses,previousSnapshot=null,coin=st
     }
   }
 }
-function buildStateRequest(addresses,previousSnapshot){
-  var body={operation:"state",addresses:addresses}
+function buildStateRequest(addresses,previousSnapshot,coin=stateCoin){
+  var body={operation:"state",coin:getStateService(coin).responseCoin,addresses:addresses}
   if ((previousSnapshot==null)||(!isSafeNonNegativeInteger(previousSnapshot.height))||(!Array.isArray(previousSnapshot.addresses))||(previousSnapshot.addresses.length!==addresses.length)){return body}
   var markers=[]
   for (var index=0;index<addresses.length;index++){
@@ -4077,7 +4378,7 @@ async function fetchState(addresses,previousSnapshot=null,coin=stateCoin){
     var response=await fetch(service.url,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(buildStateRequest(addresses,previousSnapshot)),
+      body:JSON.stringify(buildStateRequest(addresses,previousSnapshot,coin)),
       cache:"no-store",
       signal:controller.signal
     })
@@ -4091,6 +4392,7 @@ async function fetchState(addresses,previousSnapshot=null,coin=stateCoin){
   }
 }
 async function refreshState(reason="manual",coin=stateCoin){
+  if (!assertWalletContext("state-refresh",false)){return false}
   var service=getStateService(coin)
   if (walletUnlocking){return false}
   if (stateRequest!=null){return stateRequest}
@@ -4109,6 +4411,7 @@ async function refreshState(reason="manual",coin=stateCoin){
       loadPendingBroadcast(mnemonicString,coin)
       walletAddresses=deriveWalletAddresses(mnemonicString,coin)
       var snapshot=await fetchState(walletAddresses,previousSnapshot,coin)
+      assertWalletContext("state-response")
       if (requestGeneration!==stateGeneration){throw new Error("Active wallet state was invalidated")}
       if (localStorage.getItem("bip39")!==mnemonicString){throw new Error("Active wallet changed during state request")}
       snapshot=freezeStateSnapshot(snapshot)
@@ -4389,12 +4692,16 @@ function resetSendForm(){
   clearLocalSendPlan()
   $$$('#idSendTo').value=""
   $$$('#idSendTo').readOnly=false
-  ;['#inputReference','#inputFiat','#inputSupported'].forEach(function(selector){
-    var input=$$$(selector)
-    if (input!=null){input.value=""}
-  })
+  var preserveAmount=(!calculatorShowsBalance)&&(!calculatorAmountIsEmpty())
+  if (!preserveAmount){
+    ;['#inputReference','#inputFiat','#inputSupported'].forEach(function(selector){
+      var input=$$$(selector)
+      if (input!=null){input.value=""}
+    })
+  }
   calculatorShowsBalance=false
   setSendStatus(T("txtEnterScanDestination"),"pending")
+  return preserveAmount
 }
 function updateSendTitle(){
   var title=T("txtSendCoin",{coin:supportedCoins[stateCoin].name})
@@ -4430,7 +4737,7 @@ function clearLocalSendPlan(reason=""){
 }
 function renderLocalSendPlan(plan){
   clearLocalSignedTransaction()
-  $$$('#idPlanCheckpoint').textContent=plan.checkpoint.height+" · "+plan.checkpoint.blockHash
+  $$$('#idPlanCheckpoint').textContent=plan.checkpoint.height+" \u00B7 "+plan.checkpoint.blockHash
   $$$('#idPlanDestination').textContent=plan.destination
   $$$('#idPlanAmount').textContent=formatSats(plan.amountSats,plan.coin)+" "+plan.coin.toUpperCase()
   $$$('#idPlanFee').textContent=formatSats(plan.feeSats,plan.coin)+" "+plan.coin.toUpperCase()
@@ -4563,6 +4870,7 @@ function renderSignedTransaction(result){
   setSendStatus(T("txtTransactionBuiltVerified"),"ready")
 }
 function prepareSignedTransaction(){
+  if (!assertWalletContext("transaction-sign",false)){return false}
   if (!requireWalletSpendUnlocked()){return false}
   if (transactionBuilding){return false}
   transactionBuilding=true
@@ -4660,7 +4968,7 @@ async function requestBroadcastService(payload,coin=stateCoin){
     var response=await fetch(service.url,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload),
+      body:JSON.stringify(Object.assign({},payload,{coin:service.responseCoin})),
       cache:"no-store",
       signal:controller.signal
     })
@@ -4885,7 +5193,7 @@ async function requestZeroConfirmation(receipt=currentPaymentReceipt,coin=stateC
   try{
     var observers=Array.from({length:configured},function(_,observer){return observer})
     await Promise.allSettled(observers.map(async function(observer){
-      var response=await fetch(service.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"zeroConfirmation",observer:observer,txid:receipt.txid,address:receipt.address,amountSats:receipt.amountSats}),cache:"no-store",signal:controller.signal})
+      var response=await fetch(service.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"zeroConfirmation",coin:service.responseCoin,observer:observer,txid:receipt.txid,address:receipt.address,amountSats:receipt.amountSats}),cache:"no-store",signal:controller.signal})
       var data=await response.json()
       var partial=parseZeroConfirmationObserverResponse(data,receipt,observer,configured,coin)
       if ((!isZeroConfirmationRequestCurrent(requestId,receipt))||terminal){return false}
@@ -4943,6 +5251,7 @@ function createPendingBroadcast(result,status="SUBMITTING",coin=stateCoin){
   }
 }
 function showBroadcastConfirmation(){
+  if (!assertWalletContext("broadcast-confirmation",false)){return false}
   if (!requireWalletSpendUnlocked()){return false}
   try{
     if (localSignedTransaction==null){throw new Error(T("txtNoSignedTransaction"))}
@@ -4958,6 +5267,7 @@ function showBroadcastConfirmation(){
   }
 }
 async function broadcastSignedTransaction(){
+  if (!assertWalletContext("broadcast",false)){return false}
   if (!requireWalletSpendUnlocked()){return false}
   if (broadcastRequesting){return false}
   if (localSignedTransaction==null){setSendStatus(T("txtNoSignedTransaction"),"error");return false}
@@ -4981,6 +5291,7 @@ async function broadcastSignedTransaction(){
   renderBroadcastTracking(record)
   try{
     var data=await requestBroadcastService({operation:"broadcast",txid:result.txid,rawTransaction:result.rawHex},stateCoin)
+    assertWalletContext("broadcast-response")
     record.broadcastTiming=compactTiming(data)
     var response=parseBroadcastResponse(data,result.txid,"broadcast",result.coin)
     if (response.technical){throw new Error(response.error||"BROADCAST_UNAVAILABLE")}
@@ -5021,6 +5332,7 @@ async function broadcastSignedTransaction(){
     }
     return response
   }catch(error){
+    if ((error!=null)&&(error.code==="WALLET_CONTEXT_CHANGED")){return false}
     record.status="UNKNOWN"
     persistPendingBroadcast(record)
     renderHistory().catch(function(historyError){console.error("Unable to render uncertain history:",historyError)})
@@ -5048,11 +5360,13 @@ function scheduleBroadcastStatus(delay){
   },interval)
 }
 async function refreshBroadcastStatus(reason="manual"){
+  if (!assertWalletContext("broadcast-status",false)){return false}
   if (broadcastStatusRequesting||pendingBroadcast==null){return false}
   var record=pendingBroadcast
   broadcastStatusRequesting=true
   try{
     var data=await requestBroadcastService({operation:"transactionStatus",txid:record.txid},record.coin)
+    assertWalletContext("broadcast-status-response")
     record.statusTiming=compactTiming(data)
     var response=parseBroadcastResponse(data,record.txid,"status",record.coin)
     if (response.technical){throw new Error(response.error||"TRANSACTION_STATUS_UNAVAILABLE")}
@@ -5079,6 +5393,7 @@ async function refreshBroadcastStatus(reason="manual"){
     }
     return response
   }catch(error){
+    if ((error!=null)&&(error.code==="WALLET_CONTEXT_CHANGED")){return false}
     persistPendingBroadcast(record)
     return false
   }finally{
@@ -5103,6 +5418,7 @@ function reconcilePendingBroadcast(snapshot){
   scheduleBroadcastStatus()
 }
 async function prepareLocalSendPlan(){
+  if (!assertWalletContext("send-plan",false)){return false}
   if (!requireWalletSpendUnlocked()){return false}
   if (sendPlanning){return false}
   sendPlanning=true
@@ -5110,6 +5426,7 @@ async function prepareLocalSendPlan(){
   setSendStatus(T("txtRefreshingInputs"),"loading")
   try{
     var snapshot=await requireFreshState()
+    assertWalletContext("send-plan-response")
     if ($$$('#idSendView').classList.contains('hidden')){return false}
     var plan=createLocalSendPlan(snapshot,$$$('#idSendTo').value,$$$('#inputSupported').value,stateCoin)
     localSendPlan=plan
@@ -5324,6 +5641,7 @@ function getReceiveRequest(mnemonicString,amount,coin=stateCoin,index=null,passp
   return {coin:coin,index:index,address:address,amount:receiveAmount,uri:buildPaymentUri(address,receiveAmount,coin)}
 }
 function beginReceiveRequest(coin=stateCoin){
+  assertWalletContext("receive-request")
   var mnemonicString=localStorage.getItem("bip39")
   var selection=selectReceiveAddressIndex(walletState.coin===coin?walletState.snapshot:null,coin)
   if (selection.horizonExpanded){resetWalletState("receive-horizon-expanded",coin)}
@@ -5353,6 +5671,7 @@ function updateReceiveTitle(){
   return title
 }
 function updateReceiveView(){
+  if (!assertWalletContext("receive-update",false)){return false}
   if (transactionPresentation!=="receiveRequest"){return false}
   var transactionPanel=$$$('#panel-transaction')
   var receiveView=$$$('#idReceiveView')
@@ -5383,7 +5702,7 @@ function renderReceiveQrOverlay(){
   qrcode.makeCode(currentReceiveRequest.uri)
   address.textContent=currentReceiveRequest.address
   var ticker=getStateService(currentReceiveRequest.coin).responseCoin
-  amount.textContent=currentReceiveRequest.amount===""?"— "+ticker:currentReceiveRequest.amount+" "+ticker
+  amount.textContent=currentReceiveRequest.amount===""?"\u2014 "+ticker:currentReceiveRequest.amount+" "+ticker
   return true
 }
 function showReceiveQrOverlay(){
@@ -5426,6 +5745,7 @@ function scheduleReceiveUpdate(){
   receiveUpdateTimer=setTimeout(updateReceiveView,1000)
 }
 function showReceiveView(){
+  if (!assertWalletContext("receive",false)){return false}
   selectStateCoin(stateCoin)
   hideReceiveQrOverlay()
   hidePaymentReceiptQrOverlay()
@@ -5445,6 +5765,7 @@ function showReceiveView(){
   updateReceiveView()
 }
 function showSendView(){
+  if (!assertWalletContext("send-view",false)){return false}
   if (!requireWalletSpendUnlocked()){return false}
   selectStateCoin(stateCoin)
   hideReceiveQrOverlay()
@@ -6148,27 +6469,38 @@ function console_log(txt){
 //=============
 async function cc(){
   markWalletBoot("startup-begin")
+  window.addEventListener("storage",handleWalletStorageEvent)
+  claimWalletSession()
   await translationReady
   markWalletBoot("translation-ready")
+  loadHelpTweetConfig().catch(function(error){console.error("Unable to load Help tweet configuration:",error)})
   applyExpertMode()
   updateWalletSpendLockPresentation()
   verifyOperationalDerivations()
   markWalletBoot("derivation-canary-ready")
+  await recoverInterruptedWalletReplacement()
+  if (localStorage.getItem("ids")!=null){ids=JSON.parse(localStorage.getItem("ids"))}
   setEntropy()
+  initializeWalletContext()
+  if (!assertWalletContext("startup-context",false)){return false}
   await waitForValidPin()
+  if (!assertWalletContext("startup-after-pin",false)){return false}
   markWalletBoot("pin-ready")
   $$$("#idMemo").value=""
   updateLayout()
   refreshCombos()
 
   $$$('#comboBalance').addEventListener("change", function() {
+    if (!assertWalletContext("calculator-balance",false)){return}
     testInputBalance()
     if ($$$('#comboBalance').value===stateCoin){wakeState("balance-selection",true)}else{scheduleStateRefresh()}
   })
   $$$('#comboReference').addEventListener("change", function() {
+    if (!assertWalletContext("calculator-reference",false)){return}
     activateReferenceCurrency($$$('#comboReference').value)
   });
   $$$('#comboFiat').addEventListener("change", function() {
+    if (!assertWalletContext("calculator-fiat",false)){return}
     var selectedOption = $$$('#comboFiat').options[$$$('#comboFiat').selectedIndex];
     combos["Fiat"]['active']=$$$('#comboFiat').value
     localStorage.setItem("combos",JSON.stringify(combos))
@@ -6176,6 +6508,7 @@ async function cc(){
     combos["Fiat"]['old']=combos["Fiat"]['active']
   });
   $$$('#comboSupported').addEventListener("change", function() {
+    if (!assertWalletContext("calculator-wallet-coin",false)){return}
     var coin=$$$('#comboSupported').value
     combos["Supported"]['active']=coin
     $$$("#idPaymentIcon").src="img/"+supportedCoins[coin].coin+".png"
@@ -6186,8 +6519,9 @@ async function cc(){
     combos["Supported"]['old']=combos["Supported"]['active']
     renderHistory()
   });
-  $$$('#idSendTo').addEventListener("input",function(){clearLocalSendPlan(T("txtDestinationChanged"))})
+  $$$('#idSendTo').addEventListener("input",function(){if (!assertWalletContext("send-destination",false)){return};clearLocalSendPlan(T("txtDestinationChanged"))})
   $$$('#inputSupported').addEventListener("input",function(){
+    if (!assertWalletContext("calculator-amount",false)){return}
     var normalizedAmount=normalizePaymentAmount(this.value)
     if (this.value!==normalizedAmount){this.value=normalizedAmount}
     calculatorShowsBalance=false
@@ -6241,10 +6575,13 @@ async function cc(){
 
   if (localStorage.getItem("rsa2")==null) {
     generateKeyPair().then(keypair =>{
+      if (!assertWalletContext("rsa-key-generation",false)){return}
       crypto.subtle.exportKey('jwk', keyPair.publicKey)
       .then((publicKey) => {
+        if (!assertWalletContext("rsa-public-key-save",false)){return}
         crypto.subtle.exportKey('jwk', keyPair.privateKey)
         .then((rsa2) => {
+          if (!assertWalletContext("rsa-private-key-save",false)){return}
           localStorage.setItem("rsa",JSON.stringify(publicKey))
           localStorage.setItem("rsa2",JSON.stringify(rsa2))
         })
