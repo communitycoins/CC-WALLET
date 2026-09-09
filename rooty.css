@@ -1,7 +1,12 @@
-/* [MULTI-COIN-004]
-Canonical wallet presentation with a subtle recoverable Send lock.
-Base: - Derived from MULTI-COIN-003
+/* [MULTI-COIN-010]
+Presentation styling with a wallet-first calculator and transparent promotion destination.
+Base: - Derived from MULTI-COIN-009
 Changes:
+- [MULTI-COIN-010] Give the first Wallet calculator row restrained light-green emphasis
+- Show the same-origin promotion destination without increasing QR prominence
+- [MULTI-COIN-007] Enlarge the calculator gears inside their existing fixed-height controls
+- Identify Balance rows by icon and ticker only and reserve more width for numeric columns
+- Prevent native and reference balances from wrapping on narrow screens
 - [MULTI-COIN-004] Place the wallet lock status beside Balance without disturbing mobile geometry
 - Present the Settings unlock action and final Help warning in sober red, normal-weight text
 - Keep locked Send discoverable so selecting it can explain how to unlock
@@ -153,23 +158,24 @@ Changes:
   .balance-status.stale,.balance-status.unavailable {color:#9b581e;}
   .balance-overview-table {width:100%;margin:0;table-layout:fixed;font-variant-numeric:tabular-nums;}
   .balance-overview-table th,.balance-overview-table td {vertical-align:middle;overflow-wrap:anywhere;}
-  .balance-overview-table .balance-coin-column {width:42%;text-align:left;}
+  .balance-overview-table .balance-coin-column {width:27%;text-align:left;}
   .balance-coin-action {display:flex;align-items:center;gap:8px;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;}
-  .balance-coin-action:hover .balance-coin-name,.balance-coin-action:focus-visible .balance-coin-name {text-decoration:underline;}
+  .balance-coin-action:hover .balance-coin-ticker,.balance-coin-action:focus-visible .balance-coin-ticker {text-decoration:underline;}
   .balance-coin-icon {width:38px;height:38px;object-fit:contain;flex:0 0 auto;}
-  .balance-coin-identity {display:flex;flex-direction:column;min-width:0;line-height:1.1;}
-  .balance-coin-name {font-weight:700;overflow-wrap:anywhere;}
-  .balance-coin-ticker {margin-top:3px;color:#66706a;font-size:.72rem;font-weight:700;letter-spacing:.08em;}
-  .balance-native,.balance-reference,.balance-total {font-weight:700;}
+  .balance-coin-ticker {color:#66706a;font-size:.78rem;font-weight:700;letter-spacing:.06em;}
+  .balance-native,.balance-reference,.balance-total {font-weight:700;white-space:nowrap;overflow-wrap:normal;}
   .balance-reference-select {max-width:100%;min-height:34px;padding:3px 5px;border:1px solid #aebbb2;border-radius:5px;background:#fff;font-weight:700;}
   .balance-overview-note {margin:10px 0 0;color:#67716b;font-size:.78rem;text-align:left;}
   .calculator-heading {display:flex;justify-content:center;align-items:center;margin-bottom:4px;}
   .calculator-heading .label {margin-bottom:0;font-size:1rem;}
   .calculator-rows {display:grid;gap:6px;}
   .calculator-row {display:grid;grid-template-columns:76px minmax(0,1.05fr) minmax(0,1fr);gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dfda;border-radius:7px;background:#fff;text-align:left;}
+  .calculator-row-wallet {border-color:#acd0b8;background:#edf7f0;}
+  .calculator-row-wallet select,.calculator-row-wallet input {border-color:#9fc7ad;background:#f3faf5;}
   .calculator-row-heading {display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;color:#52645a;font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
   .calculator-row-heading label {max-width:100%;overflow:hidden;text-overflow:ellipsis;}
   .calculator-settings {display:flex;align-items:center;justify-content:center;width:32px;height:28px;margin-top:1px;padding:0;border:0;border-radius:6px;background:transparent;color:#286341;cursor:pointer;}
+  .calculator-settings .bi {display:inline-block;font-size:1.05rem;line-height:1;transform:scale(1.18);}
   .calculator-settings:hover,.calculator-settings:focus-visible {background:#e8f3ec;outline:2px solid #7aa98a;}
   .calculator-select {position:relative;min-width:0;}
   .calculator-select::after {content:"";position:absolute;top:50%;right:13px;width:7px;height:7px;border-right:2px solid #456254;border-bottom:2px solid #456254;transform:translateY(-70%) rotate(45deg);pointer-events:none;}
@@ -177,6 +183,7 @@ Changes:
   .calculator-row select {appearance:none;-webkit-appearance:none;cursor:pointer;}
   .calculator-row input {padding-right:10px;background:#fff;font-variant-numeric:tabular-nums;text-align:right;}
   .calculator-row select:focus,.calculator-row input:focus {border-color:#34794d;outline:2px solid #b7dac3;outline-offset:0;}
+  .promote-destination {margin:5px 0 3px;color:#40564a;font-size:.76rem;font-weight:700;overflow-wrap:anywhere;}
   .calculator-help-actions {display:grid;gap:7px;}
   .transaction-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
   .transaction-action {display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:54px;padding:8px;border:0;border-radius:7px;color:#fff;font-weight:800;line-height:1.05;cursor:pointer;}
@@ -321,11 +328,10 @@ Changes:
     #id_balance {padding:6px;overflow:hidden;}
     .balance-overview-table {font-size:.76rem;}
     .balance-overview-table th,.balance-overview-table td {padding:6px 4px;}
-    .balance-overview-table .balance-coin-column {width:39%;}
+    .balance-overview-table .balance-coin-column {width:24%;}
     .balance-coin-action {gap:5px;}
     .balance-coin-icon {width:30px;height:30px;}
-    .balance-coin-name {font-size:.72rem;}
-    .balance-coin-ticker {font-size:.62rem;}
+    .balance-coin-ticker {font-size:.66rem;}
     .balance-reference-select {min-height:30px;padding:2px 3px;font-size:.72rem;}
     .send-destination-row {grid-template-columns:minmax(0,1fr) auto;}
     .send-destination {grid-column:1/-1;}
