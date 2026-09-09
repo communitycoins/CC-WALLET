@@ -17,6 +17,7 @@ foundation on which additional coins can be enabled one at a time.
 
 Wallet presented for beta-testing, just before the ROT-layer will be closed.
 relay/proxy-layer enters canary-modus, meaning it still offers a heardcoded ROT escape route but is being prepared for ROT-registry
+AUR and DEM are integrated. PAK will be next but after the first release.
 
 ## Status — 29 August 2026
 
