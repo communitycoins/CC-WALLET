@@ -1,8 +1,13 @@
 <?php
-/* [CC-WALLET-007]
-Complete ROT registration, operator messaging and passive proxy discovery.
-Base: - Derived from CC-WALLET-006
+/* [CC-WALLET-009]
+Dependency-free per-coin and per-ROT proxy storage.
+Base: - Derived from CC-WALLET-007
 Changes:
+- [CC-WALLET-009] Replace the monolithic ROT registry with one directory per coin and one JSON file per ROT
+- Initialize registry.json, network.log, locks, coin state and IP-failure storage automatically
+- Migrate version-1 state atomically while retaining a timestamped recovery copy
+- Serialize same-coin mutations while allowing independent coins to proceed concurrently
+- Isolate malformed ROT records and reconstruct invalid coin leadership from valid records
 - [CC-WALLET-007] Bound registration capacity with a primary-coin reserve
 - Preserve ROT nicknames and identify registrations only by coin and rotId
 - Sign status acknowledgements and bounded operator-message delivery
@@ -137,7 +142,11 @@ $gateway=[
     'timestampTolerance'=>120,
     'quarantineSeconds'=>3600,
     'dataDirectory'=>$configuredDataDirectory,
-    'registryFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/rot-registry.json',
+    'manifestFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/registry.json',
+    'legacyRegistryFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/rot-registry.json',
+    'admissionLock'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/admission.lock',
+    'ipFailuresFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/ip-failures.json',
+    'coinsDirectory'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/coins',
     'origin'=>$configuredOrigin,
     'publicUrl'=>$configuredPublicUrl,
     'acceptsRegistrations'=>CC_PROXY_ACCEPTS_REGISTRATIONS===true,
@@ -193,13 +202,152 @@ function validateRegistryConfiguration(&$error) {
         $error='REGISTRY_DIRECTORY_UNAVAILABLE';
         return false;
     }
+    if (!createPrivateFile($gateway['networkLog'],$error)) {
+        return false;
+    }
     return true;
+}
+
+function createPrivateDirectory($path,&$error) {
+    if (!is_dir($path) && !@mkdir($path,0700,true) && !is_dir($path)) {
+        $error='REGISTRY_DIRECTORY_UNAVAILABLE';
+        return false;
+    }
+    @chmod($path,0700);
+    if (!is_writable($path)) {
+        $error='REGISTRY_DIRECTORY_UNAVAILABLE';
+        return false;
+    }
+    return true;
+}
+
+function createPrivateFile($path,&$error) {
+    if ($path===false) {
+        $error='REGISTRY_PATH_UNVERIFIED';
+        return false;
+    }
+    if (!is_file($path)) {
+        $handle=@fopen($path,'c');
+        if ($handle===false) {
+            $error='REGISTRY_FILE_UNAVAILABLE';
+            return false;
+        }
+        fclose($handle);
+    }
+    @chmod($path,0600);
+    if (!is_writable($path)) {
+        $error='REGISTRY_FILE_UNAVAILABLE';
+        return false;
+    }
+    return true;
+}
+
+function writeAll($handle,$value) {
+    $length=strlen($value);
+    $written=0;
+    while ($written<$length) {
+        $part=fwrite($handle,substr($value,$written));
+        if ($part===false || $part===0) {return false;}
+        $written+=$part;
+    }
+    return true;
+}
+
+function atomicWriteRaw($path,$raw,&$error) {
+    $directory=dirname($path);
+    if (!createPrivateDirectory($directory,$error)) {return false;}
+    try {
+        $suffix=bin2hex(random_bytes(8));
+    } catch (Exception $exception) {
+        $error='REGISTRY_TEMP_NAME_FAILED';
+        return false;
+    }
+    $temporary=$directory.'/.'.basename($path).'.tmp.'.getmypid().'.'.$suffix;
+    $handle=@fopen($temporary,'x');
+    if ($handle===false) {
+        $error='REGISTRY_TEMP_UNAVAILABLE';
+        return false;
+    }
+    @chmod($temporary,0600);
+    $written=writeAll($handle,$raw) && fflush($handle);
+    fclose($handle);
+    if (!$written || !@rename($temporary,$path)) {
+        @unlink($temporary);
+        $error='REGISTRY_WRITE_FAILED';
+        return false;
+    }
+    @chmod($path,0600);
+    return true;
+}
+
+function atomicWriteJson($path,$value,&$error) {
+    $encoded=json_encode($value,JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
+    if ($encoded===false) {
+        $error='REGISTRY_ENCODE_FAILED';
+        return false;
+    }
+    return atomicWriteRaw($path,$encoded."\n",$error);
+}
+
+function readJsonFile($path,$missingValue,&$error) {
+    if (!is_file($path)) {return $missingValue;}
+    $raw=@file_get_contents($path);
+    if ($raw===false) {
+        $error='REGISTRY_UNAVAILABLE';
+        return false;
+    }
+    $decoded=json_decode($raw,true);
+    if (!is_array($decoded)) {
+        $error='REGISTRY_CORRUPT';
+        return false;
+    }
+    return $decoded;
+}
+
+function openStorageLock($path,$operation,&$error) {
+    $handle=@fopen($path,'c+');
+    if ($handle===false) {
+        $error='REGISTRY_LOCK_UNAVAILABLE';
+        return false;
+    }
+    @chmod($path,0600);
+    if (!flock($handle,$operation)) {
+        fclose($handle);
+        $error='REGISTRY_LOCK_FAILED';
+        return false;
+    }
+    return $handle;
+}
+
+function closeStorageLock($handle) {
+    if (is_resource($handle)) {
+        flock($handle,LOCK_UN);
+        fclose($handle);
+    }
+}
+
+function storageCoinPaths($coin) {
+    global $gateway;
+
+    $directory=$gateway['coinsDirectory'].'/'.$coin;
+    return [
+        'directory'=>$directory,
+        'state'=>$directory.'/state.json',
+        'lock'=>$directory.'/coin.lock',
+        'rots'=>$directory.'/rots'
+    ];
+}
+
+function ensureCoinLayout($coin,&$error) {
+    $paths=storageCoinPaths($coin);
+    if (!createPrivateDirectory($paths['directory'],$error) || !createPrivateDirectory($paths['rots'],$error)) {return false;}
+    return createPrivateFile($paths['lock'],$error);
 }
 
 function newRegistry() {
     return [
         'version'=>1,
-        'updatedAt'=>time(),
+        'updatedAt'=>0,
         'rots'=>[],
         'coins'=>[],
         'legacyHealth'=>[],
@@ -219,91 +367,410 @@ function normalizeRegistry($registry) {
     return $registry;
 }
 
-function readRegistry($callback,&$error) {
+function newCoinState($coin) {
+    return [
+        'version'=>2,
+        'coin'=>$coin,
+        'updatedAt'=>time(),
+        'leadingRotId'=>null,
+        'checkpoints'=>[],
+        'refreshedAt'=>0,
+        'legacyHealth'=>[]
+    ];
+}
+
+function coinStateFromRegistry(array $registry,$coin) {
+    $coinState=isset($registry['coins'][$coin]) && is_array($registry['coins'][$coin])?$registry['coins'][$coin]:[];
+    unset($coinState['version'],$coinState['coin'],$coinState['updatedAt'],$coinState['legacyHealth']);
+    $legacy=[];
+    $prefix=$coin.'|';
+    foreach ($registry['legacyHealth'] as $key=>$value) {
+        if (strpos($key,$prefix)===0 && is_array($value)) {$legacy[$key]=$value;}
+    }
+    return array_merge(newCoinState($coin),$coinState,['legacyHealth'=>$legacy]);
+}
+
+function registryFromCoinState($coin,array $state,array $records) {
+    $coinState=$state;
+    unset($coinState['version'],$coinState['coin'],$coinState['updatedAt'],$coinState['legacyHealth']);
+    return [
+        'version'=>2,
+        'rots'=>$records,
+        'coins'=>[$coin=>$coinState],
+        'legacyHealth'=>isset($state['legacyHealth']) && is_array($state['legacyHealth'])?$state['legacyHealth']:[],
+        'ipFailures'=>[]
+    ];
+}
+
+function manifestValid($manifest) {
+    global $coinConfiguration;
+
+    if (!is_array($manifest) || !isset($manifest['version'],$manifest['knownCoins']) || $manifest['version']!==2 || !is_array($manifest['knownCoins'])) {return false;}
+    $expected=array_keys($coinConfiguration);
+    return array_values($manifest['knownCoins'])===$expected;
+}
+
+function writeFreshStorage(&$error) {
+    global $gateway,$coinConfiguration;
+
+    foreach (array_keys($coinConfiguration) as $coin) {
+        if (!ensureCoinLayout($coin,$error)) {return false;}
+        $paths=storageCoinPaths($coin);
+        $state=newCoinState($coin);
+        $state['updatedAt']=time();
+        if (!atomicWriteJson($paths['state'],$state,$error)) {return false;}
+    }
+    if (!atomicWriteJson($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>[]],$error)) {return false;}
+    $manifest=['version'=>2,'createdAt'=>time(),'knownCoins'=>array_keys($coinConfiguration)];
+    return atomicWriteJson($gateway['manifestFile'],$manifest,$error);
+}
+
+function validateLegacyMigration(array $registry,&$error) {
+    foreach ($registry['rots'] as $key=>$record) {
+        if (!is_array($record) || !isset($record['coin'],$record['rotId']) || canonicalCoin($record['coin'])===false || !validStoredRotRecord($record,$record['coin'],$record['rotId']) || $key!==registryKey($record['coin'],$record['rotId'])) {
+            $error='REGISTRY_MIGRATION_INVALID_ROT';
+            return false;
+        }
+    }
+    return true;
+}
+
+function migrateLegacyStorage($legacyHandle,$legacyRaw,array $registry,&$error) {
+    global $gateway,$coinConfiguration;
+
+    if (!validateLegacyMigration($registry,$error)) {return false;}
+    $expected=[];
+    foreach (array_keys($coinConfiguration) as $coin) {
+        if (!ensureCoinLayout($coin,$error)) {return false;}
+        $paths=storageCoinPaths($coin);
+        $records=[];
+        foreach ($registry['rots'] as $key=>$record) {
+            if ($record['coin']===$coin) {$records[$key]=$record;}
+        }
+        $existing=glob($paths['rots'].'/*.json');
+        if (is_array($existing)) {
+            foreach ($existing as $path) {
+                $rotId=substr(basename($path),0,-5);
+                if (preg_match('/^[0-9a-f]{32}$/',$rotId) && !isset($records[registryKey($coin,$rotId)])) {@unlink($path);}
+            }
+        }
+        foreach ($records as $record) {
+            $path=$paths['rots'].'/'.$record['rotId'].'.json';
+            if (!atomicWriteJson($path,$record,$error)) {return false;}
+            $expected[$coin.'|'.$record['rotId']]=$record;
+        }
+        $state=coinStateFromRegistry($registry,$coin);
+        $state['updatedAt']=isset($registry['updatedAt']) && is_int($registry['updatedAt'])?$registry['updatedAt']:time();
+        if (!atomicWriteJson($paths['state'],$state,$error)) {return false;}
+    }
+    if (!atomicWriteJson($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>$registry['ipFailures']],$error)) {return false;}
+    foreach ($expected as $key=>$record) {
+        $parts=explode('|',$key,2);
+        $paths=storageCoinPaths($parts[0]);
+        $decoded=readJsonFile($paths['rots'].'/'.$parts[1].'.json',null,$error);
+        if (!is_array($decoded) || $decoded!=$record) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
+    }
+    foreach (array_keys($coinConfiguration) as $coin) {
+        $paths=storageCoinPaths($coin);
+        $state=readJsonFile($paths['state'],null,$error);
+        if (!is_array($state) || !isset($state['version'],$state['coin'],$state['legacyHealth']) || $state['version']!==2 || $state['coin']!==$coin || !is_array($state['legacyHealth'])) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
+        $expectedState=coinStateFromRegistry($registry,$coin);
+        unset($state['updatedAt'],$expectedState['updatedAt']);
+        if ($state!=$expectedState) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
+    }
+    $ipFailures=readJsonFile($gateway['ipFailuresFile'],null,$error);
+    if (!is_array($ipFailures) || !isset($ipFailures['version'],$ipFailures['failures']) || $ipFailures['version']!==2 || $ipFailures['failures']!=$registry['ipFailures']) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
+    $stamp=isset($registry['updatedAt']) && is_int($registry['updatedAt'])?$registry['updatedAt']:@filemtime($gateway['legacyRegistryFile']);
+    if (!is_int($stamp) || $stamp<1) {$stamp=time();}
+    $sourceHash=hash('sha256',$legacyRaw);
+    $backup=$gateway['dataDirectory'].'/rot-registry.v1.'.gmdate('YmdHis',$stamp).'.'.substr($sourceHash,0,12).'.json';
+    if (!is_file($backup) && !atomicWriteRaw($backup,$legacyRaw,$error)) {return false;}
+    $manifest=[
+        'version'=>2,
+        'createdAt'=>time(),
+        'knownCoins'=>array_keys($coinConfiguration),
+        'migratedFrom'=>'rot-registry.json',
+        'migrationSourceSha256'=>$sourceHash,
+        'recoveryFile'=>basename($backup)
+    ];
+    return atomicWriteJson($gateway['manifestFile'],$manifest,$error);
+}
+
+function initializeStorage(&$error) {
+    global $gateway,$coinConfiguration;
+    static $initialized=false;
+
+    $error='';
+    if ($initialized) {return true;}
+    if (!validateRegistryConfiguration($error)) {return false;}
+    if (!createPrivateDirectory($gateway['coinsDirectory'],$error) || !createPrivateFile($gateway['admissionLock'],$error)) {return false;}
+    if (is_file($gateway['manifestFile'])) {
+        $manifest=readJsonFile($gateway['manifestFile'],null,$error);
+        if (!manifestValid($manifest)) {$error='REGISTRY_MANIFEST_CORRUPT';return false;}
+        foreach (array_keys($coinConfiguration) as $coin) {if (!ensureCoinLayout($coin,$error)) {return false;}}
+        $initialized=true;
+        return true;
+    }
+    $admission=openStorageLock($gateway['admissionLock'],LOCK_EX,$error);
+    if ($admission===false) {return false;}
+    if (is_file($gateway['manifestFile'])) {
+        $manifest=readJsonFile($gateway['manifestFile'],null,$error);
+        $ok=manifestValid($manifest);
+        closeStorageLock($admission);
+        if (!$ok) {$error='REGISTRY_MANIFEST_CORRUPT';}
+        if ($ok) {$initialized=true;}
+        return $ok;
+    }
+    if (!is_file($gateway['legacyRegistryFile']) || filesize($gateway['legacyRegistryFile'])===0) {
+        $ok=writeFreshStorage($error);
+        closeStorageLock($admission);
+        if ($ok) {$initialized=true;}
+        return $ok;
+    }
+    $legacyHandle=openStorageLock($gateway['legacyRegistryFile'],LOCK_EX,$error);
+    if ($legacyHandle===false) {closeStorageLock($admission);return false;}
+    rewind($legacyHandle);
+    $legacyRaw=stream_get_contents($legacyHandle);
+    $decoded=json_decode($legacyRaw,true);
+    if (!is_array($decoded) || !isset($decoded['version']) || $decoded['version']!==1) {
+        $error='REGISTRY_MIGRATION_SOURCE_CORRUPT';
+        closeStorageLock($legacyHandle);
+        closeStorageLock($admission);
+        return false;
+    }
+    $ok=migrateLegacyStorage($legacyHandle,$legacyRaw,normalizeRegistry($decoded),$error);
+    closeStorageLock($legacyHandle);
+    closeStorageLock($admission);
+    if ($ok) {$initialized=true;}
+    return $ok;
+}
+
+function loadCoinRegistryUnlocked($coin,&$error) {
+    $paths=storageCoinPaths($coin);
+    $state=readJsonFile($paths['state'],newCoinState($coin),$error);
+    if ($state===false || !isset($state['version'],$state['coin']) || $state['version']!==2 || $state['coin']!==$coin) {
+        if ($state!==false) {$error='REGISTRY_COIN_STATE_CORRUPT';}
+        return false;
+    }
+    $records=[];
+    $files=glob($paths['rots'].'/*.json');
+    if (is_array($files)) {
+        foreach ($files as $path) {
+            $rotId=substr(basename($path),0,-5);
+            $recordError='';
+            $record=readJsonFile($path,null,$recordError);
+            if (!preg_match('/^[0-9a-f]{32}$/',$rotId) || !validStoredRotRecord($record,$coin,$rotId)) {
+                writeHealthEvent(['kind'=>'STORAGE_CORRUPT','coin'=>$coin,'rotId'=>preg_match('/^[0-9a-f]{32}$/',$rotId)?$rotId:null,'reason'=>'INVALID_ROT_RECORD']);
+                continue;
+            }
+            $records[registryKey($coin,$rotId)]=$record;
+        }
+    }
+    return registryFromCoinState($coin,$state,$records);
+}
+
+function sameStorageValue($left,$right) {
+    $beforeChange=json_encode($left,JSON_UNESCAPED_SLASHES);
+    $afterChange=json_encode($right,JSON_UNESCAPED_SLASHES);
+    return $beforeChange!==false && $afterChange!==false && hash_equals($beforeChange,$afterChange);
+}
+
+function saveCoinRegistryUnlocked($coin,array $before,array $after,&$error) {
+    $paths=storageCoinPaths($coin);
+    $beforeRecords=isset($before['rots']) && is_array($before['rots'])?$before['rots']:[];
+    $afterRecords=isset($after['rots']) && is_array($after['rots'])?$after['rots']:[];
+    foreach ($afterRecords as $key=>$record) {
+        if (!is_array($record) || !isset($record['rotId']) || !validStoredRotRecord($record,$coin,$record['rotId']) || $key!==registryKey($coin,$record['rotId'])) {$error='REGISTRY_INVALID_ROT_RECORD';return false;}
+        if (!isset($beforeRecords[$key]) || !sameStorageValue($beforeRecords[$key],$record)) {
+            if (!atomicWriteJson($paths['rots'].'/'.$record['rotId'].'.json',$record,$error)) {return false;}
+        }
+    }
+    foreach ($beforeRecords as $key=>$record) {
+        if (!isset($afterRecords[$key]) && is_array($record) && isset($record['rotId']) && safeRotId($record['rotId'])!==false) {
+            $path=$paths['rots'].'/'.$record['rotId'].'.json';
+            if (is_file($path) && !@unlink($path)) {$error='REGISTRY_WRITE_FAILED';return false;}
+        }
+    }
+    $beforeState=coinStateFromRegistry($before,$coin);
+    $afterState=coinStateFromRegistry($after,$coin);
+    if (!is_file($paths['state']) || !sameStorageValue($beforeState,$afterState)) {
+        $afterState['updatedAt']=time();
+        if (!atomicWriteJson($paths['state'],$afterState,$error)) {return false;}
+    }
+    return true;
+}
+
+function routeableLeaderRecord($record,$coin,$now) {
+    if (!is_array($record) || !isset($record['coin'],$record['status'],$record['readyUntil']) || $record['coin']!==$coin || !in_array($record['status'],['LEADING','READY'],true) || (int)$record['readyUntil']<$now) {return false;}
+    return !isset($record['backoffUntil']) || (int)$record['backoffUntil']<=$now;
+}
+
+function reconstructCoinLeader(array &$registry,$coin,$now) {
+    $current=isset($registry['coins'][$coin]['leadingRotId'])?$registry['coins'][$coin]['leadingRotId']:null;
+    $valid=false;
+    foreach ($registry['rots'] as $record) {
+        if (is_array($record) && isset($record['rotId']) && $record['rotId']===$current && routeableLeaderRecord($record,$coin,$now)) {$valid=true;break;}
+    }
+    if ($valid) {return false;}
+    $eligible=[];
+    foreach ($registry['rots'] as $record) {if (routeableLeaderRecord($record,$coin,$now)) {$eligible[]=$record;}}
+    usort($eligible,function($left,$right) {
+        $leftLeading=isset($left['status']) && $left['status']==='LEADING'?0:1;
+        $rightLeading=isset($right['status']) && $right['status']==='LEADING'?0:1;
+        if ($leftLeading!==$rightLeading) {return $leftLeading<$rightLeading?-1:1;}
+        $leftSeen=isset($left['lastSeenAt'])?(int)$left['lastSeenAt']:0;
+        $rightSeen=isset($right['lastSeenAt'])?(int)$right['lastSeenAt']:0;
+        if ($leftSeen!==$rightSeen) {return $leftSeen>$rightSeen?-1:1;}
+        return strcmp($left['rotId'],$right['rotId']);
+    });
+    $replacement=count($eligible)>0?$eligible[0]['rotId']:null;
+    if ($replacement===$current) {return false;}
+    $registry['coins'][$coin]['leadingRotId']=$replacement;
+    return true;
+}
+
+function readCoinRegistry($coin,$callback,&$error) {
+    $error='';
+    if (canonicalCoin($coin)===false || !initializeStorage($error)) {return false;}
+    $paths=storageCoinPaths($coin);
+    $lock=openStorageLock($paths['lock'],LOCK_SH,$error);
+    if ($lock===false) {return false;}
+    $registry=loadCoinRegistryUnlocked($coin,$error);
+    if ($registry===false) {closeStorageLock($lock);return false;}
+    expireRegistryRecords($registry,time(),false);
+    $needsRepair=reconstructCoinLeader($registry,$coin,time());
+    closeStorageLock($lock);
+    if ($needsRepair) {
+        $repairError='';
+        changeCoinRegistry($coin,function(&$stored) use ($coin) {reconstructCoinLeader($stored,$coin,time());return true;},$repairError);
+    }
+    return call_user_func_array($callback,[&$registry]);
+}
+
+function changeCoinRegistry($coin,$callback,&$error) {
+    $error='';
+    if (canonicalCoin($coin)===false || !initializeStorage($error)) {return false;}
+    $paths=storageCoinPaths($coin);
+    $lock=openStorageLock($paths['lock'],LOCK_EX,$error);
+    if ($lock===false) {return false;}
+    $registry=loadCoinRegistryUnlocked($coin,$error);
+    if ($registry===false) {closeStorageLock($lock);return false;}
+    $before=$registry;
+    expireRegistryRecords($registry,time(),true);
+    reconstructCoinLeader($registry,$coin,time());
+    $result=call_user_func_array($callback,[&$registry]);
+    if (!sameStorageValue($before,$registry) && !saveCoinRegistryUnlocked($coin,$before,$registry,$error)) {$result=false;}
+    closeStorageLock($lock);
+    return $result;
+}
+
+function loadIpFailuresUnlocked(&$error) {
+    global $gateway;
+
+    $stored=readJsonFile($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>[]],$error);
+    if ($stored===false || !isset($stored['version'],$stored['failures']) || $stored['version']!==2 || !is_array($stored['failures'])) {
+        if ($stored!==false) {$error='REGISTRY_IP_FAILURES_CORRUPT';}
+        return false;
+    }
+    return $stored['failures'];
+}
+
+function saveIpFailuresUnlocked(array $failures,&$error) {
+    global $gateway;
+    return atomicWriteJson($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>$failures],$error);
+}
+
+function changeIpFailures($callback,&$error) {
     global $gateway;
 
     $error='';
-    if (!validateRegistryConfiguration($error)) {
-        return false;
+    if (!initializeStorage($error)) {return false;}
+    $lock=openStorageLock($gateway['admissionLock'],LOCK_EX,$error);
+    if ($lock===false) {return false;}
+    $failures=loadIpFailuresUnlocked($error);
+    if ($failures===false) {closeStorageLock($lock);return false;}
+    $before=$failures;
+    $now=time();
+    foreach ($failures as $ip=>$failure) {
+        if (!is_array($failure) || !isset($failure['lastFailureAt']) || $failure['lastFailureAt']+86400<$now) {unset($failures[$ip]);}
     }
-    $handle=@fopen($gateway['registryFile'],'r');
-    if ($handle===false) {
-        $error='REGISTRY_UNAVAILABLE';
-        return false;
+    $result=call_user_func_array($callback,[&$failures]);
+    if (!sameStorageValue($before,$failures) && !saveIpFailuresUnlocked($failures,$error)) {$result=false;}
+    closeStorageLock($lock);
+    return $result;
+}
+
+function changeAdmissionRegistry($callback,&$error) {
+    global $gateway,$coinConfiguration;
+
+    $error='';
+    if (!initializeStorage($error)) {return false;}
+    $admission=openStorageLock($gateway['admissionLock'],LOCK_EX,$error);
+    if ($admission===false) {return false;}
+    $locks=[];
+    $parts=[];
+    $registry=['version'=>2,'rots'=>[],'coins'=>[],'legacyHealth'=>[],'ipFailures'=>[]];
+    foreach (array_keys($coinConfiguration) as $coin) {
+        $paths=storageCoinPaths($coin);
+        $lock=openStorageLock($paths['lock'],LOCK_EX,$error);
+        if ($lock===false) {foreach (array_reverse($locks) as $held) {closeStorageLock($held);}closeStorageLock($admission);return false;}
+        $locks[$coin]=$lock;
+        $part=loadCoinRegistryUnlocked($coin,$error);
+        if ($part===false) {foreach (array_reverse($locks) as $held) {closeStorageLock($held);}closeStorageLock($admission);return false;}
+        $parts[$coin]=$part;
+        $registry['rots']=array_merge($registry['rots'],$part['rots']);
+        $registry['coins'][$coin]=$part['coins'][$coin];
+        $registry['legacyHealth']=array_merge($registry['legacyHealth'],$part['legacyHealth']);
     }
-    if (!flock($handle,LOCK_SH)) {
-        fclose($handle);
-        $error='REGISTRY_LOCK_FAILED';
-        return false;
+    $failures=loadIpFailuresUnlocked($error);
+    if ($failures===false) {foreach (array_reverse($locks) as $held) {closeStorageLock($held);}closeStorageLock($admission);return false;}
+    $registry['ipFailures']=$failures;
+    $before=$registry;
+    expireRegistryRecords($registry,time(),true);
+    foreach (array_keys($coinConfiguration) as $coin) {reconstructCoinLeader($registry,$coin,time());}
+    $result=call_user_func_array($callback,[&$registry]);
+    foreach (array_keys($coinConfiguration) as $coin) {
+        $afterPart=['version'=>2,'rots'=>[],'coins'=>[$coin=>isset($registry['coins'][$coin])?$registry['coins'][$coin]:[]],'legacyHealth'=>[],'ipFailures'=>[]];
+        foreach ($registry['rots'] as $key=>$record) {if (is_array($record) && isset($record['coin']) && $record['coin']===$coin) {$afterPart['rots'][$key]=$record;}}
+        $prefix=$coin.'|';
+        foreach ($registry['legacyHealth'] as $key=>$value) {if (strpos($key,$prefix)===0) {$afterPart['legacyHealth'][$key]=$value;}}
+        if (!sameStorageValue($parts[$coin],$afterPart) && !saveCoinRegistryUnlocked($coin,$parts[$coin],$afterPart,$error)) {$result=false;break;}
     }
-    $raw=stream_get_contents($handle);
-    flock($handle,LOCK_UN);
-    fclose($handle);
-    $decoded=$raw===''?null:json_decode($raw,true);
-    if ($raw!=='' && !is_array($decoded)) {
-        $error='REGISTRY_CORRUPT';
-        return false;
+    if ($result!==false && !sameStorageValue($before['ipFailures'],$registry['ipFailures']) && !saveIpFailuresUnlocked($registry['ipFailures'],$error)) {$result=false;}
+    foreach (array_reverse($locks) as $held) {closeStorageLock($held);}
+    closeStorageLock($admission);
+    return $result;
+}
+
+function readRegistry($callback,&$error) {
+    global $gateway,$coinConfiguration;
+
+    $error='';
+    if (!initializeStorage($error)) {return false;}
+    $admission=openStorageLock($gateway['admissionLock'],LOCK_SH,$error);
+    if ($admission===false) {return false;}
+    $registry=['version'=>2,'rots'=>[],'coins'=>[],'legacyHealth'=>[],'ipFailures'=>[]];
+    foreach (array_keys($coinConfiguration) as $coin) {
+        $paths=storageCoinPaths($coin);
+        $lock=openStorageLock($paths['lock'],LOCK_SH,$error);
+        if ($lock===false) {closeStorageLock($admission);return false;}
+        $part=loadCoinRegistryUnlocked($coin,$error);
+        closeStorageLock($lock);
+        if ($part===false) {closeStorageLock($admission);return false;}
+        $registry['rots']=array_merge($registry['rots'],$part['rots']);
+        $registry['coins'][$coin]=$part['coins'][$coin];
+        $registry['legacyHealth']=array_merge($registry['legacyHealth'],$part['legacyHealth']);
     }
-    $registry=normalizeRegistry($decoded);
+    $failures=loadIpFailuresUnlocked($error);
+    closeStorageLock($admission);
+    if ($failures===false) {return false;}
+    $registry['ipFailures']=$failures;
     expireRegistryRecords($registry,time(),false);
     return call_user_func_array($callback,[&$registry]);
 }
 
 function changeRegistry($callback,&$error) {
-    global $gateway;
-
-    $error='';
-    if (!validateRegistryConfiguration($error)) {
-        return false;
-    }
-    $handle=@fopen($gateway['registryFile'],'c+');
-    if ($handle===false) {
-        $error='REGISTRY_UNAVAILABLE';
-        return false;
-    }
-    @chmod($gateway['registryFile'],0600);
-    if (!flock($handle,LOCK_EX)) {
-        fclose($handle);
-        $error='REGISTRY_LOCK_FAILED';
-        return false;
-    }
-    rewind($handle);
-    $raw=stream_get_contents($handle);
-    $decoded=$raw===''?null:json_decode($raw,true);
-    if ($raw!=='' && !is_array($decoded)) {
-        flock($handle,LOCK_UN);
-        fclose($handle);
-        $error='REGISTRY_CORRUPT';
-        return false;
-    }
-    $registry=normalizeRegistry($decoded);
-    $beforeChange=json_encode($registry,JSON_UNESCAPED_SLASHES);
-    expireRegistryRecords($registry,time(),true);
-    $result=call_user_func_array($callback,[&$registry]);
-    $afterChange=json_encode($registry,JSON_UNESCAPED_SLASHES);
-    if ($beforeChange!==false && $afterChange!==false && hash_equals($beforeChange,$afterChange)) {
-        flock($handle,LOCK_UN);
-        fclose($handle);
-        return $result;
-    }
-    $registry['updatedAt']=time();
-    $encoded=json_encode($registry,JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
-    if ($encoded===false) {
-        flock($handle,LOCK_UN);
-        fclose($handle);
-        $error='REGISTRY_ENCODE_FAILED';
-        return false;
-    }
-    rewind($handle);
-    if (!ftruncate($handle,0) || fwrite($handle,$encoded."\n")===false || !fflush($handle)) {
-        flock($handle,LOCK_UN);
-        fclose($handle);
-        $error='REGISTRY_WRITE_FAILED';
-        return false;
-    }
-    flock($handle,LOCK_UN);
-    fclose($handle);
-    return $result;
+    return changeAdmissionRegistry($callback,$error);
 }
 
 function expireRegistryRecords(array &$registry,$now,$recordEvents=false) {
@@ -370,19 +837,19 @@ function isSecureRequest() {
 function recordIpFailure($ip) {
     if ($ip===false) {return;}
     $error='';
-    changeRegistry(function(&$registry) use ($ip) {
+    changeIpFailures(function(&$failuresMap) use ($ip) {
         $now=time();
-        $current=isset($registry['ipFailures'][$ip]) && is_array($registry['ipFailures'][$ip])?$registry['ipFailures'][$ip]:[];
+        $current=isset($failuresMap[$ip]) && is_array($failuresMap[$ip])?$failuresMap[$ip]:[];
         $failures=isset($current['failures'])?(int)$current['failures']+1:1;
         $exponent=min(8,max(0,$failures-1));
         $seconds=min(86400,300*(2**$exponent));
-        $registry['ipFailures'][$ip]=['failures'=>$failures,'lastFailureAt'=>$now,'until'=>$now+$seconds];
-        if (count($registry['ipFailures'])>4096) {
-            uasort($registry['ipFailures'],function($left,$right) {
+        $failuresMap[$ip]=['failures'=>$failures,'lastFailureAt'=>$now,'until'=>$now+$seconds];
+        if (count($failuresMap)>4096) {
+            uasort($failuresMap,function($left,$right) {
                 if ($left['lastFailureAt']===$right['lastFailureAt']) {return 0;}
                 return $left['lastFailureAt']<$right['lastFailureAt']?-1:1;
             });
-            while (count($registry['ipFailures'])>4096) {array_shift($registry['ipFailures']);}
+            while (count($failuresMap)>4096) {array_shift($failuresMap);}
         }
         return true;
     },$error);
@@ -403,11 +870,21 @@ function ipCooldown(array $registry,$ip,$now) {
 }
 
 function safeRotId($value) {
-    return is_string($value) && preg_match('/^[A-Za-z0-9._-]{8,64}$/',$value)?$value:false;
+    return is_string($value) && preg_match('/^[0-9a-f]{32}$/',$value)?$value:false;
 }
 
 function safeNickname($value) {
     return is_string($value) && preg_match('/^[A-Za-z0-9._-]{1,32}$/',$value)?$value:false;
+}
+
+function validStoredRotRecord($record,$coin,$rotId) {
+    $states=['CANDIDATE','READY','LEADING','RECOVERING','QUARANTINED','ENDED'];
+    return is_array($record) &&
+        isset($record['protocol'],$record['coin'],$record['rotId'],$record['nickname'],$record['host'],$record['port'],$record['authToken'],$record['registrationVersion'],$record['status']) &&
+        $record['protocol']===1 && $record['coin']===$coin && $record['rotId']===$rotId && safeRotId($rotId)!==false && safeNickname($record['nickname'])!==false &&
+        is_string($record['host']) && filter_var($record['host'],FILTER_VALIDATE_IP)!==false && is_int($record['port']) && $record['port']>=1 && $record['port']<=65535 &&
+        is_string($record['authToken']) && preg_match('/^[0-9a-f]{64}$/',$record['authToken']) && is_string($record['registrationVersion']) && preg_match('/^[0-9a-f]{64}$/',$record['registrationVersion']) &&
+        is_string($record['status']) && in_array($record['status'],$states,true);
 }
 
 function writeHealthEvent(array $event) {
@@ -527,7 +1004,7 @@ function runRotRegisterOperation(array $input) {
     }
     $legacy=legacyRotMatch($coin,$sourceIp,$port);
     $error='';
-    $result=changeRegistry(function(&$registry) use ($coin,$rotId,$nickname,$port,$sourceIp,$authToken,$registrationVersion,$legacy,$gateway) {
+    $result=changeAdmissionRegistry(function(&$registry) use ($coin,$rotId,$nickname,$port,$sourceIp,$authToken,$registrationVersion,$legacy,$gateway) {
         $now=time();
         $cooldown=ipCooldown($registry,$sourceIp,$now);
         if ($cooldown>0) {
@@ -644,7 +1121,7 @@ function signedRegistrationResponse(array $record,array $body) {
 
 function getRegistryRecord($coin,$rotId,&$error) {
     $key=registryKey($coin,$rotId);
-    return readRegistry(function(&$registry) use ($key) {
+    return readCoinRegistry($coin,function(&$registry) use ($key) {
         return isset($registry['rots'][$key]) && is_array($registry['rots'][$key])?$registry['rots'][$key]:null;
     },$error);
 }
@@ -711,16 +1188,22 @@ function runRotRegistrationStatusOperation(array $input) {
         $record=probeRegisteredRot($record);
     }
     $error='';
-    $updated=changeRegistry(function(&$registry) use ($record,$now,$gateway,$ackSequence) {
+    $updated=changeCoinRegistry($record['coin'],function(&$registry) use ($record,$now,$gateway,$ackSequence) {
         $key=registryKey($record['coin'],$record['rotId']);
         if (!isset($registry['rots'][$key]) || !is_array($registry['rots'][$key])) {return ['missing'=>true];}
         $current=&$registry['rots'][$key];
         if (!isset($current['registrationVersion'],$record['registrationVersion']) || !hash_equals($current['registrationVersion'],$record['registrationVersion'])) {return ['changed'=>true];}
         if (!acknowledgeRotMessages($current,$ackSequence)) {return ['invalidAck'=>true];}
+        $evaluated=$record;
+        if (isset($evaluated['_trustResponse']) && is_array($evaluated['_trustResponse'])) {
+            $trustResponse=$evaluated['_trustResponse'];
+            unset($evaluated['_trustResponse']);
+            $evaluated=completeProbeTrust($registry,$evaluated,$trustResponse);
+        }
         $oldStatus=isset($current['status'])?$current['status']:'CANDIDATE';
         $probeFields=['status','statusReason','lastStatusAt','readyUntil','retryAt','statusLatencyMs','statusSamples','lastHeight','lastBlockHash','heightReference','checkpoints','checkpointFailures','consecutiveFailures','backoffUntil','endedAt','endedReason'];
         foreach ($probeFields as $field) {
-            if (array_key_exists($field,$record)) {$current[$field]=$record[$field];}
+            if (array_key_exists($field,$evaluated)) {$current[$field]=$evaluated[$field];}
         }
         $current['lastSeenAt']=$now;
         if ($current['status']!=='ENDED') {$current['expiresAt']=$now+$gateway['registrationLifetime'];}
@@ -778,7 +1261,7 @@ function registeredRotsForCoin($coin) {
     global $gateway;
 
     $error='';
-    $records=readRegistry(function(&$registry) use ($coin,$gateway) {
+    $records=readCoinRegistry($coin,function(&$registry) use ($coin,$gateway) {
         $result=[];
         $now=time();
         foreach ($registry['rots'] as $record) {
@@ -795,7 +1278,7 @@ function registeredRotsForCoin($coin) {
 
 function legacyHealthForCoin($coin) {
     $error='';
-    $health=readRegistry(function(&$registry) use ($coin) {
+    $health=readCoinRegistry($coin,function(&$registry) use ($coin) {
         $prefix=$coin.'|';
         $result=[];
         foreach ($registry['legacyHealth'] as $key=>$value) {
@@ -1207,7 +1690,7 @@ function validateRotStatusResponse($response,$requestId,$coin) {
 
 function statusCheckpointHeights($coin) {
     $error='';
-    $heights=readRegistry(function(&$registry) use ($coin) {
+    $heights=readCoinRegistry($coin,function(&$registry) use ($coin) {
         if (!isset($registry['coins'][$coin]['checkpoints']) || !is_array($registry['coins'][$coin]['checkpoints'])) {return [];}
         return array_keys($registry['coins'][$coin]['checkpoints']);
     },$error);
@@ -1347,9 +1830,33 @@ function rotResponseHeightAcceptable(array $rot,$height) {
     return statusHeightAcceptable($rot['coin'],$height,$reference);
 }
 
-function probeRegisteredRot(array $record) {
+function completeProbeTrust(array &$registry,array $record,array $response) {
     global $gateway;
 
+    $now=isset($record['lastStatusAt'])?(int)$record['lastStatusAt']:time();
+    $verdict=checkpointVerdict($registry,$record,$response['checkpoints']);
+    $record['heightReference']=statusHeightReference($registry,$record,$response['height']);
+    if (($verdict==='READY' || $verdict==='LEADING') && !statusHeightAcceptable($record['coin'],$response['height'],$record['heightReference'])) {$verdict='RECOVERING';$record['statusReason']='CHAIN_HEIGHT_LAG';}
+    if ($verdict==='QUARANTINED') {
+        $record['checkpointFailures']=isset($record['checkpointFailures'])?(int)$record['checkpointFailures']+1:1;
+        if ($record['checkpointFailures']>=3) {
+            $verdict='ENDED';
+            $record['endedAt']=$now;
+            $record['endedReason']='REPEATED_CHECKPOINT_MISMATCH';
+        }
+    } elseif ($verdict==='LEADING' || $verdict==='READY') {
+        $record['checkpointFailures']=0;
+    }
+    $record['status']=$verdict;
+    if ($verdict==='LEADING' || $verdict==='READY') {$record['statusReason']='';}
+    elseif ($verdict==='QUARANTINED') {$record['statusReason']='CHECKPOINT_DISAGREEMENT';}
+    elseif ($verdict==='ENDED' && !isset($record['statusReason'])) {$record['statusReason']='REPEATED_CHECKPOINT_MISMATCH';}
+    $record['readyUntil']=in_array($verdict,['LEADING','READY'],true)?$now+$gateway['statusFreshness']:0;
+    $record['retryAt']=$verdict==='QUARANTINED'?$now+$gateway['quarantineSeconds']:($verdict==='CANDIDATE'?$now+300:($verdict==='RECOVERING'?$now+60:0));
+    return $record;
+}
+
+function probeRegisteredRot(array $record) {
     $result=queryRegisteredRotStatus($record);
     $now=time();
     $record['lastStatusAt']=$now;
@@ -1377,41 +1884,7 @@ function probeRegisteredRot(array $record) {
         $record['retryAt']=$now+60;
         return $record;
     }
-    $error='';
-    $verdict=changeRegistry(function(&$registry) use ($record,$response) {
-        $key=registryKey($record['coin'],$record['rotId']);
-        if (!isset($registry['rots'][$key]['registrationVersion'],$record['registrationVersion']) || !hash_equals($registry['rots'][$key]['registrationVersion'],$record['registrationVersion'])) {return ['changed'=>true];}
-        $checkpoint=checkpointVerdict($registry,$record,$response['checkpoints']);
-        $reference=statusHeightReference($registry,$record,$response['height']);
-        return ['checkpoint'=>$checkpoint,'heightReference'=>$reference];
-    },$error);
-    if (is_array($verdict) && isset($verdict['changed'])) {return $record;}
-    if (!is_array($verdict) || !isset($verdict['checkpoint'],$verdict['heightReference'])) {
-        $record['status']='RECOVERING';
-        $record['statusReason']='TRUST_EVALUATION_UNAVAILABLE';
-        $record['readyUntil']=0;
-        $record['retryAt']=$now+60;
-        return $record;
-    }
-    $record['heightReference']=$verdict['heightReference'];
-    $verdict=$verdict['checkpoint'];
-    if (($verdict==='READY' || $verdict==='LEADING') && !statusHeightAcceptable($record['coin'],$response['height'],$record['heightReference'])) {$verdict='RECOVERING';$record['statusReason']='CHAIN_HEIGHT_LAG';}
-    if ($verdict==='QUARANTINED') {
-        $record['checkpointFailures']=isset($record['checkpointFailures'])?(int)$record['checkpointFailures']+1:1;
-        if ($record['checkpointFailures']>=3) {
-            $verdict='ENDED';
-            $record['endedAt']=$now;
-            $record['endedReason']='REPEATED_CHECKPOINT_MISMATCH';
-        }
-    } elseif ($verdict==='LEADING' || $verdict==='READY') {
-        $record['checkpointFailures']=0;
-    }
-    $record['status']=$verdict;
-    if ($verdict==='LEADING' || $verdict==='READY') {$record['statusReason']='';}
-    elseif ($verdict==='QUARANTINED') {$record['statusReason']='CHECKPOINT_DISAGREEMENT';}
-    elseif ($verdict==='ENDED' && !isset($record['statusReason'])) {$record['statusReason']='REPEATED_CHECKPOINT_MISMATCH';}
-    $record['readyUntil']=in_array($verdict,['LEADING','READY'],true)?$now+$gateway['statusFreshness']:0;
-    $record['retryAt']=$verdict==='QUARANTINED'?$now+$gateway['quarantineSeconds']:($verdict==='CANDIDATE'?$now+300:($verdict==='RECOVERING'?$now+60:0));
+    $record['_trustResponse']=$response;
     return $record;
 }
 
@@ -1910,7 +2383,7 @@ function recordRotTechnicalFailure(array $result) {
     $protocol=$result['rotProtocol'];
     $registrationVersion=isset($result['registrationVersion'])?$result['registrationVersion']:null;
     $error='';
-    $change=changeRegistry(function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result,$gateway) {
+    $change=changeCoinRegistry($coin,function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result,$gateway) {
         $oldStatus='LEGACY_READY';
         if ($protocol===1) {
             $key=registryKey($coin,$rotId);
@@ -1956,7 +2429,7 @@ function clearRotTechnicalFailure(array $result) {
     $protocol=$result['rotProtocol'];
     $registrationVersion=isset($result['registrationVersion'])?$result['registrationVersion']:null;
     $error='';
-    $change=changeRegistry(function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result) {
+    $change=changeCoinRegistry($coin,function(&$registry) use ($coin,$rotId,$protocol,$registrationVersion,$result) {
         if ($protocol===1) {
             $key=registryKey($coin,$rotId);
             if (!isset($registry['rots'][$key]) || !isset($registry['rots'][$key]['registrationVersion']) || !is_string($registrationVersion) || !hash_equals($registry['rots'][$key]['registrationVersion'],$registrationVersion)) {return false;}
@@ -2253,6 +2726,8 @@ function runGateway() {
     global $gateway,$networkEvent;
 
     $started=microtime(true);
+    $storageError='';
+    initializeStorage($storageError);
     $requestMethod=isset($_SERVER['REQUEST_METHOD'])?$_SERVER['REQUEST_METHOD']:'';
     if ($requestMethod==='POST') {
         $networkEvent=['time'=>gmdate('c'),'route'=>'invalid','started'=>$started,'clientRequestBytes'=>0,'rotRequestBytes'=>0,'rotResponseBytes'=>0,'attempts'=>0];
