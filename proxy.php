@@ -1,13 +1,31 @@
 <?php
-/* [CC-WALLET-009]
-Dependency-free per-coin and per-ROT proxy storage.
-Base: - Derived from CC-WALLET-007
+/* [CC-WALLET-016]
+Keep every supported wallet coin operational through bounded proxy failover.
+Base: - Derived from CC-WALLET-015
 Changes:
+- [CC-WALLET-016] Permit approved external wallet origins to use state, history, broadcast, transaction status and zero-confirmation
+- Start safely without operator-config.json by deriving the primary coin from a bounded domain catalogue and otherwise choosing AUR
+- Let an explicit valid operator configuration override standard bootstrap, primary-coin and capacity policy
+- Reject an invalid present configuration instead of silently falling back to standard policy
+- [CC-WALLET-015] Require CC-PROXY/operator-config.json before initializing any proxy storage
+- Separate fixed coin protocol facts and global safety policy from local operator choices
+- Keep accepted proxy coins in the centrally maintained protocol catalogue
+- Seed fresh coin state with a deep centrally reviewed checkpoint instead of trusting a configured ROT address
+- Keep newly reported proxy coins as candidates until the bootstrap approves their directory keys
+- Present a specific installation state without changing ordinary discovery or recovery failures
+- [CC-WALLET-013] Allow exact external wallet origins found in the locally cached approved proxy directory
+- Answer bounded JSON POST preflights without contacting the bootstrap
+- Permit cross-origin state and history only; keep broadcast and all other operations same-origin
+- [CC-WALLET-010] Let proxies announce their URL and registered-ROT counts with proxyHello
+- Keep unapproved announcements in proxy-candidates.json for manual operator promotion
+- Cache the approved proxy directory indefinitely when the bootstrap is unavailable
+- Keep directory storage free of schedules, observation lifetimes, approval machinery and extra locks
+- Initialize discovery files when upgrading existing CC-WALLET-009 storage and compare coin lists without order sensitivity
 - [CC-WALLET-009] Replace the monolithic ROT registry with one directory per coin and one JSON file per ROT
-- Initialize registry.json, network.log, locks, coin state and IP-failure storage automatically
-- Migrate version-1 state atomically while retaining a timestamped recovery copy
+- Initialize a fresh registry.json, network.log, locks, coin state and IP-failure storage automatically
 - Serialize same-coin mutations while allowing independent coins to proceed concurrently
 - Isolate malformed ROT records and reconstruct invalid coin leadership from valid records
+- Let a known-format ROT identity re-register after fresh storage without poisoning its source-IP cooldown
 - [CC-WALLET-007] Bound registration capacity with a primary-coin reserve
 - Preserve ROT nicknames and identify registrations only by coin and rotId
 - Sign status acknowledgements and bounded operator-message delivery
@@ -16,7 +34,7 @@ Changes:
 - Keep wallet routing and same-origin browser behavior unchanged
 - [CC-WALLET-005] Derive empty proxy ID and origin constants from validated SERVER_NAME
 - Default the private data directory to the CC-PROXY sibling of the wallet directory
-- Keep rot-registry.json, network.log and the reserved network.hour path together
+- Keep the private registry tree, network.log and the reserved network.hour path together
 - [CC-WALLET-004] Replace environment variables with four explicit source constants
 - Normalize and validate proxy ID, absolute data directory and HTTPS wallet origin
 - Fail closed on invalid configured values while retaining legacy server-to-server routing
@@ -52,76 +70,167 @@ Changes:
 - Preserve operation-specific validation, technical retry behavior and wallet-visible outcomes
 */
 
-/* Empty ID/origin values derive from the validated HTTPS virtual-host name. */
-define('CC_PROXY_ID','');
+/* The configuration path itself remains fixed because it cannot be configured from inside that file. */
 define('CC_PROXY_DATA_DIR',dirname(__DIR__).'/CC-PROXY');
-define('CC_PROXY_ORIGIN','');
 define('CC_PROXY_ALLOW_HTTP_REGISTRATION',false);
-define('CC_PROXY_PRIMARY_COIN','EFL');
-define('CC_PROXY_MAX_REGISTRATIONS',100);
-define('CC_PROXY_PRIMARY_RESERVE',20);
-define('CC_PROXY_ACCEPTS_REGISTRATIONS',true);
-define('CC_PROXY_BOOTSTRAP_URL','https://wallet.communitycoins.org/proxy.php');
 define('CC_PROXY_DIRECTORY_MAX',10);
+define('CC_PROXY_BOOTSTRAP_URL','https://wallet.communitycoins.org/proxy.php');
 
-$coinConfiguration=[
-    'EFL'=>[
-        'versionByte'=>48,
-        'maxHeightLag'=>3,
-        'maxZeroConfirmationObservers'=>3,
-        'legacyRots'=>[
-            ['rotId'=>'legacy-efl-1','nickname'=>'EFL-1','host'=>'217.160.153.217','port'=>11014,'status'=>'LEADING','protocol'=>0,'trustedSeed'=>true,'observerPriority'=>0],
-            ['rotId'=>'legacy-efl-2','nickname'=>'EFL-2','host'=>'82.165.219.225','port'=>11014,'status'=>'READY','protocol'=>0,'trustedSeed'=>true,'observerPriority'=>1],
-            ['rotId'=>'legacy-efl-3','nickname'=>'EFL-3','host'=>'217.160.69.23','port'=>11014,'status'=>'READY','protocol'=>0,'trustedSeed'=>true,'observerPriority'=>2]
-        ]
-    ],
-    'AUR'=>[
-        'versionByte'=>23,
-        'maxHeightLag'=>3,
-        'maxZeroConfirmationObservers'=>1,
-        'legacyRots'=>[
-            ['rotId'=>'legacy-aur-1','nickname'=>'AUR-1','host'=>'217.160.153.217','port'=>10081,'status'=>'LEADING','protocol'=>0,'trustedSeed'=>true,'observerPriority'=>0]
-        ]
-    ],
-    'CDN'=>[
-        'versionByte'=>28,
-        'maxHeightLag'=>3,
-        'maxZeroConfirmationObservers'=>1,
-        'legacyRots'=>[
-            ['rotId'=>'legacy-cdn-1','nickname'=>'CDN-1','host'=>'217.160.153.217','port'=>34329,'status'=>'LEADING','protocol'=>0,'trustedSeed'=>true,'observerPriority'=>0]
-        ]
-    ],
-    'DEM'=>[
-        'versionByte'=>53,
-        'maxHeightLag'=>3,
-        'maxZeroConfirmationObservers'=>1,
-        'legacyRots'=>[
-            ['rotId'=>'legacy-dem-1','nickname'=>'DEM-1','host'=>'217.160.153.217','port'=>4554,'status'=>'LEADING','protocol'=>0,'trustedSeed'=>true,'observerPriority'=>0]
-        ]
-    ]
+$maxHeightLag=3;
+$maxZeroConfirmationObservers=3;
+$coinProtocols=[
+    'EFL'=>['p2pkhVersion'=>48,'anchorHeight'=>3280000,'anchorHash'=>'b03d18130e7e32f988db22ac9e68d3c8e3871566d0c1e08af7d0b12c35b8ca94'],
+    'AUR'=>['p2pkhVersion'=>23,'anchorHeight'=>5830000,'anchorHash'=>'dcbf0168d678c0ec57d834475920d4e19cc99d68e7fa5148fb692570a549b090'],
+    'CDN'=>['p2pkhVersion'=>28,'anchorHeight'=>600000,'anchorHash'=>'26e6c26b9a5eed6e85867dfd48cf6a6f276686dd40d91bdc07f5056103011b31'],
+    'DEM'=>['p2pkhVersion'=>53,'anchorHeight'=>1390000,'anchorHash'=>'000000000000032ea2e46fcd5b6f99773cfd1f104a9203eedc195f3820526cfe']
 ];
 
-$configuredServerName=isset($_SERVER['SERVER_NAME'])?strtolower(trim((string)$_SERVER['SERVER_NAME'])):'';
-if (!preg_match('/^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',$configuredServerName)) {$configuredServerName=false;}
-$configuredProxyId=CC_PROXY_ID===''?$configuredServerName:CC_PROXY_ID;
+function configurationList($value) {
+    return is_array($value) && (count($value)===0 || array_keys($value)===range(0,count($value)-1));
+}
+
+function configurationKeys(array $value,array $required,array $optional=[]) {
+    $actual=array_keys($value);
+    $allowed=array_merge($required,$optional);
+    foreach ($required as $key) {if (!array_key_exists($key,$value)) {return false;}}
+    foreach ($actual as $key) {if (!in_array($key,$allowed,true)) {return false;}}
+    return true;
+}
+
+function configurationTicker($value) {
+    if (!is_string($value)) {return false;}
+    $ticker=strtoupper(trim($value));
+    return preg_match('/^[A-Z0-9]{2,10}$/',$ticker)?$ticker:false;
+}
+
+function validatedServerName($value) {
+    $serverName=is_string($value)?strtolower(trim($value)):'';
+    return preg_match('/^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',$serverName)?$serverName:false;
+}
+
+function serverNameMatchesDomain($serverName,$domain) {
+    if (!is_string($serverName) || !is_string($domain) || $serverName==='' || $domain==='') {return false;}
+    $suffix='.'.$domain;
+    return $serverName===$domain || substr($serverName,-strlen($suffix))===$suffix;
+}
+
+function primaryCoinForServerName($serverName,array $protocols) {
+    $domains=[
+        'egulden.org'=>'EFL',
+        'e-gulden.org'=>'EFL',
+        'auroracoin.org'=>'AUR',
+        'canadaecoin.ca'=>'CDN',
+        'ourcoin.ca'=>'CDN',
+        'deutsche-emark.org'=>'DEM'
+    ];
+    foreach ($domains as $domain=>$coin) {
+        if (isset($protocols[$coin]) && serverNameMatchesDomain($serverName,$domain)) {return $coin;}
+    }
+    return isset($protocols['AUR'])?'AUR':array_keys($protocols)[0];
+}
+
+function loadOperatorConfiguration($path,array &$protocols,$serverName,&$error) {
+    $error='';
+    $jsonValid=true;
+    if (!is_string($path) || $path==='') {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+    if (is_file($path) && !is_link($path)) {
+        $permissions=@fileperms($path);
+        $size=@filesize($path);
+        if (!is_int($permissions) || ($permissions&0022)!==0 || !is_int($size) || $size<2 || $size>16384) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+        $raw=@file_get_contents($path);
+        $value=is_string($raw)?json_decode($raw,true):null;
+        $jsonValid=is_string($raw) && json_last_error()===JSON_ERROR_NONE;
+    } elseif (file_exists($path) || is_link($path)) {
+        $error='OPERATOR_CONFIGURATION_INVALID';
+        return false;
+    } else {
+        $value=['schemaVersion'=>1];
+    }
+    $required=['schemaVersion'];
+    $optional=['bootstrapUrl','primaryCoin','publicUrl','acceptsRegistrations','registrationCapacity','primaryReserve','pinnedLegacyRots'];
+    if (!$jsonValid || !is_array($value) || !configurationKeys($value,$required,$optional) || $value['schemaVersion']!==1) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+
+    $accepted=array_fill_keys(array_keys($protocols),true);
+    $primary=array_key_exists('primaryCoin',$value)?configurationTicker($value['primaryCoin']):primaryCoinForServerName($serverName,$protocols);
+    $acceptsRegistrations=isset($value['acceptsRegistrations'])?$value['acceptsRegistrations']:true;
+    $registrationCapacity=isset($value['registrationCapacity'])?$value['registrationCapacity']:100;
+    $primaryReserve=isset($value['primaryReserve'])?$value['primaryReserve']:20;
+    if ($primary===false || !isset($accepted[$primary]) || !is_bool($acceptsRegistrations) || !is_int($registrationCapacity) || $registrationCapacity<1 || $registrationCapacity>10000 || !is_int($primaryReserve) || $primaryReserve<0 || $primaryReserve>$registrationCapacity) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+
+    $bootstrapInput=array_key_exists('bootstrapUrl',$value)?$value['bootstrapUrl']:CC_PROXY_BOOTSTRAP_URL;
+    $bootstrapUrl=normalizeDirectoryProxyUrl($bootstrapInput);
+    $bootstrapId=$bootstrapUrl===false?false:parse_url($bootstrapUrl,PHP_URL_HOST);
+    $publicUrl=array_key_exists('publicUrl',$value)?normalizeDirectoryProxyUrl($value['publicUrl']):null;
+    if ($bootstrapUrl===false || !is_string($bootstrapId) || $bootstrapId==='' || array_key_exists('publicUrl',$value) && $publicUrl===false) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+
+    $legacyConfiguration=isset($value['pinnedLegacyRots'])?$value['pinnedLegacyRots']:[];
+    if (!is_array($legacyConfiguration) || (configurationList($legacyConfiguration) && count($legacyConfiguration)>0)) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+    $pinned=[];
+    $endpoints=[];
+    foreach ($legacyConfiguration as $ticker=>$entries) {
+        $coin=configurationTicker($ticker);
+        if ($coin===false || $coin!==$ticker || !isset($accepted[$coin]) || !configurationList($entries) || count($entries)>16) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+        $pinned[$coin]=[];
+        foreach ($entries as $position=>$entry) {
+            if (!is_array($entry) || !configurationKeys($entry,['nickname','host','port'],['observerPriority']) || !is_string($entry['nickname']) || !preg_match('/^[A-Za-z0-9._-]{1,32}$/',$entry['nickname']) || !is_string($entry['host']) || filter_var($entry['host'],FILTER_VALIDATE_IP)===false || !is_int($entry['port']) || $entry['port']<1 || $entry['port']>65535) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+            $priority=isset($entry['observerPriority'])?$entry['observerPriority']:$position;
+            $endpoint=$coin.'|'.$entry['host'].'|'.$entry['port'];
+            if (!is_int($priority) || $priority<0 || $priority>10000 || isset($endpoints[$endpoint])) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+            $endpoints[$endpoint]=true;
+            $pinned[$coin][]=['rotId'=>'pinned-'.substr(hash('sha256',$endpoint),0,24),'nickname'=>$entry['nickname'],'host'=>$entry['host'],'port'=>$entry['port'],'status'=>'READY','protocol'=>0,'trustedSeed'=>true,'observerPriority'=>$priority];
+        }
+    }
+    foreach (array_keys($accepted) as $coin) {if (!isset($pinned[$coin])) {$pinned[$coin]=[];}}
+
+    return [
+        'bootstrapUrl'=>$bootstrapUrl,
+        'bootstrapId'=>strtolower($bootstrapId),
+        'publicUrl'=>$publicUrl,
+        'primaryCoin'=>$primary,
+        'acceptedCoins'=>array_keys($accepted),
+        'acceptsRegistrations'=>$acceptsRegistrations,
+        'registrationCapacity'=>$registrationCapacity,
+        'primaryReserve'=>$primaryReserve,
+        'pinnedLegacyRots'=>$pinned
+    ];
+}
+
+$configuredServerName=validatedServerName(isset($_SERVER['SERVER_NAME'])?$_SERVER['SERVER_NAME']:'');
+$operatorConfigurationError='';
+$operatorConfiguration=loadOperatorConfiguration(CC_PROXY_DATA_DIR.'/operator-config.json',$coinProtocols,$configuredServerName,$operatorConfigurationError);
+$coinConfiguration=[];
+if (is_array($operatorConfiguration)) {
+    foreach ($operatorConfiguration['acceptedCoins'] as $coin) {
+        $coinConfiguration[$coin]=['versionByte'=>$coinProtocols[$coin]['p2pkhVersion'],'legacyRots'=>$operatorConfiguration['pinnedLegacyRots'][$coin]];
+    }
+}
+
+$configuredPublicUrl=is_array($operatorConfiguration)?$operatorConfiguration['publicUrl']:null;
+if ($configuredPublicUrl===null) {$configuredOrigin=$configuredServerName===false?false:'https://'.$configuredServerName;}
+else {$configuredOrigin=$configuredPublicUrl===false?false:substr($configuredPublicUrl,0,-strlen('/proxy.php'));}
+$configuredOrigin=normalizedOrigin($configuredOrigin);
+if ($configuredOrigin===false || strpos($configuredOrigin,'https://')!==0) {$configuredOrigin=false;}
+if ($configuredPublicUrl===null) {$configuredPublicUrl=$configuredOrigin===false?false:$configuredOrigin.'/proxy.php';}
+$configuredProxyId=$configuredPublicUrl===false?false:parse_url($configuredPublicUrl,PHP_URL_HOST);
 if (!is_string($configuredProxyId) || !preg_match('/^[A-Za-z0-9._-]{3,64}$/',$configuredProxyId)) {$configuredProxyId=false;}
+if (is_array($operatorConfiguration) && ($configuredOrigin===false || $configuredPublicUrl===false || $configuredProxyId===false)) {$operatorConfigurationError='OPERATOR_CONFIGURATION_INVALID';}
 $configuredDataDirectory=CC_PROXY_DATA_DIR;
 if (!is_string($configuredDataDirectory) || $configuredDataDirectory==='' || $configuredDataDirectory[0]!=='/' || strpos($configuredDataDirectory,"\0")!==false) {$configuredDataDirectory=false;}
 if ($configuredDataDirectory!==false) {$configuredDataDirectory=rtrim($configuredDataDirectory,'/');}
 if ($configuredDataDirectory==='') {$configuredDataDirectory=false;}
-$configuredOrigin=normalizedOrigin(CC_PROXY_ORIGIN==='' && $configuredServerName!==false?'https://'.$configuredServerName:CC_PROXY_ORIGIN);
-if ($configuredOrigin===false || strpos($configuredOrigin,'https://')!==0) {$configuredOrigin=false;}
-$configuredPrimaryCoin=is_string(CC_PROXY_PRIMARY_COIN)?strtoupper(trim(CC_PROXY_PRIMARY_COIN)):'';
-if ($configuredPrimaryCoin!=='' && !isset($coinConfiguration[$configuredPrimaryCoin])) {$configuredPrimaryCoin=false;}
-$configuredPublicUrl=$configuredOrigin===false?false:$configuredOrigin.'/proxy.php';
+$configuredPrimaryCoin=is_array($operatorConfiguration)?$operatorConfiguration['primaryCoin']:false;
+$configuredBootstrapId=is_array($operatorConfiguration)?$operatorConfiguration['bootstrapId']:false;
+$configuredBootstrapUrl=is_array($operatorConfiguration)?$operatorConfiguration['bootstrapUrl']:false;
+$configuredInitialCoin=$configuredPrimaryCoin===false?'EFL':$configuredPrimaryCoin;
+$configuredInitialVersion=isset($coinProtocols[$configuredInitialCoin])?$coinProtocols[$configuredInitialCoin]['p2pkhVersion']:48;
 
 $rots=[];
 $gateway=[
     'proxyId'=>$configuredProxyId,
-    'coin'=>'EFL',
-    'versionByte'=>48,
+    'coin'=>$configuredInitialCoin,
+    'versionByte'=>$configuredInitialVersion,
     'maxAddresses'=>51,
-    'maxZeroConfirmationObservers'=>3,
+    'maxZeroConfirmationObservers'=>$maxZeroConfirmationObservers,
     'maxRequestBytes'=>65536,
     'maxRawTransactionHex'=>65000,
     'maxStateResponseBytes'=>2097152,
@@ -136,22 +245,26 @@ $gateway=[
     'registrationRetention'=>86400,
     'statusFreshness'=>600,
     'primaryCoin'=>$configuredPrimaryCoin,
-    'maxActiveRegistrations'=>max(1,(int)CC_PROXY_MAX_REGISTRATIONS),
-    'primaryReserve'=>max(0,(int)CC_PROXY_PRIMARY_RESERVE),
+    'maxHeightLag'=>$maxHeightLag,
+    'maxActiveRegistrations'=>is_array($operatorConfiguration)?$operatorConfiguration['registrationCapacity']:1,
+    'primaryReserve'=>is_array($operatorConfiguration)?$operatorConfiguration['primaryReserve']:0,
     'maxActiveRegistrationsPerIp'=>16,
     'timestampTolerance'=>120,
     'quarantineSeconds'=>3600,
     'dataDirectory'=>$configuredDataDirectory,
     'manifestFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/registry.json',
-    'legacyRegistryFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/rot-registry.json',
     'admissionLock'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/admission.lock',
     'ipFailuresFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/ip-failures.json',
     'coinsDirectory'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/coins',
     'origin'=>$configuredOrigin,
     'publicUrl'=>$configuredPublicUrl,
-    'acceptsRegistrations'=>CC_PROXY_ACCEPTS_REGISTRATIONS===true,
-    'bootstrapUrl'=>CC_PROXY_BOOTSTRAP_URL,
-    'directoryMax'=>max(1,min(10,(int)CC_PROXY_DIRECTORY_MAX)),
+    'acceptsRegistrations'=>is_array($operatorConfiguration) && $operatorConfiguration['acceptsRegistrations']===true,
+    'bootstrapId'=>$configuredBootstrapId,
+    'bootstrapUrl'=>$configuredBootstrapUrl,
+    'directoryMax'=>CC_PROXY_DIRECTORY_MAX,
+    'operatorConfigurationError'=>$operatorConfigurationError,
+    'proxyDirectoryFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-directory.json',
+    'proxyCandidatesFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-candidates.json',
     'networkLog'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.log',
     'networkHour'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.hour',
     'networkHealth'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.health'
@@ -202,6 +315,7 @@ function validateRegistryConfiguration(&$error) {
         $error='REGISTRY_DIRECTORY_UNAVAILABLE';
         return false;
     }
+    @chmod($resolvedDirectory,0700);
     if (!createPrivateFile($gateway['networkLog'],$error)) {
         return false;
     }
@@ -344,36 +458,20 @@ function ensureCoinLayout($coin,&$error) {
     return createPrivateFile($paths['lock'],$error);
 }
 
-function newRegistry() {
-    return [
-        'version'=>1,
-        'updatedAt'=>0,
-        'rots'=>[],
-        'coins'=>[],
-        'legacyHealth'=>[],
-        'ipFailures'=>[]
-    ];
-}
+function coinAnchor($coin) {
+    global $coinProtocols;
 
-function normalizeRegistry($registry) {
-    if (!is_array($registry)) {
-        $registry=newRegistry();
-    }
-    if (!isset($registry['version']) || $registry['version']!==1) {$registry['version']=1;}
-    if (!isset($registry['rots']) || !is_array($registry['rots'])) {$registry['rots']=[];}
-    if (!isset($registry['coins']) || !is_array($registry['coins'])) {$registry['coins']=[];}
-    if (!isset($registry['legacyHealth']) || !is_array($registry['legacyHealth'])) {$registry['legacyHealth']=[];}
-    if (!isset($registry['ipFailures']) || !is_array($registry['ipFailures'])) {$registry['ipFailures']=[];}
-    return $registry;
+    if (!isset($coinProtocols[$coin]['anchorHeight'],$coinProtocols[$coin]['anchorHash'])) {return [];}
+    return [(string)$coinProtocols[$coin]['anchorHeight']=>$coinProtocols[$coin]['anchorHash']];
 }
 
 function newCoinState($coin) {
     return [
         'version'=>2,
         'coin'=>$coin,
-        'updatedAt'=>time(),
+        'updatedAt'=>0,
         'leadingRotId'=>null,
-        'checkpoints'=>[],
+        'checkpoints'=>coinAnchor($coin),
         'refreshedAt'=>0,
         'legacyHealth'=>[]
     ];
@@ -403,97 +501,28 @@ function registryFromCoinState($coin,array $state,array $records) {
 }
 
 function manifestValid($manifest) {
-    global $coinConfiguration;
-
-    if (!is_array($manifest) || !isset($manifest['version'],$manifest['knownCoins']) || $manifest['version']!==2 || !is_array($manifest['knownCoins'])) {return false;}
-    $expected=array_keys($coinConfiguration);
-    return array_values($manifest['knownCoins'])===$expected;
+    return is_array($manifest) && isset($manifest['version']) && $manifest['version']===2;
 }
 
-function writeFreshStorage(&$error) {
+function initializeStorageFiles(&$error) {
     global $gateway,$coinConfiguration;
 
     foreach (array_keys($coinConfiguration) as $coin) {
         if (!ensureCoinLayout($coin,$error)) {return false;}
         $paths=storageCoinPaths($coin);
-        $state=newCoinState($coin);
-        $state['updatedAt']=time();
-        if (!atomicWriteJson($paths['state'],$state,$error)) {return false;}
-    }
-    if (!atomicWriteJson($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>[]],$error)) {return false;}
-    $manifest=['version'=>2,'createdAt'=>time(),'knownCoins'=>array_keys($coinConfiguration)];
-    return atomicWriteJson($gateway['manifestFile'],$manifest,$error);
-}
-
-function validateLegacyMigration(array $registry,&$error) {
-    foreach ($registry['rots'] as $key=>$record) {
-        if (!is_array($record) || !isset($record['coin'],$record['rotId']) || canonicalCoin($record['coin'])===false || !validStoredRotRecord($record,$record['coin'],$record['rotId']) || $key!==registryKey($record['coin'],$record['rotId'])) {
-            $error='REGISTRY_MIGRATION_INVALID_ROT';
-            return false;
+        if (!is_file($paths['state'])) {
+            $state=newCoinState($coin);
+            $state['updatedAt']=time();
+            if (!atomicWriteJson($paths['state'],$state,$error)) {return false;}
         }
+    }
+    if (!is_file($gateway['ipFailuresFile']) && !atomicWriteJson($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>[]],$error)) {return false;}
+    if (!is_file($gateway['manifestFile']) && !atomicWriteJson($gateway['manifestFile'],['version'=>2],$error)) {return false;}
+    if ($gateway['proxyId']===$gateway['bootstrapId']) {
+        if (!is_file($gateway['proxyDirectoryFile']) && !atomicWriteJson($gateway['proxyDirectoryFile'],newProxyDirectory(),$error)) {return false;}
+        if (!is_file($gateway['proxyCandidatesFile']) && !atomicWriteJson($gateway['proxyCandidatesFile'],newProxyCandidates(),$error)) {return false;}
     }
     return true;
-}
-
-function migrateLegacyStorage($legacyHandle,$legacyRaw,array $registry,&$error) {
-    global $gateway,$coinConfiguration;
-
-    if (!validateLegacyMigration($registry,$error)) {return false;}
-    $expected=[];
-    foreach (array_keys($coinConfiguration) as $coin) {
-        if (!ensureCoinLayout($coin,$error)) {return false;}
-        $paths=storageCoinPaths($coin);
-        $records=[];
-        foreach ($registry['rots'] as $key=>$record) {
-            if ($record['coin']===$coin) {$records[$key]=$record;}
-        }
-        $existing=glob($paths['rots'].'/*.json');
-        if (is_array($existing)) {
-            foreach ($existing as $path) {
-                $rotId=substr(basename($path),0,-5);
-                if (preg_match('/^[0-9a-f]{32}$/',$rotId) && !isset($records[registryKey($coin,$rotId)])) {@unlink($path);}
-            }
-        }
-        foreach ($records as $record) {
-            $path=$paths['rots'].'/'.$record['rotId'].'.json';
-            if (!atomicWriteJson($path,$record,$error)) {return false;}
-            $expected[$coin.'|'.$record['rotId']]=$record;
-        }
-        $state=coinStateFromRegistry($registry,$coin);
-        $state['updatedAt']=isset($registry['updatedAt']) && is_int($registry['updatedAt'])?$registry['updatedAt']:time();
-        if (!atomicWriteJson($paths['state'],$state,$error)) {return false;}
-    }
-    if (!atomicWriteJson($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>$registry['ipFailures']],$error)) {return false;}
-    foreach ($expected as $key=>$record) {
-        $parts=explode('|',$key,2);
-        $paths=storageCoinPaths($parts[0]);
-        $decoded=readJsonFile($paths['rots'].'/'.$parts[1].'.json',null,$error);
-        if (!is_array($decoded) || $decoded!=$record) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
-    }
-    foreach (array_keys($coinConfiguration) as $coin) {
-        $paths=storageCoinPaths($coin);
-        $state=readJsonFile($paths['state'],null,$error);
-        if (!is_array($state) || !isset($state['version'],$state['coin'],$state['legacyHealth']) || $state['version']!==2 || $state['coin']!==$coin || !is_array($state['legacyHealth'])) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
-        $expectedState=coinStateFromRegistry($registry,$coin);
-        unset($state['updatedAt'],$expectedState['updatedAt']);
-        if ($state!=$expectedState) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
-    }
-    $ipFailures=readJsonFile($gateway['ipFailuresFile'],null,$error);
-    if (!is_array($ipFailures) || !isset($ipFailures['version'],$ipFailures['failures']) || $ipFailures['version']!==2 || $ipFailures['failures']!=$registry['ipFailures']) {$error='REGISTRY_MIGRATION_VERIFY_FAILED';return false;}
-    $stamp=isset($registry['updatedAt']) && is_int($registry['updatedAt'])?$registry['updatedAt']:@filemtime($gateway['legacyRegistryFile']);
-    if (!is_int($stamp) || $stamp<1) {$stamp=time();}
-    $sourceHash=hash('sha256',$legacyRaw);
-    $backup=$gateway['dataDirectory'].'/rot-registry.v1.'.gmdate('YmdHis',$stamp).'.'.substr($sourceHash,0,12).'.json';
-    if (!is_file($backup) && !atomicWriteRaw($backup,$legacyRaw,$error)) {return false;}
-    $manifest=[
-        'version'=>2,
-        'createdAt'=>time(),
-        'knownCoins'=>array_keys($coinConfiguration),
-        'migratedFrom'=>'rot-registry.json',
-        'migrationSourceSha256'=>$sourceHash,
-        'recoveryFile'=>basename($backup)
-    ];
-    return atomicWriteJson($gateway['manifestFile'],$manifest,$error);
 }
 
 function initializeStorage(&$error) {
@@ -507,39 +536,25 @@ function initializeStorage(&$error) {
     if (is_file($gateway['manifestFile'])) {
         $manifest=readJsonFile($gateway['manifestFile'],null,$error);
         if (!manifestValid($manifest)) {$error='REGISTRY_MANIFEST_CORRUPT';return false;}
-        foreach (array_keys($coinConfiguration) as $coin) {if (!ensureCoinLayout($coin,$error)) {return false;}}
-        $initialized=true;
-        return true;
+        $complete=is_file($gateway['ipFailuresFile']);
+        foreach (array_keys($coinConfiguration) as $coin) {
+            $paths=storageCoinPaths($coin);
+            if (!is_file($paths['state']) || !is_file($paths['lock']) || !is_dir($paths['rots'])) {$complete=false;break;}
+        }
+        if ($gateway['proxyId']===$gateway['bootstrapId'] && (!is_file($gateway['proxyDirectoryFile']) || !is_file($gateway['proxyCandidatesFile']))) {$complete=false;}
+        if ($complete) {$initialized=true;return true;}
     }
     $admission=openStorageLock($gateway['admissionLock'],LOCK_EX,$error);
     if ($admission===false) {return false;}
     if (is_file($gateway['manifestFile'])) {
         $manifest=readJsonFile($gateway['manifestFile'],null,$error);
-        $ok=manifestValid($manifest);
-        closeStorageLock($admission);
-        if (!$ok) {$error='REGISTRY_MANIFEST_CORRUPT';}
-        if ($ok) {$initialized=true;}
-        return $ok;
+        if (!manifestValid($manifest)) {
+            $error='REGISTRY_MANIFEST_CORRUPT';
+            closeStorageLock($admission);
+            return false;
+        }
     }
-    if (!is_file($gateway['legacyRegistryFile']) || filesize($gateway['legacyRegistryFile'])===0) {
-        $ok=writeFreshStorage($error);
-        closeStorageLock($admission);
-        if ($ok) {$initialized=true;}
-        return $ok;
-    }
-    $legacyHandle=openStorageLock($gateway['legacyRegistryFile'],LOCK_EX,$error);
-    if ($legacyHandle===false) {closeStorageLock($admission);return false;}
-    rewind($legacyHandle);
-    $legacyRaw=stream_get_contents($legacyHandle);
-    $decoded=json_decode($legacyRaw,true);
-    if (!is_array($decoded) || !isset($decoded['version']) || $decoded['version']!==1) {
-        $error='REGISTRY_MIGRATION_SOURCE_CORRUPT';
-        closeStorageLock($legacyHandle);
-        closeStorageLock($admission);
-        return false;
-    }
-    $ok=migrateLegacyStorage($legacyHandle,$legacyRaw,normalizeRegistry($decoded),$error);
-    closeStorageLock($legacyHandle);
+    $ok=initializeStorageFiles($error);
     closeStorageLock($admission);
     if ($ok) {$initialized=true;}
     return $ok;
@@ -552,6 +567,8 @@ function loadCoinRegistryUnlocked($coin,&$error) {
         if ($state!==false) {$error='REGISTRY_COIN_STATE_CORRUPT';}
         return false;
     }
+    if (!isset($state['checkpoints']) || !is_array($state['checkpoints'])) {$error='REGISTRY_COIN_STATE_CORRUPT';return false;}
+    if (count($state['checkpoints'])===0) {$state['checkpoints']=coinAnchor($coin);}
     $records=[];
     $files=glob($paths['rots'].'/*.json');
     if (is_array($files)) {
@@ -700,77 +717,51 @@ function changeIpFailures($callback,&$error) {
     return $result;
 }
 
-function changeAdmissionRegistry($callback,&$error) {
+function changeAdmissionRegistry($coin,$callback,&$error) {
     global $gateway,$coinConfiguration;
 
     $error='';
-    if (!initializeStorage($error)) {return false;}
+    if (canonicalCoin($coin)===false || !initializeStorage($error)) {return false;}
     $admission=openStorageLock($gateway['admissionLock'],LOCK_EX,$error);
     if ($admission===false) {return false;}
-    $locks=[];
-    $parts=[];
+    $paths=storageCoinPaths($coin);
+    $coinLock=openStorageLock($paths['lock'],LOCK_EX,$error);
+    if ($coinLock===false) {closeStorageLock($admission);return false;}
+    $targetBefore=loadCoinRegistryUnlocked($coin,$error);
+    if ($targetBefore===false) {closeStorageLock($coinLock);closeStorageLock($admission);return false;}
+    $target=$targetBefore;
+    expireRegistryRecords($target,time(),true);
+    reconstructCoinLeader($target,$coin,time());
     $registry=['version'=>2,'rots'=>[],'coins'=>[],'legacyHealth'=>[],'ipFailures'=>[]];
-    foreach (array_keys($coinConfiguration) as $coin) {
-        $paths=storageCoinPaths($coin);
-        $lock=openStorageLock($paths['lock'],LOCK_EX,$error);
-        if ($lock===false) {foreach (array_reverse($locks) as $held) {closeStorageLock($held);}closeStorageLock($admission);return false;}
-        $locks[$coin]=$lock;
-        $part=loadCoinRegistryUnlocked($coin,$error);
-        if ($part===false) {foreach (array_reverse($locks) as $held) {closeStorageLock($held);}closeStorageLock($admission);return false;}
-        $parts[$coin]=$part;
+    foreach (array_keys($coinConfiguration) as $otherCoin) {
+        if ($otherCoin===$coin) {
+            $part=$target;
+        } else {
+            $otherPaths=storageCoinPaths($otherCoin);
+            $otherLock=openStorageLock($otherPaths['lock'],LOCK_SH,$error);
+            if ($otherLock===false) {closeStorageLock($coinLock);closeStorageLock($admission);return false;}
+            $part=loadCoinRegistryUnlocked($otherCoin,$error);
+            closeStorageLock($otherLock);
+            if ($part===false) {closeStorageLock($coinLock);closeStorageLock($admission);return false;}
+        }
         $registry['rots']=array_merge($registry['rots'],$part['rots']);
-        $registry['coins'][$coin]=$part['coins'][$coin];
+        $registry['coins'][$otherCoin]=$part['coins'][$otherCoin];
         $registry['legacyHealth']=array_merge($registry['legacyHealth'],$part['legacyHealth']);
     }
     $failures=loadIpFailuresUnlocked($error);
-    if ($failures===false) {foreach (array_reverse($locks) as $held) {closeStorageLock($held);}closeStorageLock($admission);return false;}
+    if ($failures===false) {closeStorageLock($coinLock);closeStorageLock($admission);return false;}
     $registry['ipFailures']=$failures;
-    $before=$registry;
-    expireRegistryRecords($registry,time(),true);
-    foreach (array_keys($coinConfiguration) as $coin) {reconstructCoinLeader($registry,$coin,time());}
+    $beforeFailures=$failures;
     $result=call_user_func_array($callback,[&$registry]);
-    foreach (array_keys($coinConfiguration) as $coin) {
-        $afterPart=['version'=>2,'rots'=>[],'coins'=>[$coin=>isset($registry['coins'][$coin])?$registry['coins'][$coin]:[]],'legacyHealth'=>[],'ipFailures'=>[]];
-        foreach ($registry['rots'] as $key=>$record) {if (is_array($record) && isset($record['coin']) && $record['coin']===$coin) {$afterPart['rots'][$key]=$record;}}
-        $prefix=$coin.'|';
-        foreach ($registry['legacyHealth'] as $key=>$value) {if (strpos($key,$prefix)===0) {$afterPart['legacyHealth'][$key]=$value;}}
-        if (!sameStorageValue($parts[$coin],$afterPart) && !saveCoinRegistryUnlocked($coin,$parts[$coin],$afterPart,$error)) {$result=false;break;}
-    }
-    if ($result!==false && !sameStorageValue($before['ipFailures'],$registry['ipFailures']) && !saveIpFailuresUnlocked($registry['ipFailures'],$error)) {$result=false;}
-    foreach (array_reverse($locks) as $held) {closeStorageLock($held);}
+    $afterTarget=['version'=>2,'rots'=>[],'coins'=>[$coin=>isset($registry['coins'][$coin])?$registry['coins'][$coin]:[]],'legacyHealth'=>[],'ipFailures'=>[]];
+    foreach ($registry['rots'] as $key=>$record) {if (is_array($record) && isset($record['coin']) && $record['coin']===$coin) {$afterTarget['rots'][$key]=$record;}}
+    $prefix=$coin.'|';
+    foreach ($registry['legacyHealth'] as $key=>$value) {if (strpos($key,$prefix)===0) {$afterTarget['legacyHealth'][$key]=$value;}}
+    if (!sameStorageValue($targetBefore,$afterTarget) && !saveCoinRegistryUnlocked($coin,$targetBefore,$afterTarget,$error)) {$result=false;}
+    if ($result!==false && !sameStorageValue($beforeFailures,$registry['ipFailures']) && !saveIpFailuresUnlocked($registry['ipFailures'],$error)) {$result=false;}
+    closeStorageLock($coinLock);
     closeStorageLock($admission);
     return $result;
-}
-
-function readRegistry($callback,&$error) {
-    global $gateway,$coinConfiguration;
-
-    $error='';
-    if (!initializeStorage($error)) {return false;}
-    $admission=openStorageLock($gateway['admissionLock'],LOCK_SH,$error);
-    if ($admission===false) {return false;}
-    $registry=['version'=>2,'rots'=>[],'coins'=>[],'legacyHealth'=>[],'ipFailures'=>[]];
-    foreach (array_keys($coinConfiguration) as $coin) {
-        $paths=storageCoinPaths($coin);
-        $lock=openStorageLock($paths['lock'],LOCK_SH,$error);
-        if ($lock===false) {closeStorageLock($admission);return false;}
-        $part=loadCoinRegistryUnlocked($coin,$error);
-        closeStorageLock($lock);
-        if ($part===false) {closeStorageLock($admission);return false;}
-        $registry['rots']=array_merge($registry['rots'],$part['rots']);
-        $registry['coins'][$coin]=$part['coins'][$coin];
-        $registry['legacyHealth']=array_merge($registry['legacyHealth'],$part['legacyHealth']);
-    }
-    $failures=loadIpFailuresUnlocked($error);
-    closeStorageLock($admission);
-    if ($failures===false) {return false;}
-    $registry['ipFailures']=$failures;
-    expireRegistryRecords($registry,time(),false);
-    return call_user_func_array($callback,[&$registry]);
-}
-
-function changeRegistry($callback,&$error) {
-    return changeAdmissionRegistry($callback,$error);
 }
 
 function expireRegistryRecords(array &$registry,$now,$recordEvents=false) {
@@ -1004,7 +995,7 @@ function runRotRegisterOperation(array $input) {
     }
     $legacy=legacyRotMatch($coin,$sourceIp,$port);
     $error='';
-    $result=changeAdmissionRegistry(function(&$registry) use ($coin,$rotId,$nickname,$port,$sourceIp,$authToken,$registrationVersion,$legacy,$gateway) {
+    $result=changeAdmissionRegistry($coin,function(&$registry) use ($coin,$rotId,$nickname,$port,$sourceIp,$authToken,$registrationVersion,$legacy,$gateway) {
         $now=time();
         $cooldown=ipCooldown($registry,$sourceIp,$now);
         if ($cooldown>0) {
@@ -1018,7 +1009,7 @@ function runRotRegisterOperation(array $input) {
         $activeTotal=0;
         $activeForIp=0;
         foreach ($registry['rots'] as $existingKey=>$existing) {
-            if (!is_array($existing) || !isset($existing['status']) || $existing['status']==='ENDED') {continue;}
+            if (!is_array($existing) || !isset($existing['status']) || $existing['status']==='ENDED' || isset($existing['expiresAt']) && (int)$existing['expiresAt']<$now) {continue;}
             $activeTotal++;
             if (isset($existing['host']) && $existing['host']===$sourceIp && $existingKey!==$key) {$activeForIp++;}
         }
@@ -1152,7 +1143,12 @@ function runRotRegistrationStatusOperation(array $input) {
         sendJson(['ok'=>false,'error'=>$error],503);
         return;
     }
-    if (!is_array($record) || !isset($record['authToken'],$record['host']) || $sourceIp===false || !hash_equals($record['host'],$sourceIp) || !hash_equals(registrationRequestMac($record,$timestamp,$ackSequence),$mac)) {
+    if ($record===null) {
+        $networkEvent['outcome']='REGISTRATION_NOT_FOUND';
+        sendJson(['ok'=>false,'error'=>'REGISTRATION_NOT_FOUND'],404);
+        return;
+    }
+    if (!isset($record['authToken'],$record['host']) || $sourceIp===false || !hash_equals($record['host'],$sourceIp) || !hash_equals(registrationRequestMac($record,$timestamp,$ackSequence),$mac)) {
         recordIpFailure($sourceIp);
         sendJson(['ok'=>false,'error'=>'INVALID_REGISTRATION_AUTH'],401);
         return;
@@ -1341,7 +1337,6 @@ function configureCoin($coin) {
     if (!isset($coinConfiguration[$coin])) {return false;}
     $gateway['coin']=$coin;
     $gateway['versionByte']=$coinConfiguration[$coin]['versionByte'];
-    $gateway['maxZeroConfirmationObservers']=$coinConfiguration[$coin]['maxZeroConfirmationObservers'];
     $rots=rotsForCoin($coin);
     return true;
 }
@@ -1367,21 +1362,230 @@ function routeableRotCount($coin) {
     return count($endpoints);
 }
 
+function registeredRotCount($coin) {
+    $error='';
+    $count=readCoinRegistry($coin,function(&$registry) {
+        $count=0;
+        foreach ($registry['rots'] as $record) {
+            if (is_array($record) && isset($record['status']) && $record['status']!=='ENDED') {$count++;}
+        }
+        return $count;
+    },$error);
+    return is_int($count)?$count:0;
+}
+
+function localRegisteredRotCounts() {
+    global $coinConfiguration;
+
+    $counts=[];
+    foreach (array_keys($coinConfiguration) as $coin) {$counts[$coin]=registeredRotCount($coin);}
+    return $counts;
+}
+
 function publicProxyInfo() {
     global $gateway,$coinConfiguration;
 
     if ($gateway['proxyId']===false || $gateway['publicUrl']===false) {return false;}
     $counts=[];
-    foreach (array_keys($coinConfiguration) as $coin) {$counts[$coin]=routeableRotCount($coin);}
+    $registered=[];
+    foreach (array_keys($coinConfiguration) as $coin) {
+        $counts[$coin]=routeableRotCount($coin);
+        $registered[$coin]=registeredRotCount($coin);
+    }
     return [
         'proxyId'=>$gateway['proxyId'],
         'proxyUrl'=>$gateway['publicUrl'],
         'walletOrigin'=>$gateway['origin'],
         'acceptsRegistrations'=>$gateway['acceptsRegistrations'],
         'acceptedCoins'=>array_values(array_keys($coinConfiguration)),
+        'registeredRots'=>$registered,
         'routeableRots'=>$counts,
         'observedAt'=>time()
     ];
+}
+
+function normalizeDirectoryProxyUrl($value) {
+    if (!is_string($value) || strlen($value)>512) {return false;}
+    $parts=@parse_url(trim($value));
+    if (!is_array($parts) || !isset($parts['scheme'],$parts['host'],$parts['path']) || strtolower($parts['scheme'])!=='https' || $parts['path']!=='/proxy.php') {return false;}
+    if (isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment']) || isset($parts['port']) && (int)$parts['port']!==443) {return false;}
+    $host=strtolower($parts['host']);
+    if (strlen($host)>64 || !preg_match('/^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',$host)) {return false;}
+    return 'https://'.$host.'/proxy.php';
+}
+
+function normalizeDirectoryCounts($value) {
+    if (!is_array($value) || count($value)<1 || count($value)>100) {return false;}
+    $counts=[];
+    foreach ($value as $coin=>$count) {
+        $coin=is_string($coin)?strtoupper(trim($coin)):'';
+        if (!preg_match('/^[A-Z0-9]{2,10}$/',$coin) || !is_int($count) || $count<0 || $count>10000) {return false;}
+        $counts[$coin]=$count;
+    }
+    ksort($counts,SORT_STRING);
+    return $counts;
+}
+
+function emptyLocalCoinCounts() {
+    global $coinConfiguration;
+
+    $counts=[];
+    foreach (array_keys($coinConfiguration) as $coin) {$counts[$coin]=0;}
+    return $counts;
+}
+
+function newProxyDirectory() {
+    global $gateway;
+
+    $proxies=[];
+    if ($gateway['publicUrl']!==false) {$proxies[$gateway['publicUrl']]=emptyLocalCoinCounts();}
+    return ['bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
+}
+
+function newProxyCandidates() {
+    global $gateway;
+
+    return ['bootstrapId'=>$gateway['bootstrapId'],'candidates'=>[]];
+}
+
+function normalizedProxyListFile($value,$member,$maximum=null) {
+    global $gateway;
+
+    if (!is_array($value) || !isset($value['bootstrapId'],$value[$member]) || $value['bootstrapId']!==$gateway['bootstrapId'] || !is_array($value[$member])) {return false;}
+    if ($maximum!==null && count($value[$member])>$maximum) {return false;}
+    $items=[];
+    foreach ($value[$member] as $url=>$counts) {
+        $url=normalizeDirectoryProxyUrl($url);
+        $counts=normalizeDirectoryCounts($counts);
+        if ($url===false || $counts===false || isset($items[$url])) {return false;}
+        $items[$url]=$counts;
+    }
+    ksort($items,SORT_STRING);
+    return ['bootstrapId'=>$gateway['bootstrapId'],$member=>$items];
+}
+
+function readProxyListFile($path,$member,$missing,$maximum,&$error) {
+    $value=readJsonFile($path,$missing,$error);
+    if ($value===false) {return false;}
+    $value=normalizedProxyListFile($value,$member,$maximum);
+    if ($value===false) {$error='PROXY_DIRECTORY_CORRUPT';}
+    return $value;
+}
+
+function proxyIdFromDirectoryUrl($url) {
+    $parts=parse_url($url);
+    $host=is_array($parts) && isset($parts['host'])?strtolower($parts['host']):false;
+    return is_string($host) && preg_match('/^[A-Za-z0-9._-]{3,64}$/',$host)?$host:false;
+}
+
+function proxyDirectoryEnvelope(array $directory) {
+    global $gateway;
+
+    $proxies=[];
+    foreach ($directory['proxies'] as $url=>$counts) {
+        $proxyId=proxyIdFromDirectoryUrl($url);
+        if ($proxyId===false) {continue;}
+        $proxies[]=[
+            'proxyId'=>$proxyId,
+            'proxyUrl'=>$url,
+            'acceptsRegistrations'=>true,
+            'acceptedCoins'=>array_keys($counts),
+            'registeredRots'=>$counts
+        ];
+    }
+    $now=time();
+    return ['ok'=>true,'protocol'=>1,'generatedAt'=>$now,'expiresAt'=>$now+86400,'bootstrap'=>$gateway['bootstrapId'],'proxies'=>$proxies];
+}
+
+function simpleDirectoryFromEnvelope($value) {
+    global $gateway;
+
+    if (!is_array($value) || !isset($value['ok'],$value['protocol'],$value['bootstrap'],$value['proxies']) || $value['ok']!==true || $value['protocol']!==1 || $value['bootstrap']!==$gateway['bootstrapId'] || !is_array($value['proxies']) || count($value['proxies'])<1 || count($value['proxies'])>$gateway['directoryMax']) {return false;}
+    $proxies=[];
+    foreach ($value['proxies'] as $proxy) {
+        if (!is_array($proxy) || !isset($proxy['proxyUrl'],$proxy['acceptedCoins'],$proxy['registeredRots']) || !is_array($proxy['acceptedCoins'])) {return false;}
+        $url=normalizeDirectoryProxyUrl($proxy['proxyUrl']);
+        $counts=normalizeDirectoryCounts($proxy['registeredRots']);
+        $accepted=[];
+        foreach ($proxy['acceptedCoins'] as $coin) {
+            if (!is_string($coin) || !preg_match('/^[A-Z0-9]{2,10}$/',$coin) || isset($accepted[$coin])) {return false;}
+            $accepted[$coin]=true;
+        }
+        ksort($accepted,SORT_STRING);
+        if ($url===false || $counts===false || array_keys($counts)!==array_keys($accepted) || isset($proxies[$url])) {return false;}
+        $proxies[$url]=$counts;
+    }
+    ksort($proxies,SORT_STRING);
+    return ['bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
+}
+
+function postJsonDocument($url,array $body,&$error) {
+    $error='';
+    $raw=json_encode($body,JSON_UNESCAPED_SLASHES);
+    if ($raw===false) {$error='BOOTSTRAP_REQUEST_FAILED';return false;}
+    $context=stream_context_create([
+        'http'=>['method'=>'POST','header'=>"Content-Type: application/json\r\nConnection: close\r\n",'content'=>$raw,'timeout'=>5,'ignore_errors'=>true,'follow_location'=>0],
+        'ssl'=>['verify_peer'=>true,'verify_peer_name'=>true]
+    ]);
+    $response=@file_get_contents($url,false,$context,0,262145);
+    if ($response===false || strlen($response)>262144) {$error='BOOTSTRAP_UNAVAILABLE';return false;}
+    $decoded=json_decode($response,true);
+    if (!is_array($decoded)) {$error='BOOTSTRAP_INVALID_RESPONSE';return false;}
+    return $decoded;
+}
+
+function updateBootstrapDirectory(array $input,&$error) {
+    global $gateway;
+
+    $url=isset($input['proxyUrl'])?normalizeDirectoryProxyUrl($input['proxyUrl']):false;
+    $counts=isset($input['registeredRots'])?normalizeDirectoryCounts($input['registeredRots']):false;
+    if ($url===false || $counts===false) {$error='INVALID_PROXY_HELLO';return false;}
+    $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',newProxyDirectory(),$gateway['directoryMax'],$error);
+    if ($directory===false) {return false;}
+    $candidates=readProxyListFile($gateway['proxyCandidatesFile'],'candidates',newProxyCandidates(),null,$error);
+    if ($candidates===false) {return false;}
+    $directory['proxies'][$gateway['publicUrl']]=localRegisteredRotCounts();
+    if (count($directory['proxies'])>$gateway['directoryMax']) {$error='PROXY_DIRECTORY_FULL';return false;}
+    if (isset($directory['proxies'][$url])) {
+        $approved=[];
+        foreach (array_keys($directory['proxies'][$url]) as $coin) {$approved[$coin]=isset($counts[$coin])?$counts[$coin]:0;}
+        $pending=array_diff_key($counts,$approved);
+        $directory['proxies'][$url]=$approved;
+        if (count($pending)>0) {$candidates['candidates'][$url]=$pending;} else {unset($candidates['candidates'][$url]);}
+        if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error) || !atomicWriteJson($gateway['proxyCandidatesFile'],$candidates,$error)) {return false;}
+    } else {
+        $candidates['candidates'][$url]=$counts;
+        if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error) || !atomicWriteJson($gateway['proxyCandidatesFile'],$candidates,$error)) {return false;}
+    }
+    return $directory;
+}
+
+function refreshBootstrapSelf(&$error) {
+    global $gateway;
+
+    $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',newProxyDirectory(),$gateway['directoryMax'],$error);
+    if ($directory===false) {return false;}
+    $directory['proxies'][$gateway['publicUrl']]=localRegisteredRotCounts();
+    if (count($directory['proxies'])>$gateway['directoryMax'] || !atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {if ($error==='') {$error='PROXY_DIRECTORY_FULL';}return false;}
+    return $directory;
+}
+
+function requestBootstrapDirectory(&$error) {
+    global $gateway;
+
+    if ($gateway['bootstrapId']===false || $gateway['bootstrapUrl']===false || $gateway['publicUrl']===false) {$error='BOOTSTRAP_NOT_CONFIGURED';return false;}
+    $response=postJsonDocument($gateway['bootstrapUrl'],[
+        'operation'=>'proxyHello',
+        'protocol'=>1,
+        'bootstrapId'=>$gateway['bootstrapId'],
+        'proxyUrl'=>$gateway['publicUrl'],
+        'registeredRots'=>localRegisteredRotCounts()
+    ],$error);
+    if ($response===false) {return false;}
+    $directory=simpleDirectoryFromEnvelope($response);
+    if ($directory===false) {$error='BOOTSTRAP_INVALID_DIRECTORY';return false;}
+    if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
+    return $directory;
 }
 
 function runProxyPingOperation(array $input) {
@@ -1410,25 +1614,38 @@ function runProxyInfoOperation() {
     sendJson(array_merge(['ok'=>true,'protocol'=>1],$info));
 }
 
+function runProxyHelloOperation(array $input) {
+    global $gateway,$networkEvent;
+
+    $networkEvent['route']='proxyHello';
+    if ($gateway['proxyId']!==$gateway['bootstrapId'] || !isset($input['protocol'],$input['bootstrapId']) || $input['protocol']!==1 || $input['bootstrapId']!==$gateway['bootstrapId']) {sendJson(['ok'=>false,'error'=>'INVALID_PROXY_HELLO'],400);return;}
+    $error='';
+    $directory=updateBootstrapDirectory($input,$error);
+    if ($directory===false) {sendJson(['ok'=>false,'error'=>$error===''?'PROXY_HELLO_FAILED':$error],503);return;}
+    $networkEvent['outcome']=isset($directory['proxies'][$input['proxyUrl']])?'ACTIVE':'CANDIDATE';
+    sendJson(proxyDirectoryEnvelope($directory));
+}
+
 function runProxyDirectoryOperation() {
     global $gateway,$networkEvent;
 
     $networkEvent['route']='proxyDirectory';
-    $info=publicProxyInfo();
-    if ($info===false) {
-        sendJson(['ok'=>false,'error'=>'PROXY_DIRECTORY_UNAVAILABLE'],503);
-        return;
+    $error='';
+    if ($gateway['proxyId']===$gateway['bootstrapId']) {
+        $directory=refreshBootstrapSelf($error);
+        $outcome='BOOTSTRAP';
+    } else {
+        $directory=requestBootstrapDirectory($error);
+        $outcome='BOOTSTRAP';
+        if ($directory===false) {
+            $cacheError='';
+            $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',null,$gateway['directoryMax'],$cacheError);
+            $outcome='CACHE';
+        }
     }
-    $now=time();
-    $networkEvent['outcome']='SELF_ONLY';
-    sendJson([
-        'ok'=>true,
-        'protocol'=>1,
-        'generatedAt'=>$now,
-        'expiresAt'=>$now+86400,
-        'bootstrap'=>$gateway['proxyId'],
-        'proxies'=>[array_merge($info,['observedAt'=>$now])]
-    ]);
+    if ($directory===false) {sendJson(['ok'=>false,'error'=>'PROXY_DIRECTORY_UNAVAILABLE'],503);return;}
+    $networkEvent['outcome']=$outcome;
+    sendJson(proxyDirectoryEnvelope($directory));
 }
 
 function orderRotsForRouting(array $rots) {
@@ -1485,15 +1702,54 @@ function normalizedOrigin($value) {
     return $origin;
 }
 
-function browserRequestAllowed() {
+function directoryOriginAllowed($origin) {
+    global $gateway;
+
+    $error='';
+    $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',null,$gateway['directoryMax'],$error);
+    if ($directory===false) {return false;}
+    foreach (array_keys($directory['proxies']) as $url) {
+        $candidate=normalizedOrigin(substr($url,0,-strlen('/proxy.php')));
+        if ($candidate!==false && hash_equals($candidate,$origin)) {return true;}
+    }
+    return false;
+}
+
+function browserRequestContext() {
     global $gateway;
 
     $fetchSite=isset($_SERVER['HTTP_SEC_FETCH_SITE'])?strtolower((string)$_SERVER['HTTP_SEC_FETCH_SITE']):'';
-    if ($fetchSite==='cross-site') {return false;}
-    if (!isset($_SERVER['HTTP_ORIGIN']) || $_SERVER['HTTP_ORIGIN']==='') {return true;}
+    if (!isset($_SERVER['HTTP_ORIGIN']) || $_SERVER['HTTP_ORIGIN']==='') {
+        return $fetchSite==='cross-site'?false:['external'=>false,'origin'=>false];
+    }
     $origin=normalizedOrigin($_SERVER['HTTP_ORIGIN']);
     $expected=$gateway['origin'];
-    return $origin!==false && $expected!==false && hash_equals($expected,$origin);
+    if ($origin===false || $expected===false) {return false;}
+    if (hash_equals($expected,$origin)) {return ['external'=>false,'origin'=>$origin];}
+    if (!directoryOriginAllowed($origin)) {return false;}
+    return ['external'=>true,'origin'=>$origin];
+}
+
+function corsPreflightAllowed() {
+    $method=isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'])?strtoupper(trim((string)$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'])):'';
+    if ($method!=='POST') {return false;}
+    $requested=isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS'])?trim((string)$_SERVER['HTTP_ACCESS_CONTROL_REQUEST_HEADERS']):'';
+    if ($requested==='') {return true;}
+    foreach (explode(',',$requested) as $header) {
+        if (strtolower(trim($header))!=='content-type') {return false;}
+    }
+    return true;
+}
+
+function sendCorsHeaders(array $context,$preflight=false) {
+    if (empty($context['external']) || !isset($context['origin']) || !is_string($context['origin']) || headers_sent()) {return;}
+    header('Access-Control-Allow-Origin: '.$context['origin']);
+    header('Vary: Origin');
+    if ($preflight) {
+        header('Access-Control-Allow-Methods: POST');
+        header('Access-Control-Allow-Headers: Content-Type');
+        header('Access-Control-Max-Age: 600');
+    }
 }
 
 function sendJson(array $body,$status=200) {
@@ -1538,7 +1794,7 @@ function setRequestBudget($operation) {
     if ($operation==='history') {$seconds=40;}
     elseif ($operation==='broadcast' || $operation==='transactionStatus' || $operation==='zeroConfirmation') {$seconds=20;}
     elseif ($operation==='rotRegister' || $operation==='rotRegistrationStatus') {$seconds=15;}
-    elseif ($operation==='proxyPing' || $operation==='proxyInfo' || $operation==='proxyDirectory') {$seconds=5;}
+    elseif ($operation==='proxyPing' || $operation==='proxyInfo' || $operation==='proxyDirectory' || $operation==='proxyHello') {$seconds=5;}
     $requestDeadline=microtime(true)+$seconds;
 }
 
@@ -1786,7 +2042,7 @@ function checkpointVerdict(array &$registry,array $record,array $checkpoints) {
     foreach ($registry['rots'] as $other) {
         if (is_array($other) && isset($other['rotId'],$other['status']) && $other['rotId']===$leadingRotId && !in_array($other['status'],['ENDED','QUARANTINED'],true)) {$leaderActive=true;break;}
     }
-    if (!$leaderActive && !empty($record['trustedSeed'])) {
+    if (!$leaderActive) {
         $registry['coins'][$coin]['leadingRotId']=$record['rotId'];
         return 'LEADING';
     }
@@ -1818,9 +2074,9 @@ function statusHeightReference(array $registry,array $record,$height) {
 }
 
 function statusHeightAcceptable($coin,$height,$reference) {
-    global $coinConfiguration;
+    global $gateway;
 
-    return $height+$coinConfiguration[$coin]['maxHeightLag']>=$reference;
+    return $height+$gateway['maxHeightLag']>=$reference;
 }
 
 function rotResponseHeightAcceptable(array $rot,$height) {
@@ -2726,17 +2982,31 @@ function runGateway() {
     global $gateway,$networkEvent;
 
     $started=microtime(true);
+    if ($gateway['operatorConfigurationError']!=='') {
+        $error=$gateway['operatorConfigurationError']==='OPERATOR_CONFIGURATION_REQUIRED'?'OPERATOR_CONFIGURATION_REQUIRED':'OPERATOR_CONFIGURATION_INVALID';
+        @error_log('CC-WALLET proxy: '.$error);
+        sendJson(['ok'=>false,'error'=>$error],503);
+        return;
+    }
     $storageError='';
-    initializeStorage($storageError);
+    $storageReady=initializeStorage($storageError);
     $requestMethod=isset($_SERVER['REQUEST_METHOD'])?$_SERVER['REQUEST_METHOD']:'';
     if ($requestMethod==='POST') {
         $networkEvent=['time'=>gmdate('c'),'route'=>'invalid','started'=>$started,'clientRequestBytes'=>0,'rotRequestBytes'=>0,'rotResponseBytes'=>0,'attempts'=>0];
+        if (!$storageReady && $storageError!=='') {$networkEvent['storageError']=substr($storageError,0,64);}
     }
-    if (!browserRequestAllowed()) {
+    $browserContext=browserRequestContext();
+    if ($browserContext===false) {
         sendJson(['ok'=>false,'error'=>'CROSS_ORIGIN_REQUEST'],403);
         return;
     }
     if ($requestMethod==='OPTIONS') {
+        if (!empty($browserContext['external'])) {
+            if (!corsPreflightAllowed()) {sendJson(['ok'=>false,'error'=>'CROSS_ORIGIN_PREFLIGHT'],403);return;}
+            sendCorsHeaders($browserContext,true);
+            if (!headers_sent()) {http_response_code(204);header('Content-Length: 0');}
+            return;
+        }
         sendJson(['ok'=>true]);
         return;
     }
@@ -2769,6 +3039,13 @@ function runGateway() {
         sendJson(['ok'=>false,'error'=>'INVALID_OPERATION'],400);
         return;
     }
+    if (!empty($browserContext['external'])) {
+        sendCorsHeaders($browserContext);
+        if (!in_array($input['operation'],['state','history','broadcast','transactionStatus','zeroConfirmation'],true)) {
+            sendJson(['ok'=>false,'error'=>'CROSS_ORIGIN_OPERATION'],403);
+            return;
+        }
+    }
     setRequestBudget($input['operation']);
     $networkEvent['proxyId']=$gateway['proxyId'];
     if ($input['operation']==='proxyPing') {
@@ -2783,6 +3060,10 @@ function runGateway() {
     if ($input['operation']==='proxyDirectory') {
         if (!isset($input['protocol']) || $input['protocol']!==1) {sendJson(['ok'=>false,'error'=>'INVALID_PROXY_DIRECTORY'],400);return;}
         runProxyDirectoryOperation();
+        return;
+    }
+    if ($input['operation']==='proxyHello') {
+        runProxyHelloOperation($input);
         return;
     }
     $coin=canonicalCoin(isset($input['coin'])?$input['coin']:'EFL');
