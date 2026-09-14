@@ -1,7 +1,22 @@
-/* [CC-WALLET-001]
-Use one same-origin multi-coin proxy while preserving single-session wallet behavior.
-Base: - Derived from MULTI-COIN-019
+/* [CC-WALLET-016]
+Keep every supported wallet coin operational through bounded proxy failover.
+Base: - Derived from CC-WALLET-015
 Changes:
+- [CC-WALLET-016] Retry state, history, broadcast, transaction status and zero-confirmation through one approved external proxy after technical local failure
+- Preserve compatible delta-state across local and external proxy changes
+- Reject state-height regression independently of the serving proxy
+- Rotate later recovery attempts across eligible external proxies without fanning one request out to the network
+- Keep nontechnical transaction and observation outcomes final
+- [CC-WALLET-015] Recognize the proxy's required or invalid operator-configuration response
+- Cover the wallet with a specific installation notice while leaving ordinary failures quiet
+- Accept up to three zero-confirmation observers for every operational coin
+- [CC-WALLET-014] Keep ./proxy.php primary and retry one directory-eligible external proxy only after technical read failure
+- Request a fresh full state snapshot when changing back to the local proxy and for every external recovery
+- Keep broadcast, transaction status and zero-confirmation traffic strictly on ./proxy.php
+- [CC-WALLET-011] Request proxyDirectory once in the background at every wallet startup
+- Store only a validated ten-proxy public view in a separate origin-wide IndexedDB database
+- Preserve the last view across reloads and expose console-only support diagnostics
+- Keep discovery failure invisible to wallet operation and leave every transaction on ./proxy.php
 - [CC-WALLET-001] Route EFL, CDN, AUR and DEM through ./proxy.php
 - Send the selected coin with every state, history, broadcast, status and zero-confirmation request
 - [MULTI-COIN-019] The newest wallet instance becomes leading and broadcasts CLOSE to older same-origin wallet instances
@@ -60,6 +75,246 @@ async function calculateSHA256Hash(inputString) {
 }
 const dbName="ROOTY"
 const dbVersion=1
+const proxyNetworkDbName="CC-WALLET-NETWORK"
+const proxyNetworkStore="directory"
+var proxyNetworkView=null
+var proxyNetworkStatus={source:"NONE",lastAttemptAt:0,lastSuccessAt:0,lastError:""}
+var proxyNetworkReady=Promise.resolve()
+var externalProxyCursor={}
+var operatorConfigurationBlocked=false
+
+function showOperatorConfigurationNotice(code){
+  if ((code!=="OPERATOR_CONFIGURATION_REQUIRED")&&(code!=="OPERATOR_CONFIGURATION_INVALID")){return false}
+  operatorConfigurationBlocked=true
+  if (document.getElementById("operatorConfigurationNotice")!=null){return true}
+  var notice=document.createElement("div")
+  notice.id="operatorConfigurationNotice"
+  notice.setAttribute("role","alert")
+  notice.style.cssText="position:fixed;z-index:2147483647;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#fff;color:#111;text-align:center"
+  var panel=document.createElement("div")
+  panel.style.cssText="max-width:640px;font:18px/1.5 sans-serif"
+  var title=document.createElement("h1")
+  title.textContent=code==="OPERATOR_CONFIGURATION_REQUIRED"?"Proxy configuration required":"Proxy configuration invalid"
+  var instruction=document.createElement("p")
+  instruction.textContent="Review operator-config.example.json and install it as ../CC-PROXY/operator-config.json. Reload this wallet after the private configuration is valid."
+  panel.appendChild(title)
+  panel.appendChild(instruction)
+  notice.appendChild(panel)
+  document.body.appendChild(notice)
+  document.body.style.overflow="hidden"
+  var wallet=document.getElementById("wallet")
+  if (wallet!=null){wallet.setAttribute("inert","");wallet.setAttribute("aria-hidden","true")}
+  return true
+}
+
+function normalizeProxyNetworkView(value){
+  if ((value==null)||(typeof value!=="object")||(value.ok!==true)||(value.protocol!==1)||(!Number.isSafeInteger(value.generatedAt))||(!Number.isSafeInteger(value.expiresAt))||(typeof value.bootstrap!=="string")||(!/^[A-Za-z0-9._-]{3,64}$/.test(value.bootstrap))||(!Array.isArray(value.proxies))||(value.proxies.length<1)||(value.proxies.length>10)){return false}
+  var proxies=[]
+  var proxyIds={}
+  var proxyUrls={}
+  for (const entry of value.proxies){
+    if ((entry==null)||(typeof entry!=="object")||(typeof entry.proxyId!=="string")||(!/^[A-Za-z0-9._-]{3,64}$/.test(entry.proxyId))||(entry.acceptsRegistrations!==true)||(!Array.isArray(entry.acceptedCoins))||(entry.acceptedCoins.length<1)||(entry.acceptedCoins.length>100)||(entry.registeredRots==null)||(typeof entry.registeredRots!=="object")||Array.isArray(entry.registeredRots)){return false}
+    var parsed
+    try{parsed=new URL(entry.proxyUrl)}catch(error){return false}
+    if ((parsed.protocol!=="https:")||((parsed.port!=="")&&(parsed.port!=="443"))||(parsed.pathname!=="/proxy.php")||(parsed.search!=="")||(parsed.hash!=="")||(parsed.username!=="")||(parsed.password!=="")){return false}
+    var url=parsed.origin+"/proxy.php"
+    if (proxyIds[entry.proxyId]||proxyUrls[url]){return false}
+    var coins=[]
+    var counts={}
+    for (const coin of entry.acceptedCoins){
+      if ((typeof coin!=="string")||(!/^[A-Z0-9]{2,10}$/.test(coin))||(coins.includes(coin))||(!Number.isSafeInteger(entry.registeredRots[coin]))||(entry.registeredRots[coin]<0)||(entry.registeredRots[coin]>10000)){return false}
+      coins.push(coin)
+      counts[coin]=entry.registeredRots[coin]
+    }
+    if (Object.keys(entry.registeredRots).length!==coins.length){return false}
+    proxyIds[entry.proxyId]=true
+    proxyUrls[url]=true
+    proxies.push({proxyId:entry.proxyId,proxyUrl:url,acceptsRegistrations:true,acceptedCoins:coins,registeredRots:counts})
+  }
+  return {ok:true,protocol:1,generatedAt:value.generatedAt,expiresAt:value.expiresAt,bootstrap:value.bootstrap,proxies:proxies}
+}
+
+function openProxyNetworkDatabase(){
+  return new Promise(function(resolve,reject){
+    var request=indexedDB.open(proxyNetworkDbName,1)
+    request.onupgradeneeded=function(event){event.target.result.createObjectStore(proxyNetworkStore,{keyPath:"id"})}
+    request.onsuccess=function(){request.result.onversionchange=function(){request.result.close()};resolve(request.result)}
+    request.onerror=function(){reject(request.error)}
+    request.onblocked=function(){reject(new Error("Proxy network database blocked"))}
+  })
+}
+
+async function readProxyNetworkView(){
+  var db=await openProxyNetworkDatabase()
+  return new Promise(function(resolve,reject){
+    var transaction=db.transaction(proxyNetworkStore,"readonly")
+    var request=transaction.objectStore(proxyNetworkStore).get("active")
+    var record
+    request.onsuccess=function(){record=request.result}
+    request.onerror=function(){reject(request.error)}
+    transaction.oncomplete=function(){db.close();resolve(record)}
+    transaction.onerror=function(){db.close();reject(transaction.error)}
+    transaction.onabort=function(){db.close();reject(transaction.error)}
+  })
+}
+
+async function writeProxyNetworkView(view){
+  var db=await openProxyNetworkDatabase()
+  return new Promise(function(resolve,reject){
+    var transaction=db.transaction(proxyNetworkStore,"readwrite")
+    transaction.objectStore(proxyNetworkStore).put({id:"active",receivedAt:Date.now(),view:view})
+    transaction.oncomplete=function(){db.close();resolve()}
+    transaction.onerror=function(){db.close();reject(transaction.error)}
+    transaction.onabort=function(){db.close();reject(transaction.error)}
+  })
+}
+
+async function refreshProxyNetworkView(){
+  proxyNetworkStatus.lastAttemptAt=Date.now()
+  var controller=new AbortController()
+  var timeout=setTimeout(function(){controller.abort()},6000)
+  try{
+    var response=await fetch("./proxy.php",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"proxyDirectory",protocol:1}),cache:"no-store",signal:controller.signal})
+    var raw=await response.text()
+    if (raw.length>65536){throw new Error("INVALID_RESPONSE")}
+    var decoded=JSON.parse(raw)
+    if (!response.ok){
+      if (showOperatorConfigurationNotice(decoded&&decoded.error)){
+        proxyNetworkStatus.lastError=decoded.error
+        if (proxyNetworkView==null){proxyNetworkStatus.source="NONE"}
+        return
+      }
+      throw new Error("INVALID_RESPONSE")
+    }
+    var view=normalizeProxyNetworkView(decoded)
+    if (view===false){throw new Error("INVALID_DIRECTORY")}
+    proxyNetworkView=view
+    proxyNetworkStatus={source:"NETWORK",lastAttemptAt:proxyNetworkStatus.lastAttemptAt,lastSuccessAt:Date.now(),lastError:""}
+    try{await writeProxyNetworkView(view)}catch(error){proxyNetworkStatus.lastError="CACHE_WRITE_FAILED"}
+  }catch(error){
+    proxyNetworkStatus.lastError="DISCOVERY_UNAVAILABLE"
+    if (proxyNetworkView==null){proxyNetworkStatus.source="NONE"}
+  }finally{clearTimeout(timeout)}
+}
+
+async function startProxyNetworkDiscovery(){
+  try{
+    var record=await readProxyNetworkView()
+    var cached=record==null?false:normalizeProxyNetworkView(record.view)
+    if (cached!==false){proxyNetworkView=cached;proxyNetworkStatus={source:"CACHE",lastAttemptAt:0,lastSuccessAt:Number.isSafeInteger(record.receivedAt)?record.receivedAt:0,lastError:""}}
+  }catch(error){proxyNetworkStatus.lastError="CACHE_UNAVAILABLE"}
+  await refreshProxyNetworkView()
+}
+
+async function inspectProxyNetwork(){
+  await proxyNetworkReady
+  return JSON.parse(JSON.stringify({status:proxyNetworkStatus,view:proxyNetworkView}))
+}
+
+async function externalOperationProxy(coin){
+  if (proxyNetworkView==null){await proxyNetworkReady}
+  if ((proxyNetworkView==null)||(!Array.isArray(proxyNetworkView.proxies))){return null}
+  var responseCoin=getStateService(coin).responseCoin
+  var eligible=[]
+  for (const entry of proxyNetworkView.proxies){
+    var parsed
+    try{parsed=new URL(entry.proxyUrl)}catch(error){continue}
+    if (parsed.origin===window.location.origin){continue}
+    if ((!entry.acceptedCoins.includes(responseCoin))||(!Number.isSafeInteger(entry.registeredRots[responseCoin]))||(entry.registeredRots[responseCoin]<1)){continue}
+    eligible.push({proxyId:entry.proxyId,proxyUrl:entry.proxyUrl})
+  }
+  if (eligible.length===0){return null}
+  var cursor=Number.isSafeInteger(externalProxyCursor[responseCoin])?externalProxyCursor[responseCoin]:0
+  var selected=eligible[cursor%eligible.length]
+  externalProxyCursor[responseCoin]=(cursor+1)%eligible.length
+  return selected
+}
+
+function proxyReadError(message,technical,response=null){
+  var error=new Error(message)
+  error.proxyReadTechnical=technical===true
+  error.proxyResponse=response
+  return error
+}
+
+function setTrackedProxyController(track,controller){
+  if (track==="state"){stateRequestController=controller}
+  else if (track==="broadcast"){broadcastRequestController=controller}
+  else if (track==="zero"){zeroConfirmationController=controller}
+}
+
+function clearTrackedProxyController(track,controller){
+  if ((track==="state")&&(stateRequestController===controller)){stateRequestController=null}
+  else if ((track==="broadcast")&&(broadcastRequestController===controller)){broadcastRequestController=undefined}
+  else if ((track==="zero")&&(zeroConfirmationController===controller)){zeroConfirmationController=undefined}
+}
+
+async function requestProxyJson(url,body,timeoutMs,track="",acceptNontechnical=false){
+  var controller=new AbortController()
+  var timedOut=false
+  setTrackedProxyController(track,controller)
+  var timeout=setTimeout(function(){timedOut=true;controller.abort()},timeoutMs)
+  var started=performance.now()
+  var target=new URL(url,document.baseURI)
+  var external=target.origin!==window.location.origin
+  try{
+    var response=await fetch(target.href,{
+      method:"POST",
+      mode:external?"cors":"same-origin",
+      credentials:external?"omit":"same-origin",
+      redirect:"error",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body),
+      cache:"no-store",
+      signal:controller.signal
+    })
+    var raw=await response.text()
+    var data
+    try{data=JSON.parse(raw)}catch(error){throw proxyReadError("Invalid proxy response",true)}
+    if ((data==null)||(typeof data!=="object")||Array.isArray(data)){throw proxyReadError("Invalid proxy response",true)}
+    data.clientMs=Math.round(performance.now()-started)
+    data.httpStatus=response.status
+    if ((!response.ok)&&(!external)&&showOperatorConfigurationNotice(data.error)){throw proxyReadError(data.error,false)}
+    if (!response.ok){
+      if (acceptNontechnical&&(data.technical===false)){return data}
+      throw proxyReadError(data.error||("Proxy HTTP "+response.status),(data.technical===true)||(response.status>=500),data)
+    }
+    if (data.technical===true){throw proxyReadError(data.error||"Proxy operation unavailable",true,data)}
+    return data
+  }catch(error){
+    if ((error!=null)&&(typeof error.proxyReadTechnical==="boolean")){throw error}
+    var cancelled=controller.signal.aborted&&!timedOut
+    throw proxyReadError(error&&error.message?error.message:"Proxy read unavailable",!cancelled)
+  }finally{
+    clearTimeout(timeout)
+    clearTrackedProxyController(track,controller)
+  }
+}
+
+async function requestProxyRead(url,body,timeoutMs,trackState=false){
+  return requestProxyJson(url,body,timeoutMs,trackState?"state":"",false)
+}
+
+async function recoverProxyOperation(operation,coin,request){
+  try{return await request("./proxy.php",false)}
+  catch(error){
+    if ((error==null)||(error.proxyReadTechnical!==true)){throw error}
+    var external=await externalOperationProxy(coin)
+    if (external==null){throw error}
+    console.warn("Local "+coin+" "+operation+" unavailable; trying "+external.proxyId)
+    var result=await request(external.proxyUrl,true)
+    if ((operation==="broadcast")&&(result!=null)&&(typeof result==="object")){
+      result.priorSubmissionUncertain=true
+    }
+    console.info(coin+" "+operation+" recovered through "+external.proxyId)
+    return result
+  }
+}
+
+async function recoverProxyRead(operation,coin,request){
+  return recoverProxyOperation(operation,coin,request)
+}
+
 const tableExists = (objectStoreName) => {
   return openDatabase()
     .then((db)=>{
@@ -268,7 +523,7 @@ supportedCoins["cdn"].stateService={
   minimumFeeSats:100000,
   maximumRawTransactionHex:65000,
   broadcastTimeout:30000,
-  maximumZeroConfirmationObservers:1,
+  maximumZeroConfirmationObservers:3,
   historyTimeout:45000,
   broadcastStatusInterval:60000,
   testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
@@ -304,7 +559,7 @@ supportedCoins["aur"].stateService={
   minimumFeeSats:1000,
   maximumRawTransactionHex:65000,
   broadcastTimeout:30000,
-  maximumZeroConfirmationObservers:1,
+  maximumZeroConfirmationObservers:3,
   historyTimeout:45000,
   broadcastStatusInterval:60000,
   testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
@@ -340,7 +595,7 @@ supportedCoins["dem"].stateService={
   minimumFeeSats:1000,
   maximumRawTransactionHex:65000,
   broadcastTimeout:30000,
-  maximumZeroConfirmationObservers:1,
+  maximumZeroConfirmationObservers:3,
   historyTimeout:45000,
   broadcastStatusInterval:60000,
   testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
@@ -3619,17 +3874,11 @@ function parseHistoryResponse(data,addresses,coin=stateCoin){
 }
 async function fetchHistory(addresses,coin=stateCoin){
   var service=getStateService(coin)
-  var controller=new AbortController()
-  var timeout=setTimeout(function(){controller.abort()},service.historyTimeout)
-  var started=performance.now()
-  try{
-    var response=await fetch(service.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"history",coin:service.responseCoin,addresses:addresses}),cache:"no-store",signal:controller.signal})
-    var data=await response.json()
-    data.clientMs=Math.round(performance.now()-started)
-    data.httpStatus=response.status
-    if (!response.ok){throw new Error(data.error||"History unavailable")}
-    return parseHistoryResponse(data,addresses,coin)
-  }finally{clearTimeout(timeout)}
+  return recoverProxyRead("history",coin,async function(url){
+    var data=await requestProxyRead(url,{operation:"history",coin:service.responseCoin,addresses:addresses},service.historyTimeout)
+    try{return parseHistoryResponse(data,addresses,coin)}
+    catch(error){throw proxyReadError(error&&error.message?error.message:"Invalid history response",true)}
+  })
 }
 function ensureHistoryBootstrap(addresses,coin=stateCoin){
   var walletId=historyWalletId()
@@ -4294,6 +4543,7 @@ function parseStateResponse(data,expectedAddresses,previousSnapshot=null,coin=st
   if ((data==null)||(data.ok!==true)||(data.coin!==service.responseCoin)){throw new Error("Invalid state envelope")}
   if ((typeof data.id!=="string")||(!/^[0-9a-f]{32}$/.test(data.id))){throw new Error("Invalid state id")}
   if (!isSafeNonNegativeInteger(data.height)){throw new Error("Invalid state height")}
+  if ((previousSnapshot!=null)&&isSafeNonNegativeInteger(previousSnapshot.height)&&(data.height<previousSnapshot.height)){throw new Error("State height regression")}
   if ((typeof data.blockHash!=="string")||(!/^[0-9a-f]{64}$/.test(data.blockHash))){throw new Error("Invalid state checkpoint")}
   if ((!Number.isSafeInteger(data.zeroConfirmationObservers))||(data.zeroConfirmationObservers<1)||(data.zeroConfirmationObservers>service.maximumZeroConfirmationObservers)){throw new Error("Invalid observer count")}
   if (!Array.isArray(data.addresses)){throw new Error("Invalid address state collection")}
@@ -4370,28 +4620,20 @@ function buildStateRequest(addresses,previousSnapshot,coin=stateCoin){
 }
 async function fetchState(addresses,previousSnapshot=null,coin=stateCoin){
   var service=getStateService(coin)
-  var controller=new AbortController()
-  stateRequestController=controller
-  var timeout=setTimeout(function(){controller.abort()},service.requestTimeout)
-  var started=performance.now()
-  try{
-    var response=await fetch(service.url,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(buildStateRequest(addresses,previousSnapshot,coin)),
-      cache:"no-store",
-      signal:controller.signal
-    })
-    if (!response.ok){throw new Error(service.responseCoin+" state HTTP "+response.status)}
-    var data=await response.json()
-    data.clientMs=Math.round(performance.now()-started)
-    return parseStateResponse(data,addresses,previousSnapshot,coin)
-  }finally{
-    clearTimeout(timeout)
-    if (stateRequestController===controller){stateRequestController=null}
-  }
+  return recoverProxyRead("state",coin,async function(url,external){
+    var proxyUrl=new URL(url,document.baseURI).href
+    var base=previousSnapshot
+    var data=await requestProxyRead(url,buildStateRequest(addresses,base,coin),service.requestTimeout,true)
+    try{
+      var snapshot=parseStateResponse(data,addresses,base,coin)
+      snapshot.proxyUrl=proxyUrl
+      return snapshot
+    }
+    catch(error){throw proxyReadError(error&&error.message?error.message:"Invalid state response",true)}
+  })
 }
 async function refreshState(reason="manual",coin=stateCoin){
+  if (operatorConfigurationBlocked){return false}
   if (!assertWalletContext("state-refresh",false)){return false}
   var service=getStateService(coin)
   if (walletUnlocking){return false}
@@ -4960,26 +5202,13 @@ function parseBroadcastResponse(data,expectedTxid,kind,coin=stateCoin){
 }
 async function requestBroadcastService(payload,coin=stateCoin){
   var service=getStateService(coin)
-  var controller=new AbortController()
-  broadcastRequestController=controller
-  var timeout=setTimeout(function(){controller.abort()},service.broadcastTimeout)
-  var started=performance.now()
-  try{
-    var response=await fetch(service.url,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(Object.assign({},payload,{coin:service.responseCoin})),
-      cache:"no-store",
-      signal:controller.signal
-    })
-    var data=await response.json()
-    data.clientMs=Math.round(performance.now()-started)
-    data.httpStatus=response.status
+  var kind=payload.operation==="broadcast"?"broadcast":"status"
+  return recoverProxyOperation(payload.operation,coin,async function(url){
+    var data=await requestProxyJson(url,Object.assign({},payload,{coin:service.responseCoin}),service.broadcastTimeout,"broadcast",true)
+    try{parseBroadcastResponse(data,payload.txid,kind,coin)}
+    catch(error){throw proxyReadError(error&&error.message?error.message:"Invalid transaction response",true,data)}
     return data
-  }finally{
-    clearTimeout(timeout)
-    if (broadcastRequestController===controller){broadcastRequestController=undefined}
-  }
+  })
 }
 function parseZeroConfirmationResponse(data,receipt,coin=stateCoin){
   var service=getStateService(coin)
@@ -5184,35 +5413,29 @@ async function requestZeroConfirmation(receipt=currentPaymentReceipt,coin=stateC
   var previousController=zeroConfirmationController
   if (previousController!=null){previousController.abort()}
   var service=getStateService(coin)
-  var controller=new AbortController()
-  zeroConfirmationController=controller
-  var timeout=setTimeout(function(){controller.abort()},service.broadcastTimeout)
-  var configured=getZeroConfirmationObserverCount(coin)
-  var aggregate=createZeroConfirmationAggregate(receipt,configured)
   var terminal=false
   try{
-    var observers=Array.from({length:configured},function(_,observer){return observer})
-    await Promise.allSettled(observers.map(async function(observer){
-      var response=await fetch(service.url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({operation:"zeroConfirmation",coin:service.responseCoin,observer:observer,txid:receipt.txid,address:receipt.address,amountSats:receipt.amountSats}),cache:"no-store",signal:controller.signal})
-      var data=await response.json()
-      var partial=parseZeroConfirmationObserverResponse(data,receipt,observer,configured,coin)
-      if ((!isZeroConfirmationRequestCurrent(requestId,receipt))||terminal){return false}
-      mergeZeroConfirmationObserver(aggregate,partial)
-      if (['UNCONFIRMED','CONFIRMED','OUTPUT_MISMATCH'].includes(aggregate.status)){renderZeroConfirmation(aggregate)}
-      if (aggregate.status==="CONFIRMED"){
-        terminal=true
-        wakeState("receipt-confirmed",false)
-        syncConfirmedReceiptState(receipt,coin)
-      }else if (aggregate.status==="OUTPUT_MISMATCH"){
-        terminal=true
-      }
-      return partial
-    }))
+    var data=await recoverProxyOperation("zeroConfirmation",coin,async function(url){
+      var response=await requestProxyJson(url,{operation:"zeroConfirmation",coin:service.responseCoin,txid:receipt.txid,address:receipt.address,amountSats:receipt.amountSats},service.broadcastTimeout,"zero",true)
+      try{parseZeroConfirmationResponse(response,receipt,coin)}
+      catch(error){throw proxyReadError(error&&error.message?error.message:"Invalid payment observation response",true,response)}
+      return response
+    })
+    var aggregate=parseZeroConfirmationResponse(data,receipt,coin)
     if (!isZeroConfirmationRequestCurrent(requestId,receipt)){return false}
+    if (['UNCONFIRMED','CONFIRMED','OUTPUT_MISMATCH'].includes(aggregate.status)){renderZeroConfirmation(aggregate)}
+    if (aggregate.status==="CONFIRMED"){
+      terminal=true
+      wakeState("receipt-confirmed",false)
+      syncConfirmedReceiptState(receipt,coin)
+    }else if (aggregate.status==="OUTPUT_MISMATCH"){
+      terminal=true
+    }
     return aggregate
+  }catch(error){
+    if (isZeroConfirmationRequestCurrent(requestId,receipt)){console.warn("Payment observation unavailable:",error)}
+    return false
   }finally{
-    clearTimeout(timeout)
-    if (zeroConfirmationController===controller){zeroConfirmationController=undefined}
     if (isZeroConfirmationRequestCurrent(requestId,receipt)&&(!terminal)){
       scheduleZeroConfirmation(receipt,coin)
     }
@@ -6469,6 +6692,7 @@ function console_log(txt){
 //=============
 async function cc(){
   markWalletBoot("startup-begin")
+  proxyNetworkReady=startProxyNetworkDiscovery()
   window.addEventListener("storage",handleWalletStorageEvent)
   claimWalletSession()
   await translationReady
