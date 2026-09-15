@@ -1,7 +1,8 @@
-/* [MULTI-COIN-010]
-Presentation styling with a wallet-first calculator and transparent promotion destination.
-Base: - Derived from MULTI-COIN-009
+/* [CC-WALLET-017]
+Close the first multicoin release with a clean, self-contained presentation.
+Base: - Derived from MULTI-COIN-010
 Changes:
+- [CC-WALLET-017] Keep backup-copy feedback legible and move the QR target inside the camera area
 - [MULTI-COIN-010] Give the first Wallet calculator row restrained light-green emphasis
 - Show the same-origin promotion destination without increasing QR prominence
 - [MULTI-COIN-007] Enlarge the calculator gears inside their existing fixed-height controls
@@ -79,6 +80,9 @@ Changes:
 	.up10 {position:relative;top:-10px}
   .bullet {position:relative;top:-3px}
   .memo-container {display:flex; align-items:center}
+  .backup-copy-actions {display:flex;align-items:center;gap:0.6rem;margin-top:0.55rem;flex-wrap:wrap}
+  #idCopyBackupStatus {font-size:0.8rem;overflow-wrap:anywhere}
+  #reader {max-width:100%;overflow:hidden;border:1px solid #b8b8b8;border-radius:4px}
   .recovery-passphrase {margin-top:0.75rem}
   .recovery-passphrase p {margin-bottom:0.5rem}
   .recovery-passphrase label:not(.setup-check) {display:block; margin-top:0.45rem}

@@ -13,6 +13,51 @@ January 2024 and development resumed in August 2026. The current work is not a
 cosmetic upgrade of that prototype: it establishes a new, deliberately narrow
 foundation on which additional coins can be enabled one at a time.
 
+## Clean installation
+
+The wallet and proxy form one webroot. On a host where `/var/www` is the web
+directory, a clean checkout is enough for the public files:
+
+```sh
+cd /var/www
+git clone https://github.com/communitycoins/CC-WALLET.git
+install -d -m 0700 -o www-data -g www-data /var/www/CC-PROXY
+```
+
+Point the HTTPS virtual host at `/var/www/CC-WALLET`. The webroot itself only
+needs to be readable by the web server; the sibling `CC-PROXY` directory must
+be writable by it and must never be published. PHP 7.3 or newer is required.
+The `curl` command is useful for operational checks, but it is not a browser
+wallet dependency. ROT runs externally beside Coin Core and requires its own
+Docker installation.
+
+`operator-config.json` is optional. If absent, `proxy.php` derives the primary
+coin from the root domain (`egulden.org` and `e-gulden.org` → EFL,
+`auroracoin.is` → AUR, `canadaecoin.ca` and `ourcoin.ca` → CDN, and
+`deutsche-emark.org` → DEM); unknown domains default to AUR. To override that
+policy, copy `operator-config.example.json` to
+`/var/www/CC-PROXY/operator-config.json`, edit it, make it owned by the web
+server and ensure it is not group- or world-writable.
+
+On first contact, an unplanned proxy is stored centrally as `CANDIDATE`. A
+centrally pre-announced `PROSPECT` becomes `OK` automatically when it contacts
+the bootstrap. A candidate becomes operational only after the central operator
+changes its status to `OK` in `proxy-directory.json`. Only `OK` proxies are
+published to wallets and accepted for CORS; the status does not alter ROT.php
+or invalidate ROT registrations that a proxy already holds.
+
+The browser bundle includes Bootstrap 5.3.2 and Bootstrap Icons 1.11.2 locally.
+There is deliberately no service worker in this release; upgrades use the
+`CC-WALLET-017` query key on the wallet JavaScript and CSS.
+
+## Status — 14 September 2026
+
+CC-WALLET-017 is the release-candidate closure build. It adds schema-2 proxy
+admission, two-step bounded external recovery, proxy-selected first-run coin
+choice, passive proxy latency diagnostics, a portable manifest and a complete
+self-contained webroot. Live restart, forced-failure and real-payment checks
+remain deployment acceptance tests rather than build-time claims.
+
 ## Status — 9 September 2026
 
 Wallet presented for beta-testing, just before the ROT-layer will be closed.

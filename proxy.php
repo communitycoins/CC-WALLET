@@ -1,8 +1,12 @@
 <?php
-/* [CC-WALLET-016]
-Keep every supported wallet coin operational through bounded proxy failover.
-Base: - Derived from CC-WALLET-015
+/* [CC-WALLET-017]
+Make proxy admission explicit while keeping the public protocol-1 directory compatible.
+Base: - Derived from CC-WALLET-016
 Changes:
+- [CC-WALLET-017] Store OK, PROSPECT and CANDIDATE entries together in proxy-directory.json schema 2
+- Migrate every legacy directory proxy to OK and import legacy candidates without deleting their source file
+- Publish and authorize only OK proxies while prospect hello promotes automatically and candidate hello remains pending
+- Publish the operator-selected primary coin and recognize auroracoin.is as the AUR root domain
 - [CC-WALLET-016] Permit approved external wallet origins to use state, history, broadcast, transaction status and zero-confirmation
 - Start safely without operator-config.json by deriving the primary coin from a bounded domain catalogue and otherwise choosing AUR
 - Let an explicit valid operator configuration override standard bootstrap, primary-coin and capacity policy
@@ -17,7 +21,7 @@ Changes:
 - Answer bounded JSON POST preflights without contacting the bootstrap
 - Permit cross-origin state and history only; keep broadcast and all other operations same-origin
 - [CC-WALLET-010] Let proxies announce their URL and registered-ROT counts with proxyHello
-- Keep unapproved announcements in proxy-candidates.json for manual operator promotion
+- Keep unapproved announcements pending for manual operator promotion
 - Cache the approved proxy directory indefinitely when the bootstrap is unavailable
 - Keep directory storage free of schedules, observation lifetimes, approval machinery and extra locks
 - Initialize discovery files when upgrading existing CC-WALLET-009 storage and compare coin lists without order sensitivity
@@ -74,6 +78,7 @@ Changes:
 define('CC_PROXY_DATA_DIR',dirname(__DIR__).'/CC-PROXY');
 define('CC_PROXY_ALLOW_HTTP_REGISTRATION',false);
 define('CC_PROXY_DIRECTORY_MAX',10);
+define('CC_PROXY_PENDING_MAX',100);
 define('CC_PROXY_BOOTSTRAP_URL','https://wallet.communitycoins.org/proxy.php');
 
 $maxHeightLag=3;
@@ -118,7 +123,7 @@ function primaryCoinForServerName($serverName,array $protocols) {
     $domains=[
         'egulden.org'=>'EFL',
         'e-gulden.org'=>'EFL',
-        'auroracoin.org'=>'AUR',
+        'auroracoin.is'=>'AUR',
         'canadaecoin.ca'=>'CDN',
         'ourcoin.ca'=>'CDN',
         'deutsche-emark.org'=>'DEM'
@@ -262,9 +267,10 @@ $gateway=[
     'bootstrapId'=>$configuredBootstrapId,
     'bootstrapUrl'=>$configuredBootstrapUrl,
     'directoryMax'=>CC_PROXY_DIRECTORY_MAX,
+    'directoryPendingMax'=>CC_PROXY_PENDING_MAX,
     'operatorConfigurationError'=>$operatorConfigurationError,
     'proxyDirectoryFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-directory.json',
-    'proxyCandidatesFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-candidates.json',
+    'legacyProxyCandidatesFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-candidates.json',
     'networkLog'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.log',
     'networkHour'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.hour',
     'networkHealth'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.health'
@@ -520,7 +526,6 @@ function initializeStorageFiles(&$error) {
     if (!is_file($gateway['manifestFile']) && !atomicWriteJson($gateway['manifestFile'],['version'=>2],$error)) {return false;}
     if ($gateway['proxyId']===$gateway['bootstrapId']) {
         if (!is_file($gateway['proxyDirectoryFile']) && !atomicWriteJson($gateway['proxyDirectoryFile'],newProxyDirectory(),$error)) {return false;}
-        if (!is_file($gateway['proxyCandidatesFile']) && !atomicWriteJson($gateway['proxyCandidatesFile'],newProxyCandidates(),$error)) {return false;}
     }
     return true;
 }
@@ -541,7 +546,7 @@ function initializeStorage(&$error) {
             $paths=storageCoinPaths($coin);
             if (!is_file($paths['state']) || !is_file($paths['lock']) || !is_dir($paths['rots'])) {$complete=false;break;}
         }
-        if ($gateway['proxyId']===$gateway['bootstrapId'] && (!is_file($gateway['proxyDirectoryFile']) || !is_file($gateway['proxyCandidatesFile']))) {$complete=false;}
+        if ($gateway['proxyId']===$gateway['bootstrapId'] && !is_file($gateway['proxyDirectoryFile'])) {$complete=false;}
         if ($complete) {$initialized=true;return true;}
     }
     $admission=openStorageLock($gateway['admissionLock'],LOCK_EX,$error);
@@ -1438,38 +1443,69 @@ function newProxyDirectory() {
     global $gateway;
 
     $proxies=[];
-    if ($gateway['publicUrl']!==false) {$proxies[$gateway['publicUrl']]=emptyLocalCoinCounts();}
-    return ['bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
+    if ($gateway['publicUrl']!==false) {$proxies[$gateway['publicUrl']]=['status'=>'OK','registeredRots'=>emptyLocalCoinCounts()];}
+    return ['schemaVersion'=>2,'bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
 }
 
-function newProxyCandidates() {
+function normalizedProxyDirectory($value,&$migrated) {
     global $gateway;
 
-    return ['bootstrapId'=>$gateway['bootstrapId'],'candidates'=>[]];
-}
-
-function normalizedProxyListFile($value,$member,$maximum=null) {
-    global $gateway;
-
-    if (!is_array($value) || !isset($value['bootstrapId'],$value[$member]) || $value['bootstrapId']!==$gateway['bootstrapId'] || !is_array($value[$member])) {return false;}
-    if ($maximum!==null && count($value[$member])>$maximum) {return false;}
+    $migrated=false;
+    if (!is_array($value) || !isset($value['bootstrapId'],$value['proxies']) || $value['bootstrapId']!==$gateway['bootstrapId'] || !is_array($value['proxies'])) {return false;}
+    $schema=isset($value['schemaVersion'])?$value['schemaVersion']:1;
+    if ($schema!==1 && $schema!==2) {return false;}
     $items=[];
-    foreach ($value[$member] as $url=>$counts) {
-        $url=normalizeDirectoryProxyUrl($url);
-        $counts=normalizeDirectoryCounts($counts);
-        if ($url===false || $counts===false || isset($items[$url])) {return false;}
-        $items[$url]=$counts;
+    $okCount=0;
+    $pendingCount=0;
+    foreach ($value['proxies'] as $inputUrl=>$inputEntry) {
+        $url=normalizeDirectoryProxyUrl($inputUrl);
+        if ($schema===1) {
+            $status='OK';
+            $counts=normalizeDirectoryCounts($inputEntry);
+            $migrated=true;
+        } else {
+            if (!is_array($inputEntry) || !isset($inputEntry['status'],$inputEntry['registeredRots']) || !is_string($inputEntry['status'])) {return false;}
+            $status=strtoupper(trim($inputEntry['status']));
+            $counts=normalizeDirectoryCounts($inputEntry['registeredRots']);
+        }
+        if ($url===false || $counts===false || isset($items[$url]) || !in_array($status,['OK','PROSPECT','CANDIDATE'],true)) {return false;}
+        if ($status==='OK') {$okCount++;} else {$pendingCount++;}
+        $items[$url]=['status'=>$status,'registeredRots'=>$counts];
     }
+    if ($okCount>$gateway['directoryMax'] || $pendingCount>$gateway['directoryPendingMax']) {return false;}
     ksort($items,SORT_STRING);
-    return ['bootstrapId'=>$gateway['bootstrapId'],$member=>$items];
+    return ['schemaVersion'=>2,'bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$items];
 }
 
-function readProxyListFile($path,$member,$missing,$maximum,&$error) {
+function importLegacyProxyCandidates(array $directory,&$changed) {
+    global $gateway;
+
+    $path=$gateway['legacyProxyCandidatesFile'];
+    if ($gateway['proxyId']!==$gateway['bootstrapId'] || !is_string($path) || !is_file($path)) {return $directory;}
+    $error='';
+    $legacy=readJsonFile($path,null,$error);
+    if (!is_array($legacy) || !isset($legacy['bootstrapId'],$legacy['candidates']) || $legacy['bootstrapId']!==$gateway['bootstrapId'] || !is_array($legacy['candidates'])) {return $directory;}
+    foreach ($legacy['candidates'] as $inputUrl=>$inputCounts) {
+        if (count($directory['proxies'])>=$gateway['directoryMax']+$gateway['directoryPendingMax']) {break;}
+        $url=normalizeDirectoryProxyUrl($inputUrl);
+        $counts=normalizeDirectoryCounts($inputCounts);
+        if ($url===false || $counts===false || isset($directory['proxies'][$url])) {continue;}
+        $directory['proxies'][$url]=['status'=>'CANDIDATE','registeredRots'=>$counts];
+        $changed=true;
+    }
+    ksort($directory['proxies'],SORT_STRING);
+    return $directory;
+}
+
+function readProxyDirectory($path,$missing,&$error) {
     $value=readJsonFile($path,$missing,$error);
     if ($value===false) {return false;}
-    $value=normalizedProxyListFile($value,$member,$maximum);
-    if ($value===false) {$error='PROXY_DIRECTORY_CORRUPT';}
-    return $value;
+    $migrated=false;
+    $directory=normalizedProxyDirectory($value,$migrated);
+    if ($directory===false) {$error='PROXY_DIRECTORY_CORRUPT';return false;}
+    if ($migrated) {$directory=importLegacyProxyCandidates($directory,$migrated);}
+    if ($migrated && !atomicWriteJson($path,$directory,$error)) {return false;}
+    return $directory;
 }
 
 function proxyIdFromDirectoryUrl($url) {
@@ -1482,7 +1518,9 @@ function proxyDirectoryEnvelope(array $directory) {
     global $gateway;
 
     $proxies=[];
-    foreach ($directory['proxies'] as $url=>$counts) {
+    foreach ($directory['proxies'] as $url=>$entry) {
+        if ($entry['status']!=='OK') {continue;}
+        $counts=$entry['registeredRots'];
         $proxyId=proxyIdFromDirectoryUrl($url);
         if ($proxyId===false) {continue;}
         $proxies[]=[
@@ -1494,7 +1532,7 @@ function proxyDirectoryEnvelope(array $directory) {
         ];
     }
     $now=time();
-    return ['ok'=>true,'protocol'=>1,'generatedAt'=>$now,'expiresAt'=>$now+86400,'bootstrap'=>$gateway['bootstrapId'],'proxies'=>$proxies];
+    return ['ok'=>true,'protocol'=>1,'generatedAt'=>$now,'expiresAt'=>$now+86400,'bootstrap'=>$gateway['bootstrapId'],'primaryCoin'=>$gateway['primaryCoin'],'proxies'=>$proxies];
 }
 
 function simpleDirectoryFromEnvelope($value) {
@@ -1513,10 +1551,10 @@ function simpleDirectoryFromEnvelope($value) {
         }
         ksort($accepted,SORT_STRING);
         if ($url===false || $counts===false || array_keys($counts)!==array_keys($accepted) || isset($proxies[$url])) {return false;}
-        $proxies[$url]=$counts;
+        $proxies[$url]=['status'=>'OK','registeredRots'=>$counts];
     }
     ksort($proxies,SORT_STRING);
-    return ['bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
+    return ['schemaVersion'=>2,'bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
 }
 
 function postJsonDocument($url,array $body,&$error) {
@@ -1540,33 +1578,41 @@ function updateBootstrapDirectory(array $input,&$error) {
     $url=isset($input['proxyUrl'])?normalizeDirectoryProxyUrl($input['proxyUrl']):false;
     $counts=isset($input['registeredRots'])?normalizeDirectoryCounts($input['registeredRots']):false;
     if ($url===false || $counts===false) {$error='INVALID_PROXY_HELLO';return false;}
-    $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',newProxyDirectory(),$gateway['directoryMax'],$error);
+    $directory=readProxyDirectory($gateway['proxyDirectoryFile'],newProxyDirectory(),$error);
     if ($directory===false) {return false;}
-    $candidates=readProxyListFile($gateway['proxyCandidatesFile'],'candidates',newProxyCandidates(),null,$error);
-    if ($candidates===false) {return false;}
-    $directory['proxies'][$gateway['publicUrl']]=localRegisteredRotCounts();
-    if (count($directory['proxies'])>$gateway['directoryMax']) {$error='PROXY_DIRECTORY_FULL';return false;}
+    $directory['proxies'][$gateway['publicUrl']]=['status'=>'OK','registeredRots'=>localRegisteredRotCounts()];
     if (isset($directory['proxies'][$url])) {
-        $approved=[];
-        foreach (array_keys($directory['proxies'][$url]) as $coin) {$approved[$coin]=isset($counts[$coin])?$counts[$coin]:0;}
-        $pending=array_diff_key($counts,$approved);
-        $directory['proxies'][$url]=$approved;
-        if (count($pending)>0) {$candidates['candidates'][$url]=$pending;} else {unset($candidates['candidates'][$url]);}
-        if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error) || !atomicWriteJson($gateway['proxyCandidatesFile'],$candidates,$error)) {return false;}
+        $status=$directory['proxies'][$url]['status'];
+        if ($status==='OK') {
+            $approved=[];
+            foreach (array_keys($directory['proxies'][$url]['registeredRots']) as $coin) {$approved[$coin]=isset($counts[$coin])?$counts[$coin]:0;}
+            $directory['proxies'][$url]['registeredRots']=$approved;
+        } elseif ($status==='PROSPECT') {
+            $okCount=0;
+            foreach ($directory['proxies'] as $entry) {if ($entry['status']==='OK') {$okCount++;}}
+            if ($okCount>=$gateway['directoryMax']) {$error='PROXY_DIRECTORY_FULL';return false;}
+            $directory['proxies'][$url]=['status'=>'OK','registeredRots'=>$counts];
+        } else {
+            $directory['proxies'][$url]['registeredRots']=$counts;
+        }
     } else {
-        $candidates['candidates'][$url]=$counts;
-        if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error) || !atomicWriteJson($gateway['proxyCandidatesFile'],$candidates,$error)) {return false;}
+        $pendingCount=0;
+        foreach ($directory['proxies'] as $entry) {if ($entry['status']!=='OK') {$pendingCount++;}}
+        if ($pendingCount>=$gateway['directoryPendingMax']) {$error='PROXY_DIRECTORY_PENDING_FULL';return false;}
+        $directory['proxies'][$url]=['status'=>'CANDIDATE','registeredRots'=>$counts];
     }
+    ksort($directory['proxies'],SORT_STRING);
+    if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
     return $directory;
 }
 
 function refreshBootstrapSelf(&$error) {
     global $gateway;
 
-    $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',newProxyDirectory(),$gateway['directoryMax'],$error);
+    $directory=readProxyDirectory($gateway['proxyDirectoryFile'],newProxyDirectory(),$error);
     if ($directory===false) {return false;}
-    $directory['proxies'][$gateway['publicUrl']]=localRegisteredRotCounts();
-    if (count($directory['proxies'])>$gateway['directoryMax'] || !atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {if ($error==='') {$error='PROXY_DIRECTORY_FULL';}return false;}
+    $directory['proxies'][$gateway['publicUrl']]=['status'=>'OK','registeredRots'=>localRegisteredRotCounts()];
+    if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
     return $directory;
 }
 
@@ -1622,7 +1668,8 @@ function runProxyHelloOperation(array $input) {
     $error='';
     $directory=updateBootstrapDirectory($input,$error);
     if ($directory===false) {sendJson(['ok'=>false,'error'=>$error===''?'PROXY_HELLO_FAILED':$error],503);return;}
-    $networkEvent['outcome']=isset($directory['proxies'][$input['proxyUrl']])?'ACTIVE':'CANDIDATE';
+    $url=isset($input['proxyUrl'])?normalizeDirectoryProxyUrl($input['proxyUrl']):false;
+    $networkEvent['outcome']=$url!==false && isset($directory['proxies'][$url])?$directory['proxies'][$url]['status']:'CANDIDATE';
     sendJson(proxyDirectoryEnvelope($directory));
 }
 
@@ -1639,7 +1686,7 @@ function runProxyDirectoryOperation() {
         $outcome='BOOTSTRAP';
         if ($directory===false) {
             $cacheError='';
-            $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',null,$gateway['directoryMax'],$cacheError);
+            $directory=readProxyDirectory($gateway['proxyDirectoryFile'],null,$cacheError);
             $outcome='CACHE';
         }
     }
@@ -1706,9 +1753,10 @@ function directoryOriginAllowed($origin) {
     global $gateway;
 
     $error='';
-    $directory=readProxyListFile($gateway['proxyDirectoryFile'],'proxies',null,$gateway['directoryMax'],$error);
+    $directory=readProxyDirectory($gateway['proxyDirectoryFile'],null,$error);
     if ($directory===false) {return false;}
-    foreach (array_keys($directory['proxies']) as $url) {
+    foreach ($directory['proxies'] as $url=>$entry) {
+        if ($entry['status']!=='OK') {continue;}
         $candidate=normalizedOrigin(substr($url,0,-strlen('/proxy.php')));
         if ($candidate!==false && hash_equals($candidate,$origin)) {return true;}
     }

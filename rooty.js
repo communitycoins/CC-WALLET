@@ -1,7 +1,11 @@
-/* [CC-WALLET-016]
-Keep every supported wallet coin operational through bounded proxy failover.
-Base: - Derived from CC-WALLET-015
+/* [CC-WALLET-017]
+Close the first multicoin release with bounded recovery and a clean self-contained webroot.
+Base: - Derived from CC-WALLET-016
 Changes:
+- [CC-WALLET-017] Try at most two approved external proxies after a technical local failure, preferring bootstrap second
+- Select the proxy-reported primary coin only for a wallet without a stored coin choice or URL override
+- Record request latency passively and expose inspectCoinDirectory() without generating measurement traffic
+- Canonicalize currency choices, add explicit backup copying and clean up modal focus before hiding it
 - [CC-WALLET-016] Retry state, history, broadcast, transaction status and zero-confirmation through one approved external proxy after technical local failure
 - Preserve compatible delta-state across local and external proxy changes
 - Reject state-height regression independently of the serving proxy
@@ -81,6 +85,7 @@ var proxyNetworkView=null
 var proxyNetworkStatus={source:"NONE",lastAttemptAt:0,lastSuccessAt:0,lastError:""}
 var proxyNetworkReady=Promise.resolve()
 var externalProxyCursor={}
+var proxyObservations={}
 var operatorConfigurationBlocked=false
 
 function showOperatorConfigurationNotice(code){
@@ -131,7 +136,9 @@ function normalizeProxyNetworkView(value){
     proxyUrls[url]=true
     proxies.push({proxyId:entry.proxyId,proxyUrl:url,acceptsRegistrations:true,acceptedCoins:coins,registeredRots:counts})
   }
-  return {ok:true,protocol:1,generatedAt:value.generatedAt,expiresAt:value.expiresAt,bootstrap:value.bootstrap,proxies:proxies}
+  var primaryCoin=null
+  if ((typeof value.primaryCoin==="string")&&(/^[A-Z0-9]{2,10}$/.test(value.primaryCoin))){primaryCoin=value.primaryCoin.toLowerCase()}
+  return {ok:true,protocol:1,generatedAt:value.generatedAt,expiresAt:value.expiresAt,bootstrap:value.bootstrap,primaryCoin:primaryCoin,proxies:proxies}
 }
 
 function openProxyNetworkDatabase(){
@@ -211,9 +218,9 @@ async function inspectProxyNetwork(){
   return JSON.parse(JSON.stringify({status:proxyNetworkStatus,view:proxyNetworkView}))
 }
 
-async function externalOperationProxy(coin){
+async function externalOperationProxies(coin){
   if (proxyNetworkView==null){await proxyNetworkReady}
-  if ((proxyNetworkView==null)||(!Array.isArray(proxyNetworkView.proxies))){return null}
+  if ((proxyNetworkView==null)||(!Array.isArray(proxyNetworkView.proxies))){return []}
   var responseCoin=getStateService(coin).responseCoin
   var eligible=[]
   for (const entry of proxyNetworkView.proxies){
@@ -223,11 +230,46 @@ async function externalOperationProxy(coin){
     if ((!entry.acceptedCoins.includes(responseCoin))||(!Number.isSafeInteger(entry.registeredRots[responseCoin]))||(entry.registeredRots[responseCoin]<1)){continue}
     eligible.push({proxyId:entry.proxyId,proxyUrl:entry.proxyUrl})
   }
-  if (eligible.length===0){return null}
+  if (eligible.length===0){return []}
   var cursor=Number.isSafeInteger(externalProxyCursor[responseCoin])?externalProxyCursor[responseCoin]:0
   var selected=eligible[cursor%eligible.length]
   externalProxyCursor[responseCoin]=(cursor+1)%eligible.length
-  return selected
+  var ordered=[selected]
+  var bootstrap=eligible.find(function(entry){return entry.proxyId===proxyNetworkView.bootstrap})
+  if ((bootstrap!=null)&&(bootstrap.proxyUrl!==selected.proxyUrl)){ordered.push(bootstrap)}
+  if (ordered.length<2){
+    var next=eligible.find(function(entry){return !ordered.some(function(item){return item.proxyUrl===entry.proxyUrl})})
+    if (next!=null){ordered.push(next)}
+  }
+  return ordered.slice(0,2)
+}
+
+async function externalOperationProxy(coin){
+  var proxies=await externalOperationProxies(coin)
+  return proxies.length===0?null:proxies[0]
+}
+
+function recordProxyObservation(url,body,outcome,elapsedMs){
+  var coin=body&&typeof body.coin==="string"?body.coin.toUpperCase():""
+  var operation=body&&typeof body.operation==="string"?body.operation:""
+  if (!/^[A-Z0-9]{2,10}$/.test(coin)){return}
+  var key=url+"|"+coin
+  proxyObservations[key]={proxyUrl:url,coin:coin,operation:operation,outcome:outcome,latencyMs:Math.round(elapsedMs),observedAt:new Date().toISOString()}
+}
+
+async function inspectCoinDirectory(){
+  await proxyNetworkReady
+  var rows=[]
+  if ((proxyNetworkView!=null)&&Array.isArray(proxyNetworkView.proxies)){
+    proxyNetworkView.proxies.forEach(function(entry){
+      entry.acceptedCoins.forEach(function(coin){
+        var observation=proxyObservations[entry.proxyUrl+"|"+coin]
+        rows.push({proxyId:entry.proxyId,coin:coin,registeredRots:entry.registeredRots[coin],lastLatencyMs:observation?observation.latencyMs:null,lastOutcome:observation?observation.outcome:"UNMEASURED",lastOperation:observation?observation.operation:"",lastObservedAt:observation?observation.observedAt:""})
+      })
+    })
+  }
+  console.table(rows)
+  return JSON.parse(JSON.stringify(rows))
 }
 
 function proxyReadError(message,technical,response=null){
@@ -257,6 +299,7 @@ async function requestProxyJson(url,body,timeoutMs,track="",acceptNontechnical=f
   var started=performance.now()
   var target=new URL(url,document.baseURI)
   var external=target.origin!==window.location.origin
+  var observationOutcome="TECHNICAL_ERROR"
   try{
     var response=await fetch(target.href,{
       method:"POST",
@@ -276,16 +319,18 @@ async function requestProxyJson(url,body,timeoutMs,track="",acceptNontechnical=f
     data.httpStatus=response.status
     if ((!response.ok)&&(!external)&&showOperatorConfigurationNotice(data.error)){throw proxyReadError(data.error,false)}
     if (!response.ok){
-      if (acceptNontechnical&&(data.technical===false)){return data}
+      if (acceptNontechnical&&(data.technical===false)){observationOutcome="NONTECHNICAL";return data}
       throw proxyReadError(data.error||("Proxy HTTP "+response.status),(data.technical===true)||(response.status>=500),data)
     }
     if (data.technical===true){throw proxyReadError(data.error||"Proxy operation unavailable",true,data)}
+    observationOutcome="OK"
     return data
   }catch(error){
     if ((error!=null)&&(typeof error.proxyReadTechnical==="boolean")){throw error}
     var cancelled=controller.signal.aborted&&!timedOut
     throw proxyReadError(error&&error.message?error.message:"Proxy read unavailable",!cancelled)
   }finally{
+    recordProxyObservation(target.href,body,observationOutcome,performance.now()-started)
     clearTimeout(timeout)
     clearTrackedProxyController(track,controller)
   }
@@ -299,15 +344,22 @@ async function recoverProxyOperation(operation,coin,request){
   try{return await request("./proxy.php",false)}
   catch(error){
     if ((error==null)||(error.proxyReadTechnical!==true)){throw error}
-    var external=await externalOperationProxy(coin)
-    if (external==null){throw error}
-    console.warn("Local "+coin+" "+operation+" unavailable; trying "+external.proxyId)
-    var result=await request(external.proxyUrl,true)
-    if ((operation==="broadcast")&&(result!=null)&&(typeof result==="object")){
-      result.priorSubmissionUncertain=true
+    var externals=await externalOperationProxies(coin)
+    if (externals.length===0){throw error}
+    var lastError=error
+    for (const external of externals){
+      console.warn("Local "+coin+" "+operation+" unavailable; trying "+external.proxyId)
+      try{
+        var result=await request(external.proxyUrl,true)
+        if ((operation==="broadcast")&&(result!=null)&&(typeof result==="object")){result.priorSubmissionUncertain=true}
+        console.info(coin+" "+operation+" recovered through "+external.proxyId)
+        return result
+      }catch(externalError){
+        lastError=externalError
+        if ((externalError==null)||(externalError.proxyReadTechnical!==true)){throw externalError}
+      }
     }
-    console.info(coin+" "+operation+" recovered through "+external.proxyId)
-    return result
+    throw lastError
   }
 }
 
@@ -354,6 +406,16 @@ const settings=configurationDef()
 
 const bModal = new bootstrap.Modal($$$("#Modal"));
 var modal = document.getElementById('Modal');
+var dialogReturnFocus=null
+function releaseModalFocus(){
+  var active=document.activeElement
+  if ((active!=null)&&modal.contains(active)&&typeof active.blur==="function"){active.blur()}
+}
+function hideWalletModal(){
+  releaseModalFocus()
+  bModal.hide()
+}
+modal.addEventListener('hide.bs.modal',releaseModalFocus)
 modal.addEventListener('hidden.bs.modal', function () {
   if (modalContext==="grassroot"){
     if (pinRequestAccepted){
@@ -373,6 +435,10 @@ modal.addEventListener('hidden.bs.modal', function () {
   if (rewindObject=="paymentRequest") {setTimeout('dial("paymentRequest",0,0)',1)}
   if (rewindObject=="sendRequest") {setTimeout('dial("sendRequest",0,0)',1)}
   rewindObject=""
+  if ((dialogReturnFocus!=null)&&document.body.contains(dialogReturnFocus)&&typeof dialogReturnFocus.focus==="function"){
+    try{dialogReturnFocus.focus({preventScroll:true})}catch(error){dialogReturnFocus.focus()}
+  }
+  dialogReturnFocus=null
 });
 modal.addEventListener('shown.bs.modal', function () {
   if (modalContext!=="grassroot"){return}
@@ -442,12 +508,15 @@ combos={
   Fiat:{available:"|",selected:"|",active:"|",old:"|"},
   Supported:{available:"|",selected:"|",active:"|",old:"|"}
 }
-if (localStorage.getItem("combos")!=null) {
+var walletCoinChoiceStored=localStorage.getItem("combos")!=null
+if (walletCoinChoiceStored) {
   combos=JSON.parse(localStorage.getItem("combos"))
 } else {
   combos['Balance']['active']='|isk|'
   combos['Reference']['active']='|btc|'
+  combos['Reference']['selected']='|btc|'
   combos['Fiat']['active']='|eur|'
+  combos['Fiat']['selected']='|eur|'
   combos['Supported']['active']='|aur|'  
 }
 
@@ -616,6 +685,7 @@ if (change) {
   endorsed="aur|cdn|efl|cesc|dem|slg|pak|rubtc|boli|btc|ltc"
   testCombos()
 }
+normalizeComboChoices(false)
 enforceWalletCoinChoices()
 saveSupportedCoins()
 function addSupport(change,tikker,network,name,image,defaultFiat){
@@ -641,7 +711,6 @@ function testCombos(){
       var defaultFiat=supportedCoins[tikker].defaultFiat
       if (combo=="Fiat") {
         if (combos[combo]['available'].indexOf("|"+defaultFiat+"|")<0) {combos[combo]['available']+="|"+defaultFiat}
-        if (combos[combo]['selected'].indexOf("|"+defaultFiat+"|")<0) {combos[combo]['selected']+="|"+defaultFiat}
       }
       if (combo=="Reference") {
         if (combos[combo]['available'].indexOf("|"+tikker+"|")<0) {combos[combo]['available']+="|"+tikker}
@@ -657,6 +726,34 @@ function testCombos(){
     }
   }
   localStorage.setItem("combos",JSON.stringify(combos))
+}
+function canonicalComboList(value){
+  var unique=[]
+  String(value||"").toLowerCase().split("|").forEach(function(item){
+    item=item.trim()
+    if ((item!=="")&&(/^[a-z0-9]{2,10}$/.test(item))&&(!unique.includes(item))){unique.push(item)}
+  })
+  return "|"+unique.join("|")+"|"
+}
+function normalizeComboChoices(limitFiatToAvailable=false){
+  var changed=false
+  for (const menu in combos){
+    var available=canonicalComboList(combos[menu].available)
+    var selected=canonicalComboList(combos[menu].selected)
+    if (limitFiatToAvailable&&(menu==="Fiat")){
+      var allowed=available.split("|").filter(Boolean)
+      selected=canonicalComboList(selected.split("|").filter(function(item){return allowed.includes(item)}).join("|"))
+    }
+    var active=String(combos[menu].active||"").replace(/\|/g,"").toLowerCase()
+    var selectedValues=selected.split("|").filter(Boolean)
+    if (!selectedValues.includes(active)){active=selectedValues.length?selectedValues[0]:""}
+    var normalizedActive=active===""?"|":"|"+active+"|"
+    if ((combos[menu].available!==available)||(combos[menu].selected!==selected)||(combos[menu].active!==normalizedActive)){changed=true}
+    combos[menu].available=available
+    combos[menu].selected=selected
+    combos[menu].active=normalizedActive
+  }
+  return changed
 }
 function operationalWalletCoins(){
   return walletCoinTargets.filter(function(coin){return (supportedCoins[coin]!=undefined)&&(supportedCoins[coin].stateService!=undefined)})
@@ -1619,7 +1716,7 @@ async function waitForValidPin(requestId,allowKill=false){
   }
   if (requestId!==pinRequestSequence){return false}
   pinRequestAccepted=true
-  bModal.hide()
+  hideWalletModal()
   $$$("#Modal").style.background="none"
   return true
 }
@@ -1769,6 +1866,20 @@ function applyRequestedCoin(){
   urlCoinApplied=true
   return true
 }
+async function applyInitialProxyCoin(){
+  var requestedCoin=urlCoin==null?null:String(urlCoin).trim().toLowerCase()
+  if (walletCoinChoiceStored||operationalWalletCoins().includes(requestedCoin)){return false}
+  await proxyNetworkReady
+  var coin=proxyNetworkView==null?null:proxyNetworkView.primaryCoin
+  if ((coin==null)||(!operationalWalletCoins().includes(coin))){return false}
+  combos.Supported.active="|"+coin+"|"
+  combos.Supported.old=combos.Supported.active
+  combos.Balance.active=combos.Supported.active
+  combos.Balance.old=combos.Supported.active
+  stateCoin=coin
+  localStorage.setItem("combos",JSON.stringify(combos))
+  return true
+}
 function testInputBalance(){
   var balanceInput=$$$('#inputBalance')
   balanceInput.removeAttribute('disabled')
@@ -1794,16 +1905,20 @@ function testInputBalance(){
 function refreshCurrencyAvailability(){
   var change=false
   if (localStorage.getItem("rates") == null) {return;}
+  var fiatAvailable=[]
   for (const currency in rates) {
     const cType=rates[currency].type
     if ((cType=="fiat")) {
+      fiatAvailable.push(currency)
       if (combos["Reference"]["available"].indexOf(`${currency}|`)<0) {combos["Reference"]["available"]+=`${currency}|`;change=true}
-      if (combos["Fiat"]["available"].indexOf(`${currency}|`)<0) {combos["Fiat"]["available"]+=`${currency}|`;change=true}
     }
     if ((cType=="crypto")||(cType=="commodity")) {
       if (combos["Reference"]["available"].indexOf(`${currency}|`)<0) {combos["Reference"]["available"]+=`${currency}|`;change=true}
     }
   }
+  var available=canonicalComboList(fiatAvailable.join("|"))
+  if (combos.Fiat.available!==available){combos.Fiat.available=available;change=true}
+  if (normalizeComboChoices(true)){change=true}
   if (change){
     localStorage.setItem("combos",JSON.stringify(combos))
     refreshCombos()
@@ -1958,7 +2073,7 @@ function handleClick(event) {
   if (clickedId=="id_speak") {dial("promote",0,0)}
   if (clickedId=="menuLanguage") {dial("menuLanguage",0,1)}
   if (clickedId.substr(0,4)=="exit") {
-    if (scannerActive){closeScannerModal()}else{bModal.hide()}
+    if (scannerActive){closeScannerModal()}else{hideWalletModal()}
   }
   if (clickedId.substr(0,4)=="save") {submit()}
   if (clickedId=="idScan") {showUniversalScanner()}
@@ -2674,6 +2789,7 @@ function showWalletSeed(){
   return true
 }
 async function dial(diaLog,help,save) {
+  if (!modal.classList.contains("show")){dialogReturnFocus=document.activeElement}
   if ($$$("#exit0").classList.contains("invisible")) {$$$("#exit0").classList.toggle("invisible")}
   if ($$$("#exit1").classList.contains("invisible")) {$$$("#exit1").classList.toggle("invisible")}
   dialogContext=diaLog
@@ -2898,7 +3014,7 @@ function submit() {  // Modal OK-button
       console.error("Unable to update wallet configuration:",error)
     })
   }
-  bModal.hide();//if (readyState) {
+  hideWalletModal();//if (readyState) {
 }
 function saveBackupAs(){
   var owner=localStorage.getItem("owner")
@@ -2922,6 +3038,26 @@ function generateBackup() {
   //const backupBase64=btoa(backupBinary);
   $$$("#labelBackupContent").innerHTML=backupNote+"<br>"
   $$$("#backupContent").textContent=Array.from(window.pako.deflate(JSON.stringify(exportWalletStorage()))).map(byte => ('0' + byte.toString(16)).slice(-2)).join('');
+}
+async function copyBackup(){
+  var field=$$$('#backupContent')
+  var status=$$$('#idCopyBackupStatus')
+  if ((field==null)||(field.value==="")){return false}
+  var copied=false
+  try{
+    if ((navigator.clipboard!=null)&&(typeof navigator.clipboard.writeText==="function")){
+      await navigator.clipboard.writeText(field.value)
+      copied=true
+    }
+  }catch(error){}
+  if (!copied){
+    field.focus()
+    field.select()
+    try{copied=document.execCommand("copy")===true}catch(error){copied=false}
+    field.setSelectionRange(0,0)
+  }
+  if (status!=null){status.textContent=copied?"Backup copied; protect your clipboard.":"Copy failed; select the backup text manually."}
+  return copied
 }
 function parseWalletBackup(backupText){
   const text=backupText.trim()
@@ -3333,7 +3469,7 @@ function gotoBalance(coin){
   combos["Supported"]['active']=coin
   localStorage.setItem("combos",JSON.stringify(combos))
   switchStateCoin(coin,"balance",true)
-  bModal.hide();
+  hideWalletModal();
 }
 async function stopScanner(){
   var scanner=html5QrcodeScanner
@@ -3372,7 +3508,7 @@ async function closeScannerModal(){
       resolve(true)
     }
     modalElement.addEventListener("hidden.bs.modal",finish)
-    bModal.hide()
+    hideWalletModal()
     setTimeout(function(){
       if (!finished){forceScannerModalClosed();finish()}
     },400)
@@ -3421,7 +3557,7 @@ function setMemo(txt){skipMemoChange=true;$$$("#idMemo").value=txt}
 function scan(){
     html5QrcodeScanner = new Html5Qrcode("reader");
     scannerActive=true
-    html5QrcodeScanner.start({facingMode: "environment"},{fps:10,qrbox:250},qrCodeSuccessCallback).catch(function(error){
+    html5QrcodeScanner.start({facingMode: "environment"},{fps:10,qrbox:{width:210,height:210}},qrCodeSuccessCallback).catch(function(error){
       scannerActive=false
       console.error("Unable to start QR scanner",error)
     });
@@ -6703,6 +6839,7 @@ async function cc(){
   verifyOperationalDerivations()
   markWalletBoot("derivation-canary-ready")
   await recoverInterruptedWalletReplacement()
+  await applyInitialProxyCoin()
   if (localStorage.getItem("ids")!=null){ids=JSON.parse(localStorage.getItem("ids"))}
   setEntropy()
   initializeWalletContext()
