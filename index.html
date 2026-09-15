@@ -1,8 +1,15 @@
 <!DOCTYPE html>
-<!-- [CC-WALLET-001]
-Load the same-origin multi-coin proxy wallet while retaining single-session behavior.
-Base: - Derived from MULTI-COIN-019
+<!-- [CC-WALLET-017]
+Close the first multicoin release with bounded recovery and a clean self-contained webroot.
+Base: - Derived from CC-WALLET-016
 Changes:
+- [CC-WALLET-017] Use local interface libraries, a portable manifest and one release-wide cache key
+- Add explicit backup copying, a generic destination hint and form semantics for recovery credentials
+- [CC-WALLET-016] Refresh rooty.js for state, history, broadcast, transaction-status and zero-confirmation failover
+- Preserve delta-state across serving-proxy changes and reject state-height regression
+- [CC-WALLET-015] Refresh rooty.js for operator-configuration installation state and a global three-observer limit
+- [CC-WALLET-014] Refresh rooty.js for technical-only state and history recovery through one approved external proxy
+- [CC-WALLET-011] Refresh rooty.js for background proxyDirectory discovery and origin-wide caching
 - [CC-WALLET-001] Refresh rooty.js for the ./proxy.php routing contract
 - [MULTI-COIN-019] New wallet instances claim the shared storage session and broadcast CLOSE to older instances
 - Older tabs/windows are permanently disabled instead of synchronized or reloaded
@@ -27,16 +34,16 @@ Changes:
 <meta name="apple-mobile-web-app-title" content="CC Wallet">
 <meta name="theme-color" content="#ffffff">
 
-<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css'>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+<link rel='stylesheet' href='vendor/bootstrap-icons/bootstrap-icons-1.11.2.min.css'>
+<link href="vendor/bootstrap/bootstrap-5.3.2.min.css" rel="stylesheet">
+<script src="vendor/bootstrap/bootstrap-5.3.2.bundle.min.js"></script>
 
 <script type="text/javascript" src="js/qrcode.js"></script>
 <script type="text/javascript" src="js/html5-qrcode.min.js"></script>
 <script type="text/javascript" src="js/pako.1.0.3.min.js"></script>
 
 <title class=T>Community coins wallet</title>
-<link rel='stylesheet' href='rooty.css?v=MULTI-COIN-011'>
+<link rel='stylesheet' href='rooty.css?v=CC-WALLET-017'>
 </head>
 <body>
   <div class="splash-screen" id="splashScreen">
@@ -585,13 +592,14 @@ To meet these challenges the communitycoin teams have established such a practic
       <li class=T>Select the content of the textbox below and copy it to a convenient location</li></ul>
       <span class=small id=labelBackupContent></span>
       <div class="memo-container"><textarea id=backupContent readonly></textarea></div>
+      <div class=backup-copy-actions><button id=idCopyBackup type=button class="btn btn-secondary T" onclick="copyBackup()">Copy backup</button><span id=idCopyBackupStatus role=status aria-live=polite></span></div>
     </div>
   </div>
 </div>
 
 <div class="hidden" id=en_reloadBackup title="Reload backup-wallet">
   <div class="panel panel-default">
-    <div class="T" id=id_reloadBackup>
+    <form class="T" id=id_reloadBackup onsubmit="return false">
       <p class=T>Paste a complete wallet backup here, or enter the 12, 15, 18, 21 or 24 words of an English BIP39 seed.</p>
       <p class=T>A valid wallet backup is recognized and activated automatically. Only replacement of an already loaded wallet still requires confirmation.</p>
       <p class=T>For a seed, check every word carefully and then press Restore seed. A seed creates a new wallet, unless the same seed and passphrase already belong to a loaded wallet.</p>
@@ -609,7 +617,7 @@ To meet these challenges the communitycoin teams have established such a practic
       <div class="center">
         <button id=walletMnemonicRestore class="btn btn-warning T">Restore seed</button>
       </div>
-    </div>
+    </form>
   </div>
 </div>
 
@@ -810,7 +818,7 @@ To meet these challenges the communitycoin teams have established such a practic
 <div class="hidden T" id=txtDestinationUnlocked>Destination unlocked for editing</div>
 <div class="hidden T" id=txtScannedDestinationAccepted>Scanned destination accepted</div>
 <div class="hidden T" id=txtDestinationChanged>Destination changed</div>
-<div class="hidden T" id=txtSendPlaceholder>EFL address or e-gulden: request</div>
+<div class="hidden T" id=txtSendPlaceholder>Address or payment request</div>
 <div class="hidden T" id=txtTransactionReview>Transaction review</div>
 <div class="hidden T" id=txtUnsignedLocalWarning>LOCAL ONLY · NOT SIGNED · NOT BROADCAST</div>
 <div class="hidden T" id=txtReviewedInputsSignedBelow>REVIEWED INPUTS · SIGNED RESULT BELOW</div>
@@ -887,10 +895,6 @@ To meet these challenges the communitycoin teams have established such a practic
 <div class="hidden T" id=txtPaymentRequestMail>Request to pay</div>
 
 <div class="hidden T" id=txtUnavailable>Unavailable</div>
-<script>
-x=1
-</script>
-<!--script src="https://cdn.jsdelivr.net/npm/bip39"></script-->
 <script src="js/buffer-polyfill.js"></script>
 <script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js"></script>
 <script src="js/bitcoinjs-lib-6-1-5.js"></script>
@@ -905,7 +909,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=CC-WALLET-001'></script>
+<script src='rooty.js?v=CC-WALLET-017'></script>
 
 </body>
 </html>
