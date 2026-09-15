@@ -265,36 +265,6 @@ ROT intentionally indexes only legacy P2PKH activity. Coinbase transactions,
 SegWit, script types other than P2PKH, and arbitrary smart-contract data are
 outside the present scope.
 
-## DEM integration
-
-Deutsche eMark confirmed that the architecture can absorb a coin-specific
-transaction format without changing the three layers. Its relevant parameters
-are:
-
-- P2PKH version byte: `53`
-- WIF version byte: `0xb5`
-- BIP44 coin type: `1500`
-- timestamped proof-of-stake transaction format
-- CompactSize transaction comment, normally empty
-
-The maintained bitcoinjs 3.3.2 PoS fork now reads and writes the DEM comment
-before its end-of-transaction check, preserves it while cloning and signing,
-and enables the behavior only for networks with
-`hasTransactionComment: true`. Other coin serializers therefore remain
-unchanged.
-
-DEM ROT 0.8.2 has returned valid state, historical timestamps, and confirmed
-transaction status. Remaining activation work is deliberately small and
-coin-specific: deploy a DEM proxy, add its `stateService` and fee/unit policy,
-run seed-recovery and fixed raw-transaction vectors, and complete one real
-Send/Receive/zero-confirmation loop.
-
-The fork is maintained at:
-https://github.com/communitycoins/bitcoinjs-lib.3.3.2-pos
-
-The broader inventory of envisioned CommunityCoin networks remains available
-at: https://gitlab.com/c4319/cc-index
-
 ## Trust and security boundaries
 
 CC-WALLET is non-custodial, but non-custodial does not mean trustless.
@@ -337,59 +307,6 @@ https://communitycoins.org/rots/
 EFL currently has multiple configured ROT positions. DEM began with one. The
 next operational phase is to measure real use, identify slow history patterns,
 and add redundancy or adjust limits where the evidence requires it.
-
-## Known boundaries
-
-- Only EFL is currently exposed as a complete operational wallet coin.
-- Legacy P2PKH is a deliberate compatibility boundary, not a temporary claim
-  of support for every output type.
-- Address discovery is presently bounded at index 50.
-- Zero-confirmation is an observation, never confirmed or spendable state.
-- Fee selection is currently a conservative per-coin tier rule rather than a
-  general byte-accurate estimator.
-- History timestamps are available, but the ordinary history view does not yet
-  show the year.
-- Redundancy varies by coin; one ROT is one observer, not a quorum.
-- Reorganisation recovery exists in ROT but still deserves continued live-chain
-  and failure testing.
-- Browser deployment, reproducible dependency builds, device testing, load
-  measurement, monitoring, and recovery documentation require further
-  production hardening.
-
-## Near-term route
-
-1. Commit and publish the DEM transaction-comment changes and reproducible
-   browser bundle from the bitcoinjs fork.
-2. Add the DEM proxy and coin service specification without changing EFL
-   serialization.
-3. Verify DEM seed recovery, state, history, fixed raw vectors, and a small real
-   payment loop.
-4. Move fee, denomination, URI, and transaction-format policy into explicit
-   per-coin specifications.
-5. Apply the same gated integration process to AUR and CDN.
-6. Measure state and history load, then add ROT/proxy redundancy and tune limits
-   from observed data.
-7. Continue PWA, deployment, backup/recovery, reorganisation, and hostile-input
-   testing before describing CC-WALLET as production-ready.
-
-## Development checks
-
-The current EFL slice includes a Node-based regression harness covering wallet
-state, seed recovery, address derivation, Receive, Send planning, signatures,
-broadcast contracts, zero-confirmation behavior, confirmed history, backup,
-wallet deletion, and operational coin filtering.
-
-For an extracted EFL-SLICE release:
-
-```bash
-node --check wallet/rooty.js
-node --check wallet/js/language_nl.js
-node --check tests/EFL-SLICE-054-wallet-test.js
-node tests/EFL-SLICE-054-wallet-test.js
-```
-
-Passing local tests is necessary, but it does not replace a small real-value
-network cycle for each newly enabled coin.
 
 ## Project principle
 
