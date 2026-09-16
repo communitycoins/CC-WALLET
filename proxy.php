@@ -1,8 +1,14 @@
 <?php
-/* [CC-WALLET-017]
-Make proxy admission explicit while keeping the public protocol-1 directory compatible.
-Base: - Derived from CC-WALLET-016
+/* [CC-WALLET-019]
+Keep central proxy coverage synchronized with locally routeable ROTs.
+Base: - Derived from CC-WALLET-018
 Changes:
+- [CC-WALLET-019] Publish routeable ROT coverage through the existing directory count field
+- Report changed coverage after the client response and retry missed reports on later requests
+- Bound directory hellos with a private digest watch and serialize directory read-modify-write updates
+- [CC-WALLET-018] Normalize legacy, transitional status and schema-2 proxy directories without a bootstrap outage
+- Allow an empty pending prospect and return a bounded directory failure reason for operator diagnosis
+- Submit bounded new network.log segments after ordinary responses and archive them centrally for later aggregation
 - [CC-WALLET-017] Store OK, PROSPECT and CANDIDATE entries together in proxy-directory.json schema 2
 - Migrate every legacy directory proxy to OK and import legacy candidates without deleting their source file
 - Publish and authorize only OK proxies while prospect hello promotes automatically and candidate hello remains pending
@@ -80,6 +86,9 @@ define('CC_PROXY_ALLOW_HTTP_REGISTRATION',false);
 define('CC_PROXY_DIRECTORY_MAX',10);
 define('CC_PROXY_PENDING_MAX',100);
 define('CC_PROXY_BOOTSTRAP_URL','https://wallet.communitycoins.org/proxy.php');
+define('CC_PROXY_DIRECTORY_REPORT_RETRY',60);
+define('CC_PROXY_NETWORK_HOUR_MAX_BYTES',24576);
+define('CC_PROXY_NETWORK_HOUR_MAX_EVENTS',200);
 
 $maxHeightLag=3;
 $maxZeroConfirmationObservers=3;
@@ -270,13 +279,17 @@ $gateway=[
     'directoryPendingMax'=>CC_PROXY_PENDING_MAX,
     'operatorConfigurationError'=>$operatorConfigurationError,
     'proxyDirectoryFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-directory.json',
+    'proxyDirectoryLock'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-directory.lock',
+    'proxyDirectoryReport'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-directory.report',
     'legacyProxyCandidatesFile'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/proxy-candidates.json',
     'networkLog'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.log',
     'networkHour'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.hour',
+    'networkInbox'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network-inbox',
     'networkHealth'=>$configuredDataDirectory===false?false:$configuredDataDirectory.'/network.health'
 ];
 $networkEvent=null;
 $requestDeadline=null;
+$directoryReportSuccessDigest=null;
 
 function canonicalCoin($value) {
     global $coinConfiguration;
@@ -523,6 +536,7 @@ function initializeStorageFiles(&$error) {
         }
     }
     if (!is_file($gateway['ipFailuresFile']) && !atomicWriteJson($gateway['ipFailuresFile'],['version'=>2,'updatedAt'=>time(),'failures'=>[]],$error)) {return false;}
+    if (!createPrivateFile($gateway['proxyDirectoryLock'],$error) || !createPrivateFile($gateway['proxyDirectoryReport'],$error)) {return false;}
     if (!is_file($gateway['manifestFile']) && !atomicWriteJson($gateway['manifestFile'],['version'=>2],$error)) {return false;}
     if ($gateway['proxyId']===$gateway['bootstrapId']) {
         if (!is_file($gateway['proxyDirectoryFile']) && !atomicWriteJson($gateway['proxyDirectoryFile'],newProxyDirectory(),$error)) {return false;}
@@ -541,7 +555,7 @@ function initializeStorage(&$error) {
     if (is_file($gateway['manifestFile'])) {
         $manifest=readJsonFile($gateway['manifestFile'],null,$error);
         if (!manifestValid($manifest)) {$error='REGISTRY_MANIFEST_CORRUPT';return false;}
-        $complete=is_file($gateway['ipFailuresFile']);
+        $complete=is_file($gateway['ipFailuresFile']) && is_file($gateway['proxyDirectoryLock']) && is_file($gateway['proxyDirectoryReport']);
         foreach (array_keys($coinConfiguration) as $coin) {
             $paths=storageCoinPaths($coin);
             if (!is_file($paths['state']) || !is_file($paths['lock']) || !is_dir($paths['rots'])) {$complete=false;break;}
@@ -1379,11 +1393,11 @@ function registeredRotCount($coin) {
     return is_int($count)?$count:0;
 }
 
-function localRegisteredRotCounts() {
+function directoryRotCounts() {
     global $coinConfiguration;
 
     $counts=[];
-    foreach (array_keys($coinConfiguration) as $coin) {$counts[$coin]=registeredRotCount($coin);}
+    foreach (array_keys($coinConfiguration) as $coin) {$counts[$coin]=routeableRotCount($coin);}
     return $counts;
 }
 
@@ -1419,8 +1433,8 @@ function normalizeDirectoryProxyUrl($value) {
     return 'https://'.$host.'/proxy.php';
 }
 
-function normalizeDirectoryCounts($value) {
-    if (!is_array($value) || count($value)<1 || count($value)>100) {return false;}
+function normalizeDirectoryCounts($value,$allowEmpty=false) {
+    if (!is_array($value) || count($value)>100 || (!$allowEmpty && count($value)<1)) {return false;}
     $counts=[];
     foreach ($value as $coin=>$count) {
         $coin=is_string($coin)?strtoupper(trim($coin)):'';
@@ -1447,6 +1461,31 @@ function newProxyDirectory() {
     return ['schemaVersion'=>2,'bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
 }
 
+function directoryCountsDigest(array $counts) {
+    ksort($counts,SORT_STRING);
+    $json=json_encode($counts,JSON_UNESCAPED_SLASHES);
+    return $json===false?false:hash('sha256',$json);
+}
+
+function noteDirectoryReportSuccess(array $counts) {
+    global $directoryReportSuccessDigest;
+
+    $digest=directoryCountsDigest($counts);
+    if ($digest!==false) {$directoryReportSuccessDigest=$digest;}
+}
+
+function writeCachedProxyDirectory(array $directory,&$error) {
+    global $gateway;
+
+    $lock=openStorageLock($gateway['proxyDirectoryLock'],LOCK_EX,$error);
+    if ($lock===false) {return false;}
+    try {
+        return atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error);
+    } finally {
+        closeStorageLock($lock);
+    }
+}
+
 function normalizedProxyDirectory($value,&$migrated) {
     global $gateway;
 
@@ -1460,13 +1499,24 @@ function normalizedProxyDirectory($value,&$migrated) {
     foreach ($value['proxies'] as $inputUrl=>$inputEntry) {
         $url=normalizeDirectoryProxyUrl($inputUrl);
         if ($schema===1) {
-            $status='OK';
-            $counts=normalizeDirectoryCounts($inputEntry);
+            if (is_array($inputEntry) && isset($inputEntry['status'])) {
+                $status=is_string($inputEntry['status'])?strtoupper(trim($inputEntry['status'])):'';
+                if (isset($inputEntry['registeredRots'])) {
+                    $counts=normalizeDirectoryCounts($inputEntry['registeredRots'],$status!=='OK');
+                } else {
+                    $transitionalCounts=$inputEntry;
+                    unset($transitionalCounts['status']);
+                    $counts=normalizeDirectoryCounts($transitionalCounts,$status!=='OK');
+                }
+            } else {
+                $status='OK';
+                $counts=normalizeDirectoryCounts($inputEntry);
+            }
             $migrated=true;
         } else {
             if (!is_array($inputEntry) || !isset($inputEntry['status'],$inputEntry['registeredRots']) || !is_string($inputEntry['status'])) {return false;}
             $status=strtoupper(trim($inputEntry['status']));
-            $counts=normalizeDirectoryCounts($inputEntry['registeredRots']);
+            $counts=normalizeDirectoryCounts($inputEntry['registeredRots'],$status!=='OK');
         }
         if ($url===false || $counts===false || isset($items[$url]) || !in_array($status,['OK','PROSPECT','CANDIDATE'],true)) {return false;}
         if ($status==='OK') {$okCount++;} else {$pendingCount++;}
@@ -1557,12 +1607,12 @@ function simpleDirectoryFromEnvelope($value) {
     return ['schemaVersion'=>2,'bootstrapId'=>$gateway['bootstrapId'],'proxies'=>$proxies];
 }
 
-function postJsonDocument($url,array $body,&$error) {
+function postJsonDocument($url,array $body,&$error,$timeout=5) {
     $error='';
     $raw=json_encode($body,JSON_UNESCAPED_SLASHES);
     if ($raw===false) {$error='BOOTSTRAP_REQUEST_FAILED';return false;}
     $context=stream_context_create([
-        'http'=>['method'=>'POST','header'=>"Content-Type: application/json\r\nConnection: close\r\n",'content'=>$raw,'timeout'=>5,'ignore_errors'=>true,'follow_location'=>0],
+        'http'=>['method'=>'POST','header'=>"Content-Type: application/json\r\nConnection: close\r\n",'content'=>$raw,'timeout'=>$timeout,'ignore_errors'=>true,'follow_location'=>0],
         'ssl'=>['verify_peer'=>true,'verify_peer_name'=>true]
     ]);
     $response=@file_get_contents($url,false,$context,0,262145);
@@ -1578,59 +1628,79 @@ function updateBootstrapDirectory(array $input,&$error) {
     $url=isset($input['proxyUrl'])?normalizeDirectoryProxyUrl($input['proxyUrl']):false;
     $counts=isset($input['registeredRots'])?normalizeDirectoryCounts($input['registeredRots']):false;
     if ($url===false || $counts===false) {$error='INVALID_PROXY_HELLO';return false;}
-    $directory=readProxyDirectory($gateway['proxyDirectoryFile'],newProxyDirectory(),$error);
-    if ($directory===false) {return false;}
-    $directory['proxies'][$gateway['publicUrl']]=['status'=>'OK','registeredRots'=>localRegisteredRotCounts()];
-    if (isset($directory['proxies'][$url])) {
-        $status=$directory['proxies'][$url]['status'];
-        if ($status==='OK') {
-            $approved=[];
-            foreach (array_keys($directory['proxies'][$url]['registeredRots']) as $coin) {$approved[$coin]=isset($counts[$coin])?$counts[$coin]:0;}
-            $directory['proxies'][$url]['registeredRots']=$approved;
-        } elseif ($status==='PROSPECT') {
-            $okCount=0;
-            foreach ($directory['proxies'] as $entry) {if ($entry['status']==='OK') {$okCount++;}}
-            if ($okCount>=$gateway['directoryMax']) {$error='PROXY_DIRECTORY_FULL';return false;}
-            $directory['proxies'][$url]=['status'=>'OK','registeredRots'=>$counts];
+    $lock=openStorageLock($gateway['proxyDirectoryLock'],LOCK_EX,$error);
+    if ($lock===false) {return false;}
+    try {
+        $directory=readProxyDirectory($gateway['proxyDirectoryFile'],newProxyDirectory(),$error);
+        if ($directory===false) {return false;}
+        $ownCounts=directoryRotCounts();
+        $directory['proxies'][$gateway['publicUrl']]=['status'=>'OK','registeredRots'=>$ownCounts];
+        if (isset($directory['proxies'][$url])) {
+            $status=$directory['proxies'][$url]['status'];
+            if ($status==='OK') {
+                $approved=[];
+                foreach (array_keys($directory['proxies'][$url]['registeredRots']) as $coin) {$approved[$coin]=isset($counts[$coin])?$counts[$coin]:0;}
+                $directory['proxies'][$url]['registeredRots']=$approved;
+            } elseif ($status==='PROSPECT') {
+                $okCount=0;
+                foreach ($directory['proxies'] as $entry) {if ($entry['status']==='OK') {$okCount++;}}
+                if ($okCount>=$gateway['directoryMax']) {$error='PROXY_DIRECTORY_FULL';return false;}
+                $directory['proxies'][$url]=['status'=>'OK','registeredRots'=>$counts];
+            } else {
+                $directory['proxies'][$url]['registeredRots']=$counts;
+            }
         } else {
-            $directory['proxies'][$url]['registeredRots']=$counts;
+            $pendingCount=0;
+            foreach ($directory['proxies'] as $entry) {if ($entry['status']!=='OK') {$pendingCount++;}}
+            if ($pendingCount>=$gateway['directoryPendingMax']) {$error='PROXY_DIRECTORY_PENDING_FULL';return false;}
+            $directory['proxies'][$url]=['status'=>'CANDIDATE','registeredRots'=>$counts];
         }
-    } else {
-        $pendingCount=0;
-        foreach ($directory['proxies'] as $entry) {if ($entry['status']!=='OK') {$pendingCount++;}}
-        if ($pendingCount>=$gateway['directoryPendingMax']) {$error='PROXY_DIRECTORY_PENDING_FULL';return false;}
-        $directory['proxies'][$url]=['status'=>'CANDIDATE','registeredRots'=>$counts];
+        ksort($directory['proxies'],SORT_STRING);
+        if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
+        noteDirectoryReportSuccess($ownCounts);
+        return $directory;
+    } finally {
+        closeStorageLock($lock);
     }
-    ksort($directory['proxies'],SORT_STRING);
-    if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
-    return $directory;
 }
 
 function refreshBootstrapSelf(&$error) {
     global $gateway;
 
-    $directory=readProxyDirectory($gateway['proxyDirectoryFile'],newProxyDirectory(),$error);
-    if ($directory===false) {return false;}
-    $directory['proxies'][$gateway['publicUrl']]=['status'=>'OK','registeredRots'=>localRegisteredRotCounts()];
-    if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
-    return $directory;
+    $lock=openStorageLock($gateway['proxyDirectoryLock'],LOCK_EX,$error);
+    if ($lock===false) {return false;}
+    try {
+        $directory=readProxyDirectory($gateway['proxyDirectoryFile'],newProxyDirectory(),$error);
+        if ($directory===false) {return false;}
+        $counts=directoryRotCounts();
+        $directory['proxies'][$gateway['publicUrl']]=['status'=>'OK','registeredRots'=>$counts];
+        if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
+        noteDirectoryReportSuccess($counts);
+        return $directory;
+    } finally {
+        closeStorageLock($lock);
+    }
 }
 
-function requestBootstrapDirectory(&$error) {
+function requestBootstrapDirectory(&$error,$timeout=5,$counts=null) {
     global $gateway;
 
     if ($gateway['bootstrapId']===false || $gateway['bootstrapUrl']===false || $gateway['publicUrl']===false) {$error='BOOTSTRAP_NOT_CONFIGURED';return false;}
+    if ($counts===null) {$counts=directoryRotCounts();}
+    $counts=normalizeDirectoryCounts($counts);
+    if ($counts===false) {$error='INVALID_PROXY_COVERAGE';return false;}
     $response=postJsonDocument($gateway['bootstrapUrl'],[
         'operation'=>'proxyHello',
         'protocol'=>1,
         'bootstrapId'=>$gateway['bootstrapId'],
         'proxyUrl'=>$gateway['publicUrl'],
-        'registeredRots'=>localRegisteredRotCounts()
-    ],$error);
+        'registeredRots'=>$counts
+    ],$error,$timeout);
     if ($response===false) {return false;}
     $directory=simpleDirectoryFromEnvelope($response);
     if ($directory===false) {$error='BOOTSTRAP_INVALID_DIRECTORY';return false;}
-    if (!atomicWriteJson($gateway['proxyDirectoryFile'],$directory,$error)) {return false;}
+    if (!writeCachedProxyDirectory($directory,$error)) {return false;}
+    noteDirectoryReportSuccess($counts);
     return $directory;
 }
 
@@ -1688,9 +1758,10 @@ function runProxyDirectoryOperation() {
             $cacheError='';
             $directory=readProxyDirectory($gateway['proxyDirectoryFile'],null,$cacheError);
             $outcome='CACHE';
+            if ($directory===false && $cacheError!=='') {$error=$cacheError;}
         }
     }
-    if ($directory===false) {sendJson(['ok'=>false,'error'=>'PROXY_DIRECTORY_UNAVAILABLE'],503);return;}
+    if ($directory===false) {sendJson(['ok'=>false,'error'=>'PROXY_DIRECTORY_UNAVAILABLE','reason'=>$error===''?'UNKNOWN':substr($error,0,64)],503);return;}
     $networkEvent['outcome']=$outcome;
     sendJson(proxyDirectoryEnvelope($directory));
 }
@@ -1736,6 +1807,228 @@ function writeNetworkLog($json,$status) {
     if ($line!==false) {
         @file_put_contents($gateway['networkLog'],$line."\n",FILE_APPEND|LOCK_EX);
     }
+}
+
+function networkHourEventValid($value,$proxyId) {
+    if (!is_array($value) || !isset($value['time'],$value['route'],$value['proxyId']) || !is_string($value['time']) || strlen($value['time'])>40 || !is_string($value['route']) || !preg_match('/^[A-Za-z0-9._-]{1,40}$/',$value['route']) || !is_string($value['proxyId']) || !hash_equals($proxyId,$value['proxyId'])) {return false;}
+    $allowed=['time','route','clientRequestBytes','rotRequestBytes','rotResponseBytes','attempts','storageError','proxyId','coin','rotId','rotNickname','rotRoundTripMs','rotStatus','statusLatencyMs','outcome','clientResponseBytes','payloadBytesTotal','httpStatus','relayMs'];
+    foreach ($value as $key=>$item) {
+        if (!is_string($key) || !in_array($key,$allowed,true) || !(is_string($item) || is_int($item) || is_float($item) || is_bool($item) || $item===null) || is_string($item) && strlen($item)>128) {return false;}
+    }
+    return true;
+}
+
+function validateNetworkHourLog($raw,$proxyId,&$eventCount) {
+    $eventCount=0;
+    if (!is_string($raw) || $raw==='' || strlen($raw)>CC_PROXY_NETWORK_HOUR_MAX_BYTES || substr($raw,-1)!=="\n") {return false;}
+    $lines=explode("\n",rtrim($raw,"\n"));
+    if (count($lines)<1 || count($lines)>CC_PROXY_NETWORK_HOUR_MAX_EVENTS) {return false;}
+    foreach ($lines as $line) {
+        if ($line==='' || strlen($line)>8192) {return false;}
+        $event=json_decode($line,true);
+        if (json_last_error()!==JSON_ERROR_NONE || !networkHourEventValid($event,$proxyId)) {return false;}
+        $eventCount++;
+    }
+    return $eventCount;
+}
+
+function storeNetworkHourPayload(array $input,&$error) {
+    global $gateway;
+
+    $error='';
+    if ($gateway['proxyId']!==$gateway['bootstrapId']) {$error='NETWORK_HOUR_NOT_BOOTSTRAP';return false;}
+    $required=['protocol','bootstrapId','proxyId','proxyUrl','sentAt','offsetStart','offsetEnd','digest','log'];
+    foreach ($required as $key) {if (!array_key_exists($key,$input)) {$error='INVALID_NETWORK_HOUR';return false;}}
+    if ($input['protocol']!==1 || !is_string($input['bootstrapId']) || !hash_equals($gateway['bootstrapId'],$input['bootstrapId']) || !is_string($input['proxyId']) || !preg_match('/^[A-Za-z0-9._-]{3,64}$/',$input['proxyId'])) {$error='INVALID_NETWORK_HOUR';return false;}
+    $url=normalizeDirectoryProxyUrl($input['proxyUrl']);
+    $urlProxyId=$url===false?false:proxyIdFromDirectoryUrl($url);
+    if ($url===false || $urlProxyId===false || !hash_equals($input['proxyId'],$urlProxyId) || !is_int($input['sentAt']) || abs(time()-$input['sentAt'])>7200 || !is_int($input['offsetStart']) || !is_int($input['offsetEnd']) || $input['offsetStart']<0 || $input['offsetEnd']<=$input['offsetStart'] || !is_string($input['digest']) || !preg_match('/^[0-9a-f]{64}$/',$input['digest']) || !is_string($input['log']) || strlen($input['log'])!==$input['offsetEnd']-$input['offsetStart'] || !hash_equals($input['digest'],hash('sha256',$input['log']))) {$error='INVALID_NETWORK_HOUR';return false;}
+    $directory=readProxyDirectory($gateway['proxyDirectoryFile'],null,$error);
+    if ($directory===false || !isset($directory['proxies'][$url]) || $directory['proxies'][$url]['status']!=='OK') {if ($error==='') {$error='NETWORK_HOUR_PROXY_NOT_OK';}return false;}
+    $eventCount=0;
+    if (validateNetworkHourLog($input['log'],$input['proxyId'],$eventCount)===false) {$error='INVALID_NETWORK_HOUR_LOG';return false;}
+    if (!createPrivateDirectory($gateway['networkInbox'],$error)) {return false;}
+    $proxyDirectory=$gateway['networkInbox'].'/'.$input['proxyId'];
+    if (!createPrivateDirectory($proxyDirectory,$error)) {return false;}
+    $file=$input['offsetStart'].'-'.$input['offsetEnd'].'-'.$input['digest'].'.json';
+    $path=$proxyDirectory.'/'.$file;
+    $record=['version'=>1,'receivedAt'=>time(),'proxyId'=>$input['proxyId'],'proxyUrl'=>$url,'sentAt'=>$input['sentAt'],'offsetStart'=>$input['offsetStart'],'offsetEnd'=>$input['offsetEnd'],'digest'=>$input['digest'],'eventCount'=>$eventCount,'log'=>$input['log']];
+    if (is_file($path)) {
+        $existing=readJsonFile($path,null,$error);
+        if (!is_array($existing) || !isset($existing['digest']) || !is_string($existing['digest']) || !hash_equals($input['digest'],$existing['digest'])) {$error='NETWORK_HOUR_ARCHIVE_CONFLICT';return false;}
+    } elseif (!atomicWriteJson($path,$record,$error)) {return false;}
+    return ['ok'=>true,'protocol'=>1,'digest'=>$input['digest'],'acceptedEvents'=>$eventCount];
+}
+
+function runNetworkHourOperation(array $input) {
+    global $networkEvent;
+
+    $networkEvent['route']='networkHour';
+    $error='';
+    $result=storeNetworkHourPayload($input,$error);
+    if ($result===false) {sendJson(['ok'=>false,'error'=>$error===''?'NETWORK_HOUR_REJECTED':$error],422);return;}
+    $networkEvent['outcome']='OK';
+    sendJson($result);
+}
+
+function readNetworkHourWatch($handle) {
+    rewind($handle);
+    $raw=stream_get_contents($handle,16385);
+    if (!is_string($raw) || trim($raw)==='') {return ['version'=>1,'logDevice'=>null,'logInode'=>null,'offset'=>0,'nextAttemptAt'=>0,'lastSuccessAt'=>0];}
+    $value=json_decode($raw,true);
+    if (!is_array($value) || !isset($value['version'],$value['offset'],$value['nextAttemptAt'],$value['lastSuccessAt']) || $value['version']!==1 || !is_int($value['offset']) || $value['offset']<0 || !is_int($value['nextAttemptAt']) || !is_int($value['lastSuccessAt'])) {return ['version'=>1,'logDevice'=>null,'logInode'=>null,'offset'=>0,'nextAttemptAt'=>0,'lastSuccessAt'=>0];}
+    $value['logDevice']=isset($value['logDevice']) && is_int($value['logDevice'])?$value['logDevice']:null;
+    $value['logInode']=isset($value['logInode']) && is_int($value['logInode'])?$value['logInode']:null;
+    return $value;
+}
+
+function writeNetworkHourWatch($handle,array $value) {
+    $raw=json_encode($value,JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
+    if ($raw===false || !rewind($handle) || !ftruncate($handle,0) || !writeAll($handle,$raw."\n") || !fflush($handle)) {return false;}
+    return true;
+}
+
+function releaseClientResponse() {
+    static $released=false;
+
+    if (!$released && function_exists('fastcgi_finish_request')) {
+        @fastcgi_finish_request();
+        $released=true;
+    }
+}
+
+function readDirectoryReportWatch($handle) {
+    rewind($handle);
+    $raw=stream_get_contents($handle,4097);
+    $empty=['version'=>1,'reportedDigest'=>'','nextAttemptAt'=>0,'lastSuccessAt'=>0];
+    if (!is_string($raw) || trim($raw)==='') {return $empty;}
+    $value=json_decode($raw,true);
+    if (!is_array($value) || !isset($value['version'],$value['reportedDigest'],$value['nextAttemptAt'],$value['lastSuccessAt']) || $value['version']!==1 || !is_string($value['reportedDigest']) || $value['reportedDigest']!=='' && !preg_match('/^[0-9a-f]{64}$/',$value['reportedDigest']) || !is_int($value['nextAttemptAt']) || $value['nextAttemptAt']<0 || !is_int($value['lastSuccessAt']) || $value['lastSuccessAt']<0) {return $empty;}
+    return $value;
+}
+
+function writeDirectoryReportWatch($handle,array $value) {
+    $raw=json_encode($value,JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
+    if ($raw===false || !rewind($handle) || !ftruncate($handle,0) || !writeAll($handle,$raw."\n") || !fflush($handle)) {return false;}
+    return true;
+}
+
+function finishDirectoryReport() {
+    global $gateway,$directoryReportSuccessDigest;
+
+    if ($gateway['operatorConfigurationError']!=='' || !is_string($gateway['proxyDirectoryReport']) || $gateway['proxyDirectoryReport']==='' || $gateway['bootstrapId']===false || $gateway['bootstrapUrl']===false || $gateway['publicUrl']===false) {return;}
+    $handle=@fopen($gateway['proxyDirectoryReport'],'c+');
+    if ($handle===false || !flock($handle,LOCK_EX|LOCK_NB)) {if (is_resource($handle)) {fclose($handle);}return;}
+    @chmod($gateway['proxyDirectoryReport'],0600);
+    $watch=readDirectoryReportWatch($handle);
+    $counts=directoryRotCounts();
+    $digest=directoryCountsDigest($counts);
+    if ($digest===false) {flock($handle,LOCK_UN);fclose($handle);return;}
+    $now=time();
+    if (is_string($directoryReportSuccessDigest) && hash_equals($digest,$directoryReportSuccessDigest)) {
+        $watch['reportedDigest']=$digest;
+        $watch['nextAttemptAt']=0;
+        $watch['lastSuccessAt']=$now;
+        writeDirectoryReportWatch($handle,$watch);
+        flock($handle,LOCK_UN);
+        fclose($handle);
+        return;
+    }
+    if ($watch['reportedDigest']!=='' && hash_equals($watch['reportedDigest'],$digest)) {flock($handle,LOCK_UN);fclose($handle);return;}
+    if ($now<$watch['nextAttemptAt']) {flock($handle,LOCK_UN);fclose($handle);return;}
+    releaseClientResponse();
+    $error='';
+    if ($gateway['proxyId']===$gateway['bootstrapId']) {
+        $directory=refreshBootstrapSelf($error);
+    } else {
+        $directory=requestBootstrapDirectory($error,2,$counts);
+    }
+    if (is_array($directory)) {
+        $watch['reportedDigest']=$digest;
+        $watch['nextAttemptAt']=0;
+        $watch['lastSuccessAt']=$now;
+    } else {
+        $watch['nextAttemptAt']=$now+CC_PROXY_DIRECTORY_REPORT_RETRY;
+    }
+    writeDirectoryReportWatch($handle,$watch);
+    flock($handle,LOCK_UN);
+    fclose($handle);
+}
+
+function buildNetworkHourPayload(array &$watch,&$hasMore) {
+    global $gateway;
+
+    $hasMore=false;
+    $handle=@fopen($gateway['networkLog'],'rb');
+    if ($handle===false || !flock($handle,LOCK_SH)) {if (is_resource($handle)) {fclose($handle);}return false;}
+    $stat=fstat($handle);
+    if (!is_array($stat)) {flock($handle,LOCK_UN);fclose($handle);return false;}
+    $device=isset($stat['dev'])?(int)$stat['dev']:null;
+    $inode=isset($stat['ino'])?(int)$stat['ino']:null;
+    $size=isset($stat['size'])?(int)$stat['size']:0;
+    if ($watch['logDevice']!==$device || $watch['logInode']!==$inode || $size<$watch['offset']) {$watch['offset']=0;}
+    $watch['logDevice']=$device;
+    $watch['logInode']=$inode;
+    $start=$watch['offset'];
+    if ($start>$size || fseek($handle,$start)!==0) {flock($handle,LOCK_UN);fclose($handle);return false;}
+    $raw='';
+    $events=0;
+    $end=$start;
+    while ($events<CC_PROXY_NETWORK_HOUR_MAX_EVENTS && !feof($handle)) {
+        $lineStart=ftell($handle);
+        $line=fgets($handle,8193);
+        if ($line===false) {break;}
+        if (substr($line,-1)!=="\n" || strlen($raw)+strlen($line)>CC_PROXY_NETWORK_HOUR_MAX_BYTES) {fseek($handle,$lineStart);break;}
+        $raw.=$line;
+        $events++;
+        $end=ftell($handle);
+    }
+    $hasMore=$size>$end;
+    flock($handle,LOCK_UN);
+    fclose($handle);
+    if ($raw==='') {return ['empty'=>true,'offsetEnd'=>$size];}
+    return ['empty'=>false,'payload'=>['operation'=>'networkHour','protocol'=>1,'bootstrapId'=>$gateway['bootstrapId'],'proxyId'=>$gateway['proxyId'],'proxyUrl'=>$gateway['publicUrl'],'sentAt'=>time(),'offsetStart'=>$start,'offsetEnd'=>$end,'digest'=>hash('sha256',$raw),'log'=>$raw]];
+}
+
+function finishNetworkHour() {
+    global $gateway;
+
+    if ($gateway['operatorConfigurationError']!=='' || !is_string($gateway['networkHour']) || !is_file($gateway['networkLog']) || !is_readable($gateway['networkLog'])) {return;}
+    $handle=@fopen($gateway['networkHour'],'c+');
+    if ($handle===false || !flock($handle,LOCK_EX|LOCK_NB)) {if (is_resource($handle)) {fclose($handle);}return;}
+    @chmod($gateway['networkHour'],0600);
+    $watch=readNetworkHourWatch($handle);
+    $now=time();
+    if ($now<$watch['nextAttemptAt']) {flock($handle,LOCK_UN);fclose($handle);return;}
+    $hasMore=false;
+    $batch=buildNetworkHourPayload($watch,$hasMore);
+    if ($batch===false) {$watch['nextAttemptAt']=$now+300;writeNetworkHourWatch($handle,$watch);flock($handle,LOCK_UN);fclose($handle);return;}
+    if ($batch['empty']) {
+        $watch['offset']=$batch['offsetEnd'];
+        $watch['nextAttemptAt']=(int)(floor($now/3600)*3600+3600);
+        writeNetworkHourWatch($handle,$watch);
+        flock($handle,LOCK_UN);
+        fclose($handle);
+        return;
+    }
+    releaseClientResponse();
+    $payload=$batch['payload'];
+    $error='';
+    if ($gateway['proxyId']===$gateway['bootstrapId']) {
+        $response=storeNetworkHourPayload($payload,$error);
+    } else {
+        $response=postJsonDocument($gateway['bootstrapUrl'],$payload,$error,2);
+    }
+    if (is_array($response) && isset($response['ok'],$response['digest']) && $response['ok']===true && is_string($response['digest']) && hash_equals($payload['digest'],$response['digest'])) {
+        $watch['offset']=$payload['offsetEnd'];
+        $watch['lastSuccessAt']=$now;
+        $watch['nextAttemptAt']=$hasMore?$now+60:(int)(floor($now/3600)*3600+3600);
+    } else {
+        $watch['nextAttemptAt']=$now+300;
+    }
+    writeNetworkHourWatch($handle,$watch);
+    flock($handle,LOCK_UN);
+    fclose($handle);
 }
 
 function normalizedOrigin($value) {
@@ -3114,6 +3407,10 @@ function runGateway() {
         runProxyHelloOperation($input);
         return;
     }
+    if ($input['operation']==='networkHour') {
+        runNetworkHourOperation($input);
+        return;
+    }
     $coin=canonicalCoin(isset($input['coin'])?$input['coin']:'EFL');
     if ($coin===false || !configureCoin($coin)) {
         sendJson(['ok'=>false,'error'=>'INVALID_COIN'],400);
@@ -3148,5 +3445,7 @@ function runGateway() {
 }
 
 if (!defined('CC_WALLET_005_NO_RUN')) {
+    register_shutdown_function('finishDirectoryReport');
+    register_shutdown_function('finishNetworkHour');
     runGateway();
 }

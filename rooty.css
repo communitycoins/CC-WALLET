@@ -1,7 +1,8 @@
-/* [CC-WALLET-017]
-Close the first multicoin release with a clean, self-contained presentation.
-Base: - Derived from MULTI-COIN-010
+/* [CC-WALLET-018]
+Finish the release with a smaller wallet-settings surface.
+Base: - Derived from CC-WALLET-017
 Changes:
+- [CC-WALLET-018] Remove obsolete contact-card presentation dependencies
 - [CC-WALLET-017] Keep backup-copy feedback legible and move the QR target inside the camera area
 - [MULTI-COIN-010] Give the first Wallet calculator row restrained light-green emphasis
 - Show the same-origin promotion destination without increasing QR prominence

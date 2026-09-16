@@ -1,7 +1,9 @@
-/* [CC-WALLET-017]
-Close the first multicoin release with bounded recovery and a clean self-contained webroot.
-Base: - Derived from CC-WALLET-016
+/* [CC-WALLET-018]
+Finish the release with a smaller wallet-settings surface and clearer discovery diagnostics.
+Base: - Derived from CC-WALLET-017
 Changes:
+- [CC-WALLET-018] Remove the obsolete contact-card settings, payment presentation and long motivation help
+- Report the proxy's bounded directory failure reason without changing silent cached discovery behavior
 - [CC-WALLET-017] Try at most two approved external proxies after a technical local failure, preferring bootstrap second
 - Select the proxy-reported primary coin only for a wallet without a stored coin choice or URL override
 - Record request latency passively and expose inspectCoinDirectory() without generating measurement traffic
@@ -191,7 +193,10 @@ async function refreshProxyNetworkView(){
         if (proxyNetworkView==null){proxyNetworkStatus.source="NONE"}
         return
       }
-      throw new Error("INVALID_RESPONSE")
+      var directoryError=decoded&&typeof decoded.error==="string"?decoded.error:"INVALID_RESPONSE"
+      var directoryReason=decoded&&typeof decoded.reason==="string"?decoded.reason:""
+      if (directoryError==="PROXY_DIRECTORY_UNAVAILABLE"){console.warn("Proxy directory unavailable"+(directoryReason===""?"":": "+directoryReason))}
+      throw new Error(directoryReason===""?directoryError:directoryError+":"+directoryReason)
     }
     var view=normalizeProxyNetworkView(decoded)
     if (view===false){throw new Error("INVALID_DIRECTORY")}
@@ -199,7 +204,7 @@ async function refreshProxyNetworkView(){
     proxyNetworkStatus={source:"NETWORK",lastAttemptAt:proxyNetworkStatus.lastAttemptAt,lastSuccessAt:Date.now(),lastError:""}
     try{await writeProxyNetworkView(view)}catch(error){proxyNetworkStatus.lastError="CACHE_WRITE_FAILED"}
   }catch(error){
-    proxyNetworkStatus.lastError="DISCOVERY_UNAVAILABLE"
+    proxyNetworkStatus.lastError=error&&typeof error.message==="string"?error.message:"DISCOVERY_UNAVAILABLE"
     if (proxyNetworkView==null){proxyNetworkStatus.source="NONE"}
   }finally{clearTimeout(timeout)}
 }
@@ -792,7 +797,6 @@ var countries=""
 var ids=[]
 var wallets=[]
 var LOG=""
-var cardSetting=""
 var clickedIt=Date.now()
 var supportedLanguages="en|nl|is|de|ur|pt|ru".split('|');
 const translation=[]
@@ -823,19 +827,10 @@ if (localStorage.getItem("ids")==null) {
     ids[0]=data
     localStorage.setItem("ids",JSON.stringify(ids))
   })
-  cardSetting="--"
-  localStorage.setItem("cardSetting",cardSetting)
   /*ids 0:seed entropy 1:wallet name key 2:wallet (backup)id 3:rates 4:reserve */
 }else{
   ids=JSON.parse(localStorage.getItem("ids"))
-  if (localStorage.getItem("cardSetting")==null) {
-    cardSetting="--"
-    localStorage.setItem("cardSetting",cardSetting)
-  } else {
-    cardSetting=localStorage.getItem("cardSetting")
-  }
 }
-if (localStorage.getItem("extraInfo")==null) {localStorage.setItem("extraInfo","true")}
 localStorage.removeItem("claimed")
 if (localStorage.getItem("birth")==null) {
   localStorage.setItem("birth",Date.now())
@@ -2013,17 +2008,6 @@ function handleClick(event) {
     qrcode.makeCode(Code);
   }
   
-  if ((clickedParent!=null)&&(clickedElement.getAttribute('data-tag')=="card")){
-    const x=clickedParent.rowIndex
-    if (clickedParent.classList.contains("blur")) {
-      clickedParent.classList.remove("blur")
-      cardSetting=cardSetting.substring(0,x)+"+"+cardSetting.substring(x+1)
-    }else {
-      clickedParent.classList.add("blur")      
-      cardSetting=cardSetting.substring(0,x)+"-"+cardSetting.substring(x+1)
-    }
-    localStorage.setItem("cardSetting",cardSetting)
-  }
   if (clickedId == "idReceive") {showReceiveView()}
   if (clickedId == "inputBalance") {syncBalanceToCalculator($$$('#comboBalance').value,true)}
   if (clickedId == "idTransactionClose") {closeTransactionView()}
@@ -2044,7 +2028,6 @@ function handleClick(event) {
   if (clickedId.substr(0,14)=="menuCurrencies") {rewindObject=clickedId;dial(clickedId,0,1);}
   if (clickedId=="id_setting") {dial("setup",0,0)}
   if (clickedId=="id_question") {dial("helpMain",0,0)}
-  if (clickedId=="id_helpWalletExchange") {rewindObject=dialogContext;dial("helpWalletExchange",0,0)}
   if ((clickedId=="id_helpCalculator")||(clickedId=="menuCalculator")) {dial("helpCalculator",0,0)}
   if (clickedId=="walletBackup") {dial("backupOptions",0,0)}
   if (clickedId=="walletCreate") {dial("walletCreate",0,0)}
@@ -2068,7 +2051,6 @@ function handleClick(event) {
   }
   if (clickedId=="id_trashMemo") {$$$("#idMemo").value=""}
   if (clickedId=="id_helpMemo") {dial("helpMemo",0,0)}
-  if (clickedId=="id_helpMotivation") {rewindObject="setupOwner";dial("helpMotivation",0,0)}
   if (clickedId=="idHelpReferences") {dial("infoMain",0,0)}
   if (clickedId=="id_speak") {dial("promote",0,0)}
   if (clickedId=="menuLanguage") {dial("menuLanguage",0,1)}
@@ -2083,7 +2065,6 @@ function handleClick(event) {
   if (clickedId.substr(0,8)=="idManage") {openWalletManagement()}
   if ((clickedId=="balanceButton")||(clickedId=="idPaymentIcon")) {dial("balance",0,0)}
   if (clickedId=="nameClaim") {setLocalWalletName()}
-  if (clickedId=="extraInfo") {setTimeout('switchExtraInfo()',1)}
 }
 function getPin(onValid=null,allowCancel=false,allowKill=false){
     modalContext="grassroot"
@@ -2694,23 +2675,6 @@ function applyTranslatedAttributes(){
 }
 function cryptoAdd(value1, value2) {return (Number(value1) + Number(value2)).toFixed(16).toString();}
 function cryptoSub(value1, value2) {return (Number(value1) - Number(value2)).toFixed(16).toString();}
-function switchExtraInfo(){
-  var eCard=$$$('#payBusinessCard')
-  for (var i = eCard.rows.length - 1; i >= 2; i--) {eCard.deleteRow(i);}
-  var card=localStorage.getItem("card").trim().split("\n")
-  var blur=!$$$('#extraInfo').checked
-  if (blur) {localStorage.setItem("extraInfo","false")} else {localStorage.setItem("extraInfo","true")}
-  for (var i=0;i<card.length;i++){
-    var row = eCard.insertRow(2+i);row.classList.add("card")
-    if (blur||cardSetting[i+2]=="-") {row.classList.add("blur")}
-    var cell = row.insertCell(0);
-    cell.innerHTML = card[i];
-    cell.setAttribute('data-tag','card')
-  }
-}
-function setExtraInfo(){
-  if (localStorage.getItem("extraInfo")=="true") {$$$('#extraInfo').checked=true} else {$$$('#extraInfo').checked=false}
-}
 async function buildWalletView(){
   if (!assertWalletContext("wallet-management",false)){return []}
   await updateDb()
@@ -2857,41 +2821,20 @@ async function dial(diaLog,help,save) {
       $$$('#idMemo').value+="\nPKSH:"+PKSH
       return
     }
-    var eCard=$$$('#payBusinessCard')
     $$$('#payIcon').src=$$$('#idPaymentIcon').src
     $$$('#receiveAmount').innerHTML=$$$('#inputSupported').value+"&nbsp;"+$$$('#comboSupported').value+"<br>("
       +$$$('#inputFiat').value+"&nbsp;"+$$$('#comboFiat').value+")"
     paymentMail=$$$('#txtPaymentRequestMail').innerHTML+" "+$$$('#inputSupported').value+" "+$$$('#comboSupported').value+" ("+$$$('#inputFiat').value
     +" "+$$$('#comboFiat').value+")\n"
-    $$$('#receiveWalletname').innerHTML=$$$('#txtMyWallet').innerHTML+":&nbsp;"
-    if (localStorage.getItem("owner")!=""){$$$('#receiveWalletname').innerHTML+="<b>"+$$$('#owner').innerHTML+"</b>&nbsp;"}
     if ($$$('#idMemo').value.trim()!="") {
-      $$$('#receiveComment').innerHTML=$$$('#idMemo').value
       paymentMail+="\n\n"+$$$('#idMemo').value+"\n\n"
-    }
-    var blur=true;
-    if (localStorage.getItem("extraInfo")=="true") {blur=false} else {blur=true}
-    setTimeout('setExtraInfo()',1)
-    $$$('#extraInfo').checked=!blur
-    if (localStorage.getItem("card")!=null) {
-      for (var i = eCard.rows.length - 1; i >= 2; i--) {eCard.deleteRow(i);}
-      var card=localStorage.getItem("card").trim().split("\n")
-      for (var i=0;i<card.length;i++){
-        var row = eCard.insertRow(2+i);row.classList.add("card")
-        if (blur||cardSetting[i+2]=="-") {row.classList.add("blur")} else {paymentMail+=card[i]+"\n"}
-        var cell = row.insertCell(0);
-        cell.innerHTML = card[i];
-        cell.setAttribute('data-tag','card')
-      }
     }
     if (diaLog=="paymentRequest") {
       $$$('#idReceivePayment').innerHTML=$$$('#en_paymentInfo').innerHTML
-      $$$('#idReceiveInfo').innerHTML=$$$('#en_extraInfo').innerHTML
       setReceiveRequest()
       paymentMail+="\n\n"+currentReceiveRequest.uri
     }else{
       $$$('#idSendPayment').innerHTML=$$$('#en_paymentInfo').innerHTML
-      $$$('#idSendInfo').innerHTML=$$$('#en_extraInfo').innerHTML      
     }
   }  
   if (diaLog=="walletRecover") {}
@@ -2905,7 +2848,6 @@ async function dial(diaLog,help,save) {
     $$$("#idOwner").disabled=false
     $$$("#idNameTips").innerHTML="The name is stored only in this wallet. It may be changed again and does not need to be unique."
     $$$("#idOwner").value=localStorage.getItem("owner")
-    $$$("#idCard").value=localStorage.getItem("card")
   }
   if (diaLog=="contact"){
     var qrcode = new QRCode("idQrContact");
@@ -2986,10 +2928,6 @@ function submit() {  // Modal OK-button
     }
     localStorage.setItem("owner",name)
     localStorage.removeItem("claimed")
-    localStorage.setItem("card",$$$("#idCard").value)
-    var test=$$$("#idCard").value.split("\n")
-    while (cardSetting.length<test.length+2) {cardSetting+="+";}
-    localStorage.setItem("cardSetting",cardSetting)
     setOwner()
     localStorage.setItem("glossiColor",resultBox.value)
     glossify()
