@@ -1,185 +1,363 @@
-//let i=0;
-const translation=[]
-translation.push
- ({original:'Internet Portemonnee',
-translation:'Internet Portemonnee'})
-translation.push
- ({original:'This wallet belongs to ',
-translation:'This wallet belongs to '})
-translation.push
- ({original:'BALANCE',
-translation:'BALANCE'})
-translation.push
- ({original:'Calculator',
-translation:'Calculator'})
-translation.push
- ({original:'Memo',
-translation:'Memo'})
-translation.push
- ({original:'RECEIVE',
-translation:'RECEIVE'})
-translation.push
- ({original:'SEND',
-translation:'SEND'})
-translation.push
- ({original:'SCAN',
-translation:'SCAN'})
-translation.push
- ({original:'HISTORY',
-translation:'HISTORY'})
-translation.push
- ({original:'\n    The memo field is added for your convenience, but the information entered is strictly kept in your wallet-history only. The information you type here is attached to the transaction history in your wallet but is not send with the transaction. With the History button below you can later consult this memo, search for it and even change it at a later date.\n  ',
-translation:'\n    The memo field is added for your convenience, but the information entered is strictly kept in your wallet-history only. The information you type here is attached to the transaction history in your wallet but is not send with the transaction. With the History button below you can later consult this memo, search for it and even change it at a later date.\n  '})
-translation.push
- ({original:'Save',
-translation:'Save'})
-translation.push
- ({original:'Exit',
-translation:'Exit'})
-translation.push
- ({original:'Wallet of community coins',
-translation:'Wallet of community coins'})
-translation.push
- ({original:'\n      Welcome to this wallet, designed to provide you with a portable, secure and user-friendly experience for handling community coins. Our dedicated teams collaborate to ensure your safety throughout your journey here. Before you continue or shortly after, we kindly request you to take the initiative to prioritize your own security. Please explore and utilize the four buttons below to learn more.\n    ',
-translation:'\n      Welcome to this wallet, designed to provide you with a portable, secure and user-friendly experience for handling community coins. Our dedicated teams collaborate to ensure your safety throughout your journey here. Before you continue or shortly after, we kindly request you to take the initiative to prioritize your own security. Please explore and utilize the four buttons below to learn more.\n    '})
-translation.push
- ({original:'\n      Don\'t be discouraged if you haven\'t acquired community coins yet. You have the opportunity to earn them from those who have already earned them. These individuals are dedicated to bettering the world by offering community coins as a democratic alternative to government-issued traditional currency. Similar to Bitcoin, <b>community coins hold value, ensure privacy, and are freely usable and savable. </b><span class="bg-warning">Utilize them thoughtfully and consider rewarding those who support your personal objectives and contribute to the advancement of your community</span>.\n    ',
-translation:'\n      Don\'t be discouraged if you haven\'t acquired community coins yet. You have the opportunity to earn them from those who have already earned them. These individuals are dedicated to bettering the world by offering community coins as a democratic alternative to government-issued traditional currency. Similar to Bitcoin, <b>community coins hold value, ensure privacy, and are freely usable and savable. </b><span class="bg-warning">Utilize them thoughtfully and consider rewarding those who support your personal objectives and contribute to the advancement of your community</span>.\n    '})
-translation.push
- ({original:'Backup',
-translation:'Backup'})
-translation.push
- ({original:'Reload',
-translation:'Reload'})
-translation.push
- ({original:'Recover a backup-wallet',
-translation:'Recover a backup-wallet'})
-translation.push
- ({original:'New',
-translation:'New'})
-translation.push
- ({original:'Delete',
-translation:'Delete'})
-translation.push
- ({original:'Change language',
-translation:'Change language'})
-translation.push
- ({original:'Change wallet owner label',
-translation:'Change wallet owner label'})
-translation.push
- ({original:'Community coins isn\'t a single coin – it\'s a collective effort to elevate and distinguish individual coins that comply to a shared manifest.  Its success rests solely on individuals like you who embrace and advocate for this concept. In this endeavor, we stand united. We can\'t rely on organizations, institutions, or governments to champion it on our behalf. This time, the democratic process hinges on your decision to endorse a technology that empowers people who possess it.\n    ',
-translation:'Community coins isn\'t a single coin – it\'s a collective effort to elevate and distinguish individual coins that comply to a shared manifest.  Its success rests solely on individuals like you who embrace and advocate for this concept. In this endeavor, we stand united. We can\'t rely on organizations, institutions, or governments to champion it on our behalf. This time, the democratic process hinges on your decision to endorse a technology that empowers people who possess it.\n    '})
-translation.push
- ({original:'The most effective way to achieve this is by helping others acquire it. You can achieve this by guiding them to visit <strong><mark>https://communitycoins.org/wallet</mark></strong> or by teaching them how to scan the QR code provided above.\n  ',
-translation:'The most effective way to achieve this is by helping others acquire it. You can achieve this by guiding them to visit <strong><mark>https://communitycoins.org/wallet</mark></strong> or by teaching them how to scan the QR code provided above.\n  '})
-translation.push
- ({original:'\n  We think communitycoins are a special class of cryptocoins that are/should be driven by a community and are typical grassroots organisations, as opposed to centralised ICO\'s and institutional initiatives.\n',
-translation:'\n  We think communitycoins are a special class of cryptocoins that are/should be driven by a community and are typical grassroots organisations, as opposed to centralised ICO\'s and institutional initiatives.\n'})
-translation.push
- ({original:'\n  As we reflect on the specifics of being a Canadian crypto currency community, we recognize that even though we are focused in Canada, our work applied to the national level problems also apply to others in their own communities. As we work on building tools to help solve user-centric problems, we join with other communities who are in a similar state with the intent so share our experiences.\n',
-translation:'\n  As we reflect on the specifics of being a Canadian crypto currency community, we recognize that even though we are focused in Canada, our work applied to the national level problems also apply to others in their own communities. As we work on building tools to help solve user-centric problems, we join with other communities who are in a similar state with the intent so share our experiences.\n'})
-translation.push
- ({original:'\n  Auroracoin believes that cryptocurrencies promote individual freedoms and that groups like CommunityCoins.org are essential in building like-minded communities and financial technology infrastructure.We are committed to supporting CommunityCoins.org through shared knowledge &amp; experience, technical collaboration, goodwill, and positive reinforcement.\n',
-translation:'\n  Auroracoin believes that cryptocurrencies promote individual freedoms and that groups like CommunityCoins.org are essential in building like-minded communities and financial technology infrastructure.We are committed to supporting CommunityCoins.org through shared knowledge &amp; experience, technical collaboration, goodwill, and positive reinforcement.\n'})
-translation.push
- ({original:'\n  The dutch Electronic Gulden Foundation endorses communitycoins.org. We will put significant effort in the cooperation with other community-coins that support the shared manifest.\n',
-translation:'\n  The dutch Electronic Gulden Foundation endorses communitycoins.org. We will put significant effort in the cooperation with other community-coins that support the shared manifest.\n'})
-translation.push
- ({original:'\n  Pakcoin aims to bring cryptocurrency usage into daily lives of common people because its by the people for the people. We support communitycoins.org by sharing our experiences and technical knowledge for promoting well being of community coins.\n',
-translation:'\n  Pakcoin aims to bring cryptocurrency usage into daily lives of common people because its by the people for the people. We support communitycoins.org by sharing our experiences and technical knowledge for promoting well being of community coins.\n'})
-translation.push
- ({original:'\n  Sterlingcoin very proudly endorses CommunityCoins.org as an effort to mutually support like-minded and community-driven cryptocurrency projects with knowledge and resource sharing. Sterlingcoin is committed to support CommunityCoins.org, its manifest, and peer projects in every way possible.\n',
-translation:'\n  Sterlingcoin very proudly endorses CommunityCoins.org as an effort to mutually support like-minded and community-driven cryptocurrency projects with knowledge and resource sharing. Sterlingcoin is committed to support CommunityCoins.org, its manifest, and peer projects in every way possible.\n'})
-translation.push
- ({original:'\n  Deutsche eMark wants to provide great value to the German and it\'s worldwide investors community who have adapted and are banking on the coin over the long-term. We are also a proud member of CommunityCoins.org which we highly endorse. CommunityCoins are here to financially empower their users. The release of the code - open source gives the entrepreneur and individual planning security and confidence as macroeconomic interest rates in form of mining/staking rewards and halving events are well known in advance.  \n',
-translation:'\n  Deutsche eMark wants to provide great value to the German and it\'s worldwide investors community who have adapted and are banking on the coin over the long-term. We are also a proud member of CommunityCoins.org which we highly endorse. CommunityCoins are here to financially empower their users. The release of the code - open source gives the entrepreneur and individual planning security and confidence as macroeconomic interest rates in form of mining/staking rewards and halving events are well known in advance.  \n'})
-translation.push
- ({original:'\n  We are part of a group of cryptocurrency enthusiasts with different initiatives for different communities and this is where we join our forces and cooperate\n',
-translation:'\n  We are part of a group of cryptocurrency enthusiasts with different initiatives for different communities and this is where we join our forces and cooperate\n'})
-translation.push
- ({original:'\n  Fujicoin is not a cryptocurrency made for speculative purposes. Rather our goal is to enable people around the world to use Fujicoin on a daily basis.\n',
-translation:'\n  Fujicoin is not a cryptocurrency made for speculative purposes. Rather our goal is to enable people around the world to use Fujicoin on a daily basis.\n'})
-translation.push
- ({original:'\n  The new reality reflects the world\'s transition to a state of competition for spatial influence as opposed to competition for technological leadership.\n  The essence of competition for leadership at this stage is to create a crisis-resistant, technologically and industrially self-sufficient space in which the priority of national rules of the game will be ensured.\n',
-translation:'\n  The new reality reflects the world\'s transition to a state of competition for spatial influence as opposed to competition for technological leadership.\n  The essence of competition for leadership at this stage is to create a crisis-resistant, technologically and industrially self-sufficient space in which the priority of national rules of the game will be ensured.\n'})
-translation.push
- ({original:'Help about the calculator',
-translation:'Help about the calculator'})
-translation.push
- ({original:'Currently the price of most things you can buy are not expressed in cryptocurrency prices. Also, when you exchange cryptocurrencies you need to be able to value them. This calculator helps you with that, by retrieving prices form the available markets. You can quickly compare three currencies that you use most often and determine the amount you want to pay or receive.\n      There are three groups:\n      ',
-translation:'Currently the price of most things you can buy are not expressed in cryptocurrency prices. Also, when you exchange cryptocurrencies you need to be able to value them. This calculator helps you with that, by retrieving prices form the available markets. You can quickly compare three currencies that you use most often and determine the amount you want to pay or receive.\n      There are three groups:\n      '})
-translation.push
- ({original:'Base currencies: Use the menu option ',
-translation:'Base currencies: Use the menu option '})
-translation.push
- ({original:'select base currencies',
-translation:'select base currencies'})
-translation.push
- ({original:' to select the currencies you are interested in.',
-translation:' to select the currencies you are interested in.'})
-translation.push
- ({original:'Fiat currencies: Use the menu option ',
-translation:'Fiat currencies: Use the menu option '})
-translation.push
- ({original:'select fiat currencies',
-translation:'select fiat currencies'})
-translation.push
- ({original:' to extend this list.',
-translation:' to extend this list.'})
-translation.push
- ({original:'Supported coins: Basically these are communitycoins and the most important global cryptocurrencies. Use the menu option ',
-translation:'Supported coins: Basically these are communitycoins and the most important global cryptocurrencies. Use the menu option '})
-translation.push
- ({original:'select supported coins',
-translation:'select supported coins'})
-translation.push
- ({original:' to extend this list.',
-translation:' to extend this list.'})
-translation.push
- ({original:'If you change one value the other two values change accordingly',
-translation:'If you change one value the other two values change accordingly'})
-translation.push
- ({original:'The third selection button, the one of the supported coins, is colored green-red to indicate that it is intended as the payment-currency. So lets say you want to pay or receive 10 Canedian dollar worth of Canada eCoin you select CAD (Canedian dollar) and Canada eCoin and you enter 10 in the CAD field. After you press SEND or RECEIVE the amount of Canada eCoin will apply.',
-translation:'The third selection button, the one of the supported coins, is colored green-red to indicate that it is intended as the payment-currency. So lets say you want to pay or receive 10 Canedian dollar worth of Canada eCoin you select CAD (Canedian dollar) and Canada eCoin and you enter 10 in the CAD field. After you press SEND or RECEIVE the amount of Canada eCoin will apply.'})
-translation.push
- ({original:'You can also do some basic calculations using the % / * + or - keybord keys. A dialog appears where you can enter the amount which is applied tou the field that has the input focus.',
-translation:'You can also do some basic calculations using the % / * + or - keybord keys. A dialog appears where you can enter the amount which is applied tou the field that has the input focus.'})
-translation.push
- ({original:'If there is no community coin in your area you can contact mail@communitycoins.org to ask if there are known future plans or to indicate you are interested in participating.',
-translation:'If there is no community coin in your area you can contact mail@communitycoins.org to ask if there are known future plans or to indicate you are interested in participating.'})
-translation.push
- ({original:'\n    The memo field is added for your convenience, but the information entered is strictly kept in your wallet-history only. The information you type here is attached to the transaction history in your wallet but is not send with the transaction. With the History button below you can later consult this memo, search for it and even change it at a later date.\n  ',
-translation:'\n    The memo field is added for your convenience, but the information entered is strictly kept in your wallet-history only. The information you type here is attached to the transaction history in your wallet but is not send with the transaction. With the History button below you can later consult this memo, search for it and even change it at a later date.\n  '})
-translation.push
- ({original:'\n      This wallet is a Federated Initiative of community coin teams. That means that we are groups of friends that work together to make something amazing happen: We put <span class="bg-warning">the power of Bitcoin</span> in the hands of everybody in their own country and region. For people that Bitcoin would otherwise never reach.\n    ',
-translation:'\n      This wallet is a Federated Initiative of community coin teams. That means that we are groups of friends that work together to make something amazing happen: We put <span class="bg-warning">the power of Bitcoin</span> in the hands of everybody in their own country and region. For people that Bitcoin would otherwise never reach.\n    '})
-translation.push
- ({original:'Language',
-translation:'Language'})
-translation.push
- ({original:'Owner:',
-translation:'Owner:'})
-translation.push
- ({original:'Check to make Owner visible in your wallet header',
-translation:'Check to make Owner visible in your wallet header'})
-translation.push
- ({original:'Check to make Owner visible in payment requests',
-translation:'Check to make Owner visible in payment requests'})
-translation.push
- ({original:'This wallet belongs to...',
-translation:'This wallet belongs to...'})
-translation.push
- ({original:'\n      <p>Your wallet owner information will be shown in the header of your wallet, unless you choose to turn it off using the first checkmark below.\n      </p><p>When you create a payment request using the receive button, the payer will also see your wallet owner information, unless you choose to hide it using the second checkmark below.\n      </p><p>Please note, your wallet owner details are never shared publicly and are not part of any transaction.\n    </p>',
-translation:'\n      <p>Your wallet owner information will be shown in the header of your wallet, unless you choose to turn it off using the first checkmark below.\n      </p><p>When you create a payment request using the receive button, the payer will also see your wallet owner information, unless you choose to hide it using the second checkmark below.\n      </p><p>Please note, your wallet owner details are never shared publicly and are not part of any transaction.\n    </p>'})
-translation.push
- ({original:'Owner:',
-translation:'Owner:'})
-translation.push
- ({original:'Check to make Owner visible in your wallet header',
-translation:'Check to make Owner visible in your wallet header'})
-translation.push
- ({original:'Check to make Owner visible in payment requests',
-translation:'Check to make Owner visible in payment requests'})
-translation.push
- ({original:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Portugal|Japan|Russia',
-translation:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Portugal|Japan|Russia'})
+/* [CC-WALLET-030]
+Complete German settings, Help, management and dialog translations.
+Base: - Derived from CC-WALLET-028
+Changes:
+- [CC-WALLET-030] Translate the unavailable-package status used by the language roadmap
+- [CC-WALLET-029] Apply the later Icelandic completion scope to all 167 current interface keys
+- Translate the 62 missing German interface strings
+- Complete seven reachable legacy-dialog strings and align PIN guidance with the informal wallet voice
+- [CC-WALLET-028] Restore the complete operational German table instead of the English placeholder
+- Add the release PIN and balance-privacy translations
+- [MULTI-COIN-014] Add the shared-storage wallet-context warning without changing existing translation keys
+- [MULTI-COIN-013] Translate all 259 current wallet text keys while preserving placeholders, HTML and protocol terms
+- Keep coin names, tickers, BIP39, QR, ROT and other protocol identifiers intact where translation would reduce clarity
+*/
+
+;[
+  {original:"Internet Portemonnee",translation:"Internet-Wallet"},
+  {original:"This wallet belongs to ",translation:"Dieses Wallet geh\u00f6rt "},
+  {original:"BALANCE",translation:"GUTHABEN"},
+  {original:"Calculator",translation:"Rechner"},
+  {original:"Memo",translation:"Notiz"},
+  {original:"RECEIVE",translation:"EMPFANGEN"},
+  {original:"SEND",translation:"SENDEN"},
+  {original:"SCAN",translation:"SCANNEN"},
+  {original:"HISTORY",translation:"VERLAUF"},
+  {original:"\n    The memo field is added for your convenience, but the information entered is strictly kept in your wallet-history only. The information you type here is attached to the transaction history in your wallet but is not send with the transaction. With the History button below you can later consult this memo, search for it and even change it at a later date.\n  ",translation:"\n    Das Notizfeld dient nur deiner eigenen Bequemlichkeit. Die dort eingegebenen Informationen bleiben ausschlie\u00dflich im Verlauf deines Wallets gespeichert. Sie werden dem Eintrag im Wallet-Verlauf zugeordnet, aber nicht mit der Transaktion \u00fcbertragen. \u00dcber die Schaltfl\u00e4che Verlauf kannst du diese Notiz sp\u00e4ter ansehen, danach suchen und sie sogar noch \u00e4ndern.\n  "},
+  {original:"Save",translation:"Speichern"},
+  {original:"Exit",translation:"Beenden"},
+  {original:"Wallet of community coins",translation:"Wallet f\u00fcr Community Coins"},
+  {original:"\n      Welcome to this wallet, designed to provide you with a portable, secure and user-friendly experience for handling community coins. Our dedicated teams collaborate to ensure your safety throughout your journey here. Before you continue or shortly after, we kindly request you to take the initiative to prioritize your own security. Please explore and utilize the four buttons below to learn more.\n    ",translation:"\n      Willkommen bei diesem Wallet. Es wurde entwickelt, um Community Coins mobil, sicher und benutzerfreundlich zu verwalten. Unsere Teams arbeiten gemeinsam daran, dich dabei bestm\u00f6glich zu unterst\u00fctzen. Bevor du weitermachst \u2013 oder kurz danach \u2013 bitten wir dich, deine eigene Sicherheit bewusst ernst zu nehmen. \u00dcber die vier Schaltfl\u00e4chen unten erf\u00e4hrst du mehr.\n    "},
+  {original:"\n      Don't be discouraged if you haven't acquired community coins yet. You have the opportunity to earn them from those who have already earned them. These individuals are dedicated to bettering the world by offering community coins as a democratic alternative to government-issued traditional currency. Similar to Bitcoin, <b>community coins hold value, ensure privacy, and are freely usable and savable. </b><span class=\"bg-warning\">Utilize them thoughtfully and consider rewarding those who support your personal objectives and contribute to the advancement of your community</span>.\n    ",translation:"\n      Lass dich nicht entmutigen, wenn du noch keine Community Coins besitzt. Du kannst sie von Menschen verdienen, die selbst bereits welche erhalten haben. Diese Menschen setzen sich daf\u00fcr ein, die Welt ein St\u00fcck besser zu machen, indem sie Community Coins als demokratische Alternative zu staatlich ausgegebenem herk\u00f6mmlichem Geld anbieten. Wie Bitcoin <b>haben Community Coins einen Wert, sch\u00fctzen die Privatsph\u00e4re und k\u00f6nnen frei genutzt und gespart werden. </b><span class=\"bg-warning\">Nutze sie bewusst und erw\u00e4ge, Menschen zu belohnen, die deine pers\u00f6nlichen Ziele unterst\u00fctzen und zu deiner Gemeinschaft beitragen</span>.\n    "},
+  {original:"Backup",translation:"Sicherung"},
+  {original:"Reload",translation:"Neu laden"},
+  {original:"Recover a backup-wallet",translation:"Wallet aus Sicherung wiederherstellen"},
+  {original:"New",translation:"Neu"},
+  {original:"Delete",translation:"L\u00f6schen"},
+  {original:"Change language",translation:"Sprache \u00e4ndern"},
+  {original:"Change wallet owner label",translation:"Bezeichnung des Wallet-Inhabers \u00e4ndern"},
+  {original:"Community coins isn't a single coin \u2013 it's a collective effort to elevate and distinguish individual coins that comply to a shared manifest.  Its success rests solely on individuals like you who embrace and advocate for this concept. In this endeavor, we stand united. We can't rely on organizations, institutions, or governments to champion it on our behalf. This time, the democratic process hinges on your decision to endorse a technology that empowers people who possess it.\n    ",translation:"Community Coins ist keine einzelne Coin \u2013 es ist eine gemeinsame Initiative, die eigenst\u00e4ndige Coins hervorhebt und st\u00e4rkt, sofern sie einem gemeinsamen Manifest folgen. Ihr Erfolg h\u00e4ngt allein von Menschen wie dir ab, die diese Idee annehmen und weitertragen. Dabei stehen wir zusammen. Wir k\u00f6nnen uns nicht darauf verlassen, dass Organisationen, Institutionen oder Regierungen dies f\u00fcr uns \u00fcbernehmen. Diesmal h\u00e4ngt der demokratische Prozess von deiner Entscheidung ab, eine Technologie zu unterst\u00fctzen, die den Menschen Macht gibt, die sie besitzen.\n    "},
+  {original:"The most effective way to achieve this is by helping others acquire it. You can achieve this by guiding them to visit <strong><mark>https://communitycoins.org/wallet</mark></strong> or by teaching them how to scan the QR code provided above.\n  ",translation:"Am wirksamsten hilfst du, indem du anderen den Zugang dazu erm\u00f6glichst. Weise sie auf <strong><mark>https://communitycoins.org/wallet</mark></strong> hin oder zeige ihnen, wie sie den oben angezeigten QR-Code scannen k\u00f6nnen.\n  "},
+  {original:"\n  We think communitycoins are a special class of cryptocoins that are/should be driven by a community and are typical grassroots organisations, as opposed to centralised ICO's and institutional initiatives.\n",translation:"\n  Wir betrachten Community Coins als eine besondere Klasse von Kryptow\u00e4hrungen, die von einer Gemeinschaft getragen werden beziehungsweise getragen werden sollten. Typisch sind basisnahe Graswurzelorganisationen \u2013 im Gegensatz zu zentralisierten ICOs und institutionellen Initiativen.\n"},
+  {original:"\n  As we reflect on the specifics of being a Canadian crypto currency community, we recognize that even though we are focused in Canada, our work applied to the national level problems also apply to others in their own communities. As we work on building tools to help solve user-centric problems, we join with other communities who are in a similar state with the intent so share our experiences.\n",translation:"\n  Wenn wir \u00fcber die Besonderheiten einer kanadischen Kryptow\u00e4hrungs-Community nachdenken, sehen wir: Auch wenn unser Schwerpunkt in Kanada liegt, betreffen die Probleme, an denen wir auf nationaler Ebene arbeiten, ebenso Menschen in ihren eigenen Gemeinschaften. W\u00e4hrend wir Werkzeuge f\u00fcr nutzerorientierte Probleme entwickeln, schlie\u00dfen wir uns mit Gemeinschaften in \u00e4hnlicher Lage zusammen, um Erfahrungen miteinander zu teilen.\n"},
+  {original:"\n  Auroracoin believes that cryptocurrencies promote individual freedoms and that groups like CommunityCoins.org are essential in building like-minded communities and financial technology infrastructure.We are committed to supporting CommunityCoins.org through shared knowledge &amp; experience, technical collaboration, goodwill, and positive reinforcement.\n",translation:"\n  Auroracoin ist \u00fcberzeugt, dass Kryptow\u00e4hrungen individuelle Freiheit f\u00f6rdern und dass Gruppen wie CommunityCoins.org entscheidend sind, um gleichgesinnte Gemeinschaften und eine finanztechnische Infrastruktur aufzubauen. Wir unterst\u00fctzen CommunityCoins.org mit gemeinsamem Wissen &amp; Erfahrung, technischer Zusammenarbeit, gutem Willen und positiver Best\u00e4rkung.\n"},
+  {original:"\n  The dutch Electronic Gulden Foundation endorses communitycoins.org. We will put significant effort in the cooperation with other community-coins that support the shared manifest.\n",translation:"\n  Die niederl\u00e4ndische Electronic Gulden Foundation unterst\u00fctzt communitycoins.org. Wir werden uns mit erheblichem Einsatz an der Zusammenarbeit mit anderen Community Coins beteiligen, die das gemeinsame Manifest unterst\u00fctzen.\n"},
+  {original:"\n  Pakcoin aims to bring cryptocurrency usage into daily lives of common people because its by the people for the people. We support communitycoins.org by sharing our experiences and technical knowledge for promoting well being of community coins.\n",translation:"\n  Pakcoin m\u00f6chte Kryptow\u00e4hrungen in den Alltag normaler Menschen bringen, denn es ist von Menschen f\u00fcr Menschen. Wir unterst\u00fctzen communitycoins.org, indem wir unsere Erfahrungen und unser technisches Wissen teilen und so das Wohlergehen von Community Coins f\u00f6rdern.\n"},
+  {original:"\n  Sterlingcoin very proudly endorses CommunityCoins.org as an effort to mutually support like-minded and community-driven cryptocurrency projects with knowledge and resource sharing. Sterlingcoin is committed to support CommunityCoins.org, its manifest, and peer projects in every way possible.\n",translation:"\n  Sterlingcoin unterst\u00fctzt CommunityCoins.org mit gro\u00dfem Stolz als Initiative, in der sich gleichgesinnte und gemeinschaftsgetragene Kryptow\u00e4hrungsprojekte durch den Austausch von Wissen und Ressourcen gegenseitig st\u00e4rken. Sterlingcoin verpflichtet sich, CommunityCoins.org, sein Manifest und die verbundenen Projekte auf jede m\u00f6gliche Weise zu unterst\u00fctzen.\n"},
+  {original:"\n  Deutsche eMark wants to provide great value to the German and it's worldwide investors community who have adapted and are banking on the coin over the long-term. We are also a proud member of CommunityCoins.org which we highly endorse. CommunityCoins are here to financially empower their users. The release of the code - open source gives the entrepreneur and individual planning security and confidence as macroeconomic interest rates in form of mining/staking rewards and halving events are well known in advance.  \n",translation:"\n  Deutsche eMark m\u00f6chte der deutschen und weltweiten Anlegergemeinschaft, die sich f\u00fcr die Coin entschieden hat und langfristig auf sie setzt, einen gro\u00dfen Mehrwert bieten. Wir sind au\u00dferdem stolzes Mitglied von CommunityCoins.org und unterst\u00fctzen die Initiative ausdr\u00fccklich. Community Coins sollen ihre Nutzer finanziell st\u00e4rken. Durch die Ver\u00f6ffentlichung des Codes als Open Source erhalten Unternehmer und Einzelpersonen Planungssicherheit und Vertrauen, weil makro\u00f6konomische Rahmenbedingungen wie Mining-/Staking-Ertr\u00e4ge und Halving-Ereignisse im Voraus bekannt sind.\n"},
+  {original:"\n  We are part of a group of cryptocurrency enthusiasts with different initiatives for different communities and this is where we join our forces and cooperate\n",translation:"\n  Wir sind Teil einer Gruppe von Kryptow\u00e4hrungsbegeisterten mit unterschiedlichen Initiativen f\u00fcr verschiedene Gemeinschaften. Hier b\u00fcndeln wir unsere Kr\u00e4fte und arbeiten zusammen.\n"},
+  {original:"\n  Fujicoin is not a cryptocurrency made for speculative purposes. Rather our goal is to enable people around the world to use Fujicoin on a daily basis.\n",translation:"\n  Fujicoin wurde nicht f\u00fcr Spekulation geschaffen. Unser Ziel ist vielmehr, Menschen auf der ganzen Welt die t\u00e4gliche Nutzung von Fujicoin zu erm\u00f6glichen.\n"},
+  {original:"\n  The new reality reflects the world's transition to a state of competition for spatial influence as opposed to competition for technological leadership.\n  The essence of competition for leadership at this stage is to create a crisis-resistant, technologically and industrially self-sufficient space in which the priority of national rules of the game will be ensured.\n",translation:"\n  Die neue Realit\u00e4t spiegelt den \u00dcbergang der Welt zu einem Wettbewerb um r\u00e4umlichen Einfluss wider, anstelle eines Wettbewerbs um technologische F\u00fchrerschaft.\n  Entscheidend f\u00fcr F\u00fchrungsf\u00e4higkeit ist in dieser Phase die Schaffung eines krisenfesten, technologisch und industriell eigenst\u00e4ndigen Raums, in dem nationale Spielregeln Vorrang haben.\n"},
+  {original:"Help about the calculator",translation:"Hilfe zum Rechner"},
+  {original:"Currently the price of most things you can buy are not expressed in cryptocurrency prices. Also, when you exchange cryptocurrencies you need to be able to value them. This calculator helps you with that, by retrieving prices form the available markets. You can quickly compare three currencies that you use most often and determine the amount you want to pay or receive.\n      There are three groups:\n      ",translation:"Die Preise der meisten Dinge, die man kaufen kann, werden derzeit nicht in Kryptow\u00e4hrungen angegeben. Auch beim Tauschen von Kryptow\u00e4hrungen muss man ihren Wert vergleichen k\u00f6nnen. Dieser Rechner hilft dabei, indem er Preise aus den verf\u00fcgbaren M\u00e4rkten abruft. Du kannst drei h\u00e4ufig genutzte W\u00e4hrungen schnell miteinander vergleichen und so den Betrag bestimmen, den du zahlen oder empfangen m\u00f6chtest.\n      Es gibt drei Gruppen:\n      "},
+  {original:"Base currencies: Use the menu option ",translation:"Referenzw\u00e4hrungen: Verwende die Men\u00fcoption "},
+  {original:"select base currencies",translation:"Referenzw\u00e4hrungen ausw\u00e4hlen"},
+  {original:" to select the currencies you are interested in.",translation:", um die W\u00e4hrungen auszuw\u00e4hlen, die dich interessieren."},
+  {original:"Fiat currencies: Use the menu option ",translation:"Fiat-W\u00e4hrungen: Verwende die Men\u00fcoption "},
+  {original:"select fiat currencies",translation:"Fiat-W\u00e4hrungen ausw\u00e4hlen"},
+  {original:" to extend this list.",translation:", um diese Liste zu erweitern."},
+  {original:"Supported coins: Basically these are communitycoins and the most important global cryptocurrencies. Use the menu option ",translation:"Unterst\u00fctzte Coins: Das sind im Wesentlichen Community Coins und die wichtigsten globalen Kryptow\u00e4hrungen. Verwende die Men\u00fcoption "},
+  {original:"select supported coins",translation:"unterst\u00fctzte Coins ausw\u00e4hlen"},
+  {original:" to extend this list.",translation:", um diese Liste zu erweitern."},
+  {original:"If you change one value the other two values change accordingly",translation:"Wenn du einen Wert \u00e4nderst, werden die beiden anderen entsprechend angepasst."},
+  {original:"The third selection button, the one of the supported coins, is colored green-red to indicate that it is intended as the payment-currency. So lets say you want to pay or receive 10 Canedian dollar worth of Canada eCoin you select CAD (Canedian dollar) and Canada eCoin and you enter 10 in the CAD field. After you press SEND or RECEIVE the amount of Canada eCoin will apply.",translation:"Die dritte Auswahl, die der unterst\u00fctzten Coins, ist gr\u00fcn-rot markiert, um zu zeigen, dass sie als Zahlungsw\u00e4hrung gedacht ist. M\u00f6chtest du zum Beispiel Canada eCoin im Wert von 10 kanadischen Dollar zahlen oder empfangen, w\u00e4hlst du CAD (kanadischer Dollar) und Canada eCoin und gibst 10 im CAD-Feld ein. Wenn du anschlie\u00dfend SENDEN oder EMPFANGEN dr\u00fcckst, wird der entsprechende Betrag in Canada eCoin verwendet."},
+  {original:"You can also do some basic calculations using the % / * + or - keybord keys. A dialog appears where you can enter the amount which is applied tou the field that has the input focus.",translation:"Du kannst au\u00dferdem einfache Berechnungen mit den Tasten % / * + oder - durchf\u00fchren. Es erscheint ein Dialog, in dem du den Wert eingibst, der auf das aktuell fokussierte Feld angewendet wird."},
+  {original:"If there is no community coin in your area you can contact mail@communitycoins.org to ask if there are known future plans or to indicate you are interested in participating.",translation:"Wenn es in deiner Region noch keinen Community Coin gibt, kannst du mail@communitycoins.org kontaktieren und fragen, ob bereits Pl\u00e4ne bestehen oder mitteilen, dass du an einer Mitarbeit interessiert bist."},
+  {original:"\n    The memo field is added for your convenience, but the information entered is strictly kept in your wallet-history only. The information you type here is attached to the transaction history in your wallet but is not send with the transaction. With the History button below you can later consult this memo, search for it and even change it at a later date.\n  ",translation:"\n    Das Notizfeld dient nur deiner eigenen Bequemlichkeit. Die dort eingegebenen Informationen bleiben ausschlie\u00dflich im Verlauf deines Wallets gespeichert. Sie werden dem Eintrag im Wallet-Verlauf zugeordnet, aber nicht mit der Transaktion \u00fcbertragen. \u00dcber die Schaltfl\u00e4che Verlauf kannst du diese Notiz sp\u00e4ter ansehen, danach suchen und sie sogar noch \u00e4ndern.\n  "},
+  {original:"\n      This wallet is a Federated Initiative of community coin teams. That means that we are groups of friends that work together to make something amazing happen: We put <span class=\"bg-warning\">the power of Bitcoin</span> in the hands of everybody in their own country and region. For people that Bitcoin would otherwise never reach.\n    ",translation:"\n      Dieses Wallet ist eine f\u00f6derierte Initiative von Community-Coin-Teams. Das hei\u00dft: Wir sind Gruppen von Freunden, die gemeinsam etwas Besonderes m\u00f6glich machen wollen. Wir bringen <span class=\"bg-warning\">die Kraft von Bitcoin</span> in die H\u00e4nde von Menschen in ihrem eigenen Land und ihrer eigenen Region \u2013 auch zu Menschen, die Bitcoin sonst nie erreichen w\u00fcrde.\n    "},
+  {original:"Language",translation:"Sprache"},
+  {original:"Owner:",translation:"Inhaber:"},
+  {original:"Check to make Owner visible in your wallet header",translation:"Aktivieren, um den Inhaber im Wallet-Kopf anzuzeigen"},
+  {original:"Check to make Owner visible in payment requests",translation:"Aktivieren, um den Inhaber in Zahlungsanforderungen anzuzeigen"},
+  {original:"This wallet belongs to...",translation:"Dieses Wallet geh\u00f6rt ..."},
+  {original:"\n      <p>Your wallet owner information will be shown in the header of your wallet, unless you choose to turn it off using the first checkmark below.\n      </p><p>When you create a payment request using the receive button, the payer will also see your wallet owner information, unless you choose to hide it using the second checkmark below.\n      </p><p>Please note, your wallet owner details are never shared publicly and are not part of any transaction.\n    </p>",translation:"\n      <p>Die Angaben zum Wallet-Inhaber werden im Kopf deines Wallets angezeigt, sofern du dies nicht mit dem ersten H\u00e4kchen unten deaktivierst.\n      </p><p>Wenn du \u00fcber Empfangen eine Zahlungsanforderung erstellst, sieht auch der Zahler die Angaben zum Wallet-Inhaber, sofern du sie nicht mit dem zweiten H\u00e4kchen ausblendest.\n      </p><p>Bitte beachte: Die Angaben zum Wallet-Inhaber werden niemals \u00f6ffentlich geteilt und sind kein Bestandteil einer Transaktion.\n    </p>"},
+  {original:"Owner:",translation:"Inhaber:"},
+  {original:"Check to make Owner visible in your wallet header",translation:"Aktivieren, um den Inhaber im Wallet-Kopf anzuzeigen"},
+  {original:"Check to make Owner visible in payment requests",translation:"Aktivieren, um den Inhaber in Zahlungsanforderungen anzuzeigen"},
+  {original:"Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Portugal|Japan|Russia",translation:"Kanada|Island|Niederlande|Pakistan|Vereinigtes K\u00f6nigreich|Deutschland|Portugal|Japan|Russland"},
+  {original:"Destination address",translation:"Zieladresse"},
+  {original:"Scan",translation:"Scannen"},
+  {original:"Edit",translation:"Bearbeiten"},
+  {original:"REVIEW LOCAL PLAN",translation:"LOKALEN PLAN PR\u00dcFEN"},
+  {original:"LOCAL ONLY \u00b7 NOT SIGNED \u00b7 NOT BROADCAST",translation:"NUR LOKAL \u00b7 NICHT SIGNIERT \u00b7 NICHT GESENDET"},
+  {original:"Checkpoint",translation:"Checkpoint"},
+  {original:"Destination",translation:"Ziel"},
+  {original:"Amount",translation:"Betrag"},
+  {original:"Minimum fee",translation:"Mindestgeb\u00fchr"},
+  {original:"Input total",translation:"Summe der Inputs"},
+  {original:"Change",translation:"Wechselgeld"},
+  {original:"Change address",translation:"Wechselgeldadresse"},
+  {original:"Selected confirmed inputs (maximum 6)",translation:"Ausgew\u00e4hlte best\u00e4tigte Inputs (maximal 6)"},
+  {original:"Index",translation:"Index"},
+  {original:"Outpoint",translation:"Outpoint"},
+  {original:"Balance service not connected",translation:"Saldodienst nicht verbunden"},
+  {original:"Confirmed {time} (block {height})",translation:"Best\u00e4tigt {time} (Block {height})"},
+  {original:"Updating \u00b7 last confirmed {time} (block {height})",translation:"Aktualisierung \u00b7 zuletzt best\u00e4tigt {time} (Block {height})"},
+  {original:"Refreshing confirmed balance",translation:"Best\u00e4tigten Saldo aktualisieren"},
+  {original:"Last confirmed {time} (block {height}) \u00b7 refresh required",translation:"Zuletzt best\u00e4tigt {time} (Block {height}) \u00b7 Aktualisierung erforderlich"},
+  {original:"Confirmed balance unavailable",translation:"Best\u00e4tigter Saldo nicht verf\u00fcgbar"},
+  {original:"Live confirmed balance",translation:"Aktueller best\u00e4tigter Saldo"},
+  {original:"Last observed balance; not currently spendable",translation:"Zuletzt beobachteter Saldo; derzeit nicht ausgebbar"},
+  {original:"Amount changed",translation:"Betrag ge\u00e4ndert"},
+  {original:"Confirmed inputs expired; refresh required",translation:"Best\u00e4tigte Inputs abgelaufen; Aktualisierung erforderlich"},
+  {original:"Active wallet state changed",translation:"Aktiver Wallet-Status ge\u00e4ndert"},
+  {original:"A new checkpoint is being requested",translation:"Ein neuer Checkpoint wird angefordert"},
+  {original:"Payment information is temporarily unavailable",translation:"Zahlungsinformationen sind vor\u00fcbergehend nicht verf\u00fcgbar"},
+  {original:"Fresh {coin} state unavailable",translation:"Aktueller {coin}-Status nicht verf\u00fcgbar"},
+  {original:"Enter a positive amount with no more than eight decimals",translation:"Gib einen positiven Betrag mit h\u00f6chstens acht Nachkommastellen ein"},
+  {original:"The amount is outside the safe transaction range",translation:"Der Betrag liegt au\u00dferhalb des sicheren Transaktionsbereichs"},
+  {original:"Enter a valid {coin} address",translation:"Gib eine g\u00fcltige {coin}-Adresse ein"},
+  {original:"The payment request contains unsupported fields",translation:"Die Zahlungsanforderung enth\u00e4lt nicht unterst\u00fctzte Felder"},
+  {original:"A valid confirmed snapshot is required",translation:"Ein g\u00fcltiger best\u00e4tigter Snapshot ist erforderlich"},
+  {original:"The destination belongs to this wallet",translation:"Die Zieladresse geh\u00f6rt zu diesem Wallet"},
+  {original:"Insufficient confirmed balance, including the minimum fee",translation:"Unzureichender best\u00e4tigter Saldo einschlie\u00dflich Mindestgeb\u00fchr"},
+  {original:"This payment requires more than {count} inputs",translation:"Diese Zahlung ben\u00f6tigt mehr als {count} Inputs"},
+  {original:"The change address is unavailable",translation:"Die Wechselgeldadresse ist nicht verf\u00fcgbar"},
+  {original:"index {index}",translation:"Index {index}"},
+  {original:"Local plan ready at a fresh checkpoint",translation:"Lokaler Plan ist an einem aktuellen Checkpoint bereit"},
+  {original:"Checking payment information\u2026",translation:"Zahlungsinformationen werden gepr\u00fcft\u2026"},
+  {original:"REQUEST",translation:"ANFORDERUNG"},
+  {original:"LOCAL PLAN",translation:"LOKALER PLAN"},
+  {original:"Receive {coin}",translation:"{coin} empfangen"},
+  {original:"Receive {amount} {coin}",translation:"{amount} {coin} empfangen"},
+  {original:"Send {coin}",translation:"{coin} senden"},
+  {original:"Send {amount} {coin}",translation:"{amount} {coin} senden"},
+  {original:"Last confirmed {time} (block {height}) \u00b7 refreshing\u2026",translation:"Zuletzt best\u00e4tigt {time} (Block {height}) \u00b7 wird aktualisiert\u2026"},
+  {original:"Enter or scan a destination, then review the local plan",translation:"Ziel eingeben oder scannen und anschlie\u00dfend den lokalen Plan pr\u00fcfen"},
+  {original:"Destination unlocked for editing",translation:"Zieladresse zur Bearbeitung freigegeben"},
+  {original:"Scanned destination accepted",translation:"Gescannte Zieladresse \u00fcbernommen"},
+  {original:"Destination changed",translation:"Zieladresse ge\u00e4ndert"},
+  {original:"EFL address or e-gulden: request",translation:"EFL-Adresse oder e-gulden:-Anforderung"},
+  {original:"Local transaction plan",translation:"Lokaler Transaktionsplan"},
+  {original:"Back to wallet",translation:"Zur\u00fcck zum Wallet"},
+  {original:"This wallet copy exists only in this browser profile on this device. Other browsers, profiles, private windows and devices have separate storage. Recovery words and any passphrase recover the coins; a full wallet backup is a dated snapshot, not synchronization.",translation:"Diese Wallet-Kopie existiert nur in diesem Browserprofil auf diesem Ger\u00e4t. Andere Browser, Profile, private Fenster und Ger\u00e4te besitzen getrennte Speicher. Wiederherstellungsw\u00f6rter und eine eventuelle Passphrase stellen die Coins wieder her; eine vollst\u00e4ndige Wallet-Sicherung ist ein datierter Snapshot und keine Synchronisierung."},
+  {original:"This wallet is locked",translation:"Dieses Wallet ist gesperrt"},
+  {original:"Unlock wallet",translation:"Wallet entsperren"},
+  {original:"Synchronizing wallet\u2026",translation:"Wallet wird synchronisiert\u2026"},
+  {original:"This wallet is locked. Unlock it in Settings before making a payment.",translation:"Dieses Wallet ist gesperrt. Entsperre es in den Einstellungen, bevor du eine Zahlung ausf\u00fchrst."},
+  {original:"This wallet was used on another device to spend and therefore has been locked. You can unlock it with the Settings button.",translation:"Dieses Wallet wurde auf einem anderen Ger\u00e4t zum Bezahlen verwendet und deshalb gesperrt. Du kannst es \u00fcber die Schaltfl\u00e4che Einstellungen entsperren."},
+  {original:"Wallet synchronization failed. The wallet remains locked.",translation:"Die Wallet-Synchronisierung ist fehlgeschlagen. Das Wallet bleibt gesperrt."},
+  {original:"Online",translation:"Online"},
+  {original:"Offline",translation:"Offline"},
+  {original:"Reference",translation:"Referenz"},
+  {original:"Fiat",translation:"Fiat"},
+  {original:"Wallet coin",translation:"Wallet-Coin"},
+  {original:"Reference settings",translation:"Referenzeinstellungen"},
+  {original:"Fiat settings",translation:"Fiat-Einstellungen"},
+  {original:"Wallet coin information",translation:"Informationen zu Wallet-Coins"},
+  {original:"PAY",translation:"BEZAHLEN"},
+  {original:"SCAN QR CODE",translation:"QR-CODE SCANNEN"},
+  {original:"This wallet does not hold funds or store recovery words centrally. You are responsible for backups, addresses, amounts and the selected network. Transactions are irreversible. Software, price information and network observations are provided without warranty. A zero-confirmation observation is not a blockchain confirmation.",translation:"Dieses Wallet verwahrt keine Guthaben und speichert Wiederherstellungsw\u00f6rter nicht zentral. Du bist selbst f\u00fcr Sicherungen, Adressen, Betr\u00e4ge und das gew\u00e4hlte Netzwerk verantwortlich. Transaktionen sind unumkehrbar. Software, Preisinformationen und Netzwerkbeobachtungen werden ohne Gew\u00e4hr bereitgestellt. Eine Zero-Confirmation-Beobachtung ist keine Blockchain-Best\u00e4tigung."},
+  {original:"Reference compares the payment with personally useful measures such as Bitcoin or commodities. Fiat shows the same value in familiar national currencies. Wallet coin selects the fully supported community coin used by balance, history, Receive and Send.",translation:"Referenz vergleicht die Zahlung mit pers\u00f6nlich hilfreichen Ma\u00dfst\u00e4ben wie Bitcoin oder Rohstoffen. Fiat zeigt denselben Wert in vertrauten nationalen W\u00e4hrungen. Wallet-Coin w\u00e4hlt den vollst\u00e4ndig unterst\u00fctzten Community Coin, der gemeinsam f\u00fcr Saldo, Verlauf, Empfangen und Bezahlen verwendet wird."},
+  {original:"Choose references",translation:"Referenzen ausw\u00e4hlen"},
+  {original:"Choose fiat currencies",translation:"Fiat-W\u00e4hrungen ausw\u00e4hlen"},
+  {original:"View wallet coins",translation:"Wallet-Coins anzeigen"},
+  {original:"Wallet coins",translation:"Wallet-Coins"},
+  {original:"Select the reference measures that help you understand value. Every selected reference must be available from the price feed.",translation:"W\u00e4hle die Referenzma\u00dfst\u00e4be aus, die dir helfen, einen Wert einzuordnen. Jede ausgew\u00e4hlte Referenz muss im Preisfeed verf\u00fcgbar sein."},
+  {original:"Select the national currencies in which you want to compare wallet amounts. Every selected currency must be available from the price feed.",translation:"W\u00e4hle die nationalen W\u00e4hrungen aus, in denen du Wallet-Betr\u00e4ge vergleichen m\u00f6chtest. Jede ausgew\u00e4hlte W\u00e4hrung muss im Preisfeed verf\u00fcgbar sein."},
+  {original:"Only community coins with a complete and tested wallet connection appear here. A wallet coin controls balance, history, Receive and Send together.",translation:"Hier erscheinen nur Community Coins mit einer vollst\u00e4ndigen und getesteten Wallet-Anbindung. Ein Wallet-Coin steuert Saldo, Verlauf, Empfangen und Bezahlen gemeinsam."},
+  {original:"Settings",translation:"Einstellungen"},
+  {original:"Help",translation:"Hilfe"},
+  {original:"Invite",translation:"Einladen"},
+  {original:"Community Coins wallet",translation:"Community-Coins-Wallet"},
+  {original:"Receive: choose an amount, open Receive and show the QR code. Pay: scan a payment request, check the amount and destination, and offer the transaction to the network.",translation:"Empfangen: Betrag w\u00e4hlen, Empfangen \u00f6ffnen und den QR-Code zeigen. Bezahlen: Zahlungsanforderung scannen, Betrag und Ziel pr\u00fcfen und die Transaktion dem Netzwerk anbieten."},
+  {original:"After payment, the sender can show a payment confirmation. The recipient scans it to see how many network observers have witnessed the exact transaction. Only a blockchain confirmation makes the payment final and spendable.",translation:"Nach der Zahlung kann der Sender eine Zahlungsbest\u00e4tigung anzeigen. Der Empf\u00e4nger scannt sie, um zu sehen, wie viele Netzwerkbeobachter genau diese Transaktion gesehen haben. Erst eine Blockchain-Best\u00e4tigung macht die Zahlung endg\u00fcltig und ausgebbar."},
+  {original:"Back up the wallet before receiving meaningful amounts. A seed and any recovery passphrase together provide access to the coins; keep them private and offline.",translation:"Sichere das Wallet, bevor du nennenswerte Betr\u00e4ge empf\u00e4ngst. Seed und eine eventuelle Recovery-Passphrase erm\u00f6glichen gemeinsam den Zugriff auf die Coins; bewahre beides privat und offline auf."},
+  {original:"About Community Coins and references",translation:"\u00dcber Community Coins und Referenzen"},
+  {original:"A currency comes alive when people use it.",translation:"Eine W\u00e4hrung wird lebendig, wenn Menschen sie benutzen."},
+  {original:"SCAN FOR YOUR OWN COMMUNITY COINS WALLET",translation:"F\u00dcR DEIN EIGENES COMMUNITY-COINS-WALLET SCANNEN"},
+  {original:"Free wallet and open-source software.",translation:"Kostenloses Wallet und Open-Source-Software."},
+  {original:"No account, login or KYC.",translation:"Kein Konto, kein Login und kein KYC."},
+  {original:"Non-custodial: only you control your recovery words.",translation:"Non-custodial: Nur du kontrollierst deine Wiederherstellungsw\u00f6rter."},
+  {original:"Community Coins brings independent currency communities and their shared route together. The aim is to make their coins usable in one wallet, step by step.",translation:"Community Coins bringt unabh\u00e4ngige W\u00e4hrungsgemeinschaften und ihren gemeinsamen Weg zusammen. Ziel ist, ihre Coins Schritt f\u00fcr Schritt in einem Wallet nutzbar zu machen."},
+  {original:"View the shared Community Coins route",translation:"Den gemeinsamen Weg von Community Coins ansehen"},
+  {original:"Let someone experience {coin}",translation:"Lass jemanden {coin} erleben"},
+  {original:"Know someone who feels drawn to {coin}, a sovereign digital currency from {country}? Let them scan this QR code. They immediately get their own wallet to receive, pay and experiment.",translation:"Kennst du jemanden, der sich von {coin}, einer souver\u00e4nen digitalen W\u00e4hrung aus {country}, angesprochen f\u00fchlt? Lass die Person diesen QR-Code scannen. Sie erh\u00e4lt sofort ein eigenes Wallet zum Empfangen, Bezahlen und Ausprobieren."},
+  {original:"its home community",translation:"die eigene Heimatgemeinschaft"},
+  {original:"Paste a complete wallet backup here, or enter the 12, 15, 18, 21 or 24 words of an English BIP39 seed.",translation:"F\u00fcge hier eine vollst\u00e4ndige Wallet-Sicherung ein oder gib die 12, 15, 18, 21 oder 24 W\u00f6rter eines englischen BIP39-Seeds ein."},
+  {original:"A valid wallet backup is recognized and activated automatically. Only replacement of an already loaded wallet still requires confirmation.",translation:"Eine g\u00fcltige Wallet-Sicherung wird automatisch erkannt und aktiviert. Nur das Ersetzen eines bereits geladenen Wallets erfordert weiterhin eine Best\u00e4tigung."},
+  {original:"For a seed, check every word carefully and then press Restore seed. A seed creates a new wallet, unless the same seed and passphrase already belong to a loaded wallet.",translation:"Pr\u00fcfe bei einem Seed jedes Wort sorgf\u00e4ltig und dr\u00fccke anschlie\u00dfend Seed wiederherstellen. Ein Seed erstellt ein neues Wallet, sofern derselbe Seed und dieselbe Passphrase nicht bereits zu einem geladenen Wallet geh\u00f6ren."},
+  {original:"Only if the original wallet used a BIP39 passphrase, enter it twice below. You may also paste seed::passphrase in the seed field.",translation:"Nur wenn das urspr\u00fcngliche Wallet eine BIP39-Passphrase verwendet hat, gib sie unten zweimal ein. Du kannst auch seed::passphrase in das Seed-Feld einf\u00fcgen."},
+  {original:"BIP39 passphrase (optional)",translation:"BIP39-Passphrase (optional)"},
+  {original:"Repeat BIP39 passphrase",translation:"BIP39-Passphrase wiederholen"},
+  {original:"Show passphrase",translation:"Passphrase anzeigen"},
+  {original:"The two BIP39 passphrases do not match",translation:"Die beiden BIP39-Passphrasen stimmen nicht \u00fcberein"},
+  {original:"When ROOTY creates a wallet, its seed has twelve words. Imported English BIP39 seeds may contain 12, 15, 18, 21 or 24 words. Keep the seed and any recovery passphrase together with the care normally reserved for money: both are required to reconstruct the same wallet.",translation:"Wenn ROOTY ein Wallet erstellt, besteht sein Seed aus zw\u00f6lf W\u00f6rtern. Importierte englische BIP39-Seeds k\u00f6nnen 12, 15, 18, 21 oder 24 W\u00f6rter enthalten. Bewahre den Seed und eine eventuelle Recovery-Passphrase mit derselben Sorgfalt auf wie Geld: Beides ist erforderlich, um exakt dasselbe Wallet wiederherzustellen."},
+  {original:"Receive and pay simply by QR code.",translation:"Einfach per QR-Code empfangen und bezahlen."},
+  {original:"Coin",translation:"Coin"},
+  {original:"Reference",translation:"Referenz"},
+  {original:"Total",translation:"Gesamt"},
+  {original:"Wallet balance",translation:"Wallet-Saldo"},
+  {original:"Balances are the last confirmed values observed for this wallet. A dash means that coin has not been checked yet.",translation:"Die Salden sind die zuletzt f\u00fcr dieses Wallet beobachteten best\u00e4tigten Werte. Ein Strich bedeutet, dass dieser Coin noch nicht gepr\u00fcft wurde."},
+  {original:"SHOW PAYMENT CONFIRMATION",translation:"ZAHLUNGSBEST\u00c4TIGUNG ANZEIGEN"},
+  {original:"SCAN PAYMENT CONFIRMATION",translation:"ZAHLUNGSBEST\u00c4TIGUNG SCANNEN"},
+  {original:"PAYMENT CONFIRMATION",translation:"ZAHLUNGSBEST\u00c4TIGUNG"},
+  {original:"Present this QR code to the recipient if desired. A CC wallet will then ask the network nodes whether they have seen the exact payment.",translation:"Zeige dem Empf\u00e4nger diesen QR-Code, wenn du m\u00f6chtest. Ein CC-Wallet fragt anschlie\u00dfend die Netzwerkknoten, ob sie genau diese Zahlung gesehen haben."},
+  {original:"{amount} {coin} sent to {address}",translation:"{amount} {coin} an {address} gesendet"},
+  {original:"TRANSACTION SUBMITTING...",translation:"TRANSAKTION WIRD EINGEREICHT\u2026"},
+  {original:"TRANSACTION SUBMITTED",translation:"TRANSAKTION EINGEREICHT"},
+  {original:"TRANSACTION CONFIRMED",translation:"TRANSAKTION BEST\u00c4TIGT"},
+  {original:"TRANSACTION NOT ACCEPTED",translation:"TRANSAKTION NICHT AKZEPTIERT"},
+  {original:"PAYMENT CONFIRMATION SCANNED",translation:"ZAHLUNGSBEST\u00c4TIGUNG GESCANNT"},
+  {original:"{seen} of {configured} observer has witnessed the transaction.",translation:"{seen} von {configured} Beobachter hat die Transaktion gesehen."},
+  {original:"{seen} of {configured} observers has witnessed the transaction.",translation:"{seen} von {configured} Beobachtern haben die Transaktion gesehen."},
+  {original:"{seen} of {configured} observers witnessed the transaction.",translation:"{seen} von {configured} Beobachtern haben die Transaktion gesehen."},
+  {original:"BLOCKCHAIN CONFIRMATION OBSERVED",translation:"BLOCKCHAIN-BEST\u00c4TIGUNG BEOBACHTET"},
+  {original:"PAYMENT CONFIRMATION DOES NOT MATCH",translation:"ZAHLUNGSBEST\u00c4TIGUNG STIMMT NICHT \u00dcBEREIN"},
+  {original:"TRANSACTION STATUS CHECKING...",translation:"TRANSAKTIONSSTATUS WIRD GEPR\u00dcFT\u2026"},
+  {original:"Enlarge QR",translation:"QR vergr\u00f6\u00dfern"},
+  {original:"Expert mode",translation:"Expertenmodus"},
+  {original:"Broadcast roundtrip",translation:"Broadcast-Roundtrip"},
+  {original:"Last status roundtrip",translation:"Letzter Status-Roundtrip"},
+  {original:"Broadcasting submits this transaction to the EFL network. It cannot be recalled.",translation:"Durch den Broadcast wird diese Transaktion an das EFL-Netzwerk \u00fcbermittelt. Sie kann nicht zur\u00fcckgerufen werden."},
+  {original:"state total {client} ms \u00b7 relay {relay} ms \u00b7 ROT roundtrip {rotRoundTrip} ms \u00b7 attempt {attempt}",translation:"Status gesamt {client} ms \u00b7 Relay {relay} ms \u00b7 ROT-Roundtrip {rotRoundTrip} ms \u00b7 Versuch {attempt}"},
+  {original:"CONTINUE TO BROADCAST",translation:"WEITER ZUM BROADCAST"},
+  {original:"Broadcasting submits this exact signed transaction to the EFL network. It cannot be recalled.",translation:"Durch den Broadcast wird genau diese signierte Transaktion an das EFL-Netzwerk \u00fcbermittelt. Sie kann nicht zur\u00fcckgerufen werden."},
+  {original:"BROADCAST NOW",translation:"JETZT BROADCASTEN"},
+  {original:"Roundtrip",translation:"Roundtrip"},
+  {original:"CHECK TRANSACTION STATUS",translation:"TRANSAKTIONSSTATUS PR\u00dcFEN"},
+  {original:"The verified transaction is ready for final broadcast confirmation",translation:"Die gepr\u00fcfte Transaktion ist bereit f\u00fcr die endg\u00fcltige Broadcast-Best\u00e4tigung"},
+  {original:"Submitting the signed transaction\u2026",translation:"Die signierte Transaktion wird eingereicht\u2026"},
+  {original:"Broadcast accepted by the network",translation:"Broadcast vom Netzwerk akzeptiert"},
+  {original:"The transaction was already known by the network",translation:"Die Transaktion war dem Netzwerk bereits bekannt"},
+  {original:"Transaction confirmed at block {height} with {confirmations} confirmation(s)",translation:"Transaktion in Block {height} mit {confirmations} Best\u00e4tigung(en) best\u00e4tigt"},
+  {original:"Transaction not currently found; inputs remain locked pending another check",translation:"Transaktion derzeit nicht gefunden; Inputs bleiben bis zu einer weiteren Pr\u00fcfung gesperrt"},
+  {original:"Transaction rejected: {reason}",translation:"Transaktion abgelehnt: {reason}"},
+  {original:"Broadcast outcome uncertain: {reason}",translation:"Broadcast-Ergebnis unklar: {reason}"},
+  {original:"Transaction status temporarily unavailable: {reason}",translation:"Transaktionsstatus vor\u00fcbergehend nicht verf\u00fcgbar: {reason}"},
+  {original:"The network response does not match the locally calculated transaction ID",translation:"Die Netzwerkantwort stimmt nicht mit der lokal berechneten Transaktions-ID \u00fcberein"},
+  {original:"No locally verified signed transaction is available",translation:"Es ist keine lokal gepr\u00fcfte signierte Transaktion verf\u00fcgbar"},
+  {original:"The previous payment is still being processed",translation:"Die vorherige Zahlung wird noch verarbeitet"},
+  {original:"An earlier ROT may have received the transaction; inputs remain locked while status is checked",translation:"Ein fr\u00fcherer ROT k\u00f6nnte die Transaktion erhalten haben; die Inputs bleiben gesperrt, w\u00e4hrend der Status gepr\u00fcft wird"},
+  {original:"total {client} ms \u00b7 relay {relay} ms \u00b7 ROT roundtrip {rotRoundTrip} ms \u00b7 ROT {rot} ms \u00b7 Core {core} ms \u00b7 attempt {attempt}",translation:"gesamt {client} ms \u00b7 Relay {relay} ms \u00b7 ROT-Roundtrip {rotRoundTrip} ms \u00b7 ROT {rot} ms \u00b7 Core {core} ms \u00b7 Versuch {attempt}"},
+  {original:"Checking transaction status\u2026",translation:"Transaktionsstatus wird gepr\u00fcft\u2026"},
+  {original:"The entered amount is paid in full to the recipient. The transaction fee is added on top and is paid by the sender; it is never subtracted from the recipient's amount.",translation:"Der eingegebene Betrag wird vollst\u00e4ndig an den Empf\u00e4nger gezahlt. Die Transaktionsgeb\u00fchr kommt zus\u00e4tzlich hinzu und wird vom Sender bezahlt; sie wird niemals vom Betrag des Empf\u00e4ngers abgezogen."},
+  {original:"REVIEW TRANSACTION",translation:"TRANSAKTION PR\u00dcFEN"},
+  {original:"BUILD AND SIGN LOCALLY",translation:"LOKAL ERSTELLEN UND SIGNIEREN"},
+  {original:"LOCAL ONLY \u2014 NOT BROADCAST",translation:"NUR LOKAL \u2014 NICHT GESENDET"},
+  {original:"Transaction ID",translation:"Transaktions-ID"},
+  {original:"Serialized size",translation:"Serialisierte Gr\u00f6\u00dfe"},
+  {original:"Verified fee",translation:"Gepr\u00fcfte Geb\u00fchr"},
+  {original:"Signatures",translation:"Signaturen"},
+  {original:"Verified outputs",translation:"Gepr\u00fcfte Outputs"},
+  {original:"Role",translation:"Rolle"},
+  {original:"Address",translation:"Adresse"},
+  {original:"Raw transaction",translation:"Rohtransaktion"},
+  {original:"Transaction ready at a fresh checkpoint",translation:"Transaktion ist an einem aktuellen Checkpoint bereit"},
+  {original:"TRANSACTION",translation:"TRANSAKTION"},
+  {original:"Enter or scan a destination, then review the transaction",translation:"Ziel eingeben oder scannen und anschlie\u00dfend die Transaktion pr\u00fcfen"},
+  {original:"Transaction review",translation:"Transaktionspr\u00fcfung"},
+  {original:"REVIEWED INPUTS \u00b7 SIGNED RESULT BELOW",translation:"GEPR\u00dcFTE INPUTS \u00b7 SIGNIERTES ERGEBNIS UNTEN"},
+  {original:"No change output",translation:"Kein Wechselgeld-Output"},
+  {original:"Invalid derivation index",translation:"Ung\u00fcltiger Ableitungsindex"},
+  {original:"The transaction details changed; review again",translation:"Die Transaktionsdaten wurden ge\u00e4ndert; bitte erneut pr\u00fcfen"},
+  {original:"The confirmed checkpoint changed; review again",translation:"Der best\u00e4tigte Checkpoint wurde ge\u00e4ndert; bitte erneut pr\u00fcfen"},
+  {original:"A selected input is no longer available",translation:"Ein ausgew\u00e4hlter Input ist nicht mehr verf\u00fcgbar"},
+  {original:"The raw transaction is invalid",translation:"Die Rohtransaktion ist ung\u00fcltig"},
+  {original:"The serialized transaction could not be reproduced",translation:"Die serialisierte Transaktion konnte nicht reproduziert werden"},
+  {original:"The signed inputs do not match the reviewed inputs",translation:"Die signierten Inputs stimmen nicht mit den gepr\u00fcften Inputs \u00fcberein"},
+  {original:"A transaction signature could not be verified",translation:"Eine Transaktionssignatur konnte nicht verifiziert werden"},
+  {original:"A transaction signature does not commit to every input and output",translation:"Eine Transaktionssignatur bindet nicht alle Inputs und Outputs ein"},
+  {original:"A transaction signature uses the wrong address",translation:"Eine Transaktionssignatur verwendet die falsche Adresse"},
+  {original:"The signed outputs do not match the reviewed outputs",translation:"Die signierten Outputs stimmen nicht mit den gepr\u00fcften Outputs \u00fcberein"},
+  {original:"The signed transaction fee does not match the reviewed fee",translation:"Die Geb\u00fchr der signierten Transaktion stimmt nicht mit der gepr\u00fcften Geb\u00fchr \u00fcberein"},
+  {original:"The key for derivation index {index} does not match the selected input",translation:"Der Schl\u00fcssel f\u00fcr Ableitungsindex {index} passt nicht zum ausgew\u00e4hlten Input"},
+  {original:"The script for derivation index {index} does not match the selected input",translation:"Das Skript f\u00fcr Ableitungsindex {index} passt nicht zum ausgew\u00e4hlten Input"},
+  {original:"{count} signatures verified",translation:"{count} Signaturen verifiziert"},
+  {original:"{count} bytes",translation:"{count} Bytes"},
+  {original:"Recipient",translation:"Empf\u00e4nger"},
+  {original:"Transaction built, signed and verified locally",translation:"Transaktion lokal erstellt, signiert und verifiziert"},
+  {original:"Building and signing the transaction locally\u2026",translation:"Transaktion wird lokal erstellt und signiert\u2026"},
+  {original:"The active wallet seed is unavailable",translation:"Der Seed des aktiven Wallets ist nicht verf\u00fcgbar"},
+  {original:"Unable to build the transaction: {reason}",translation:"Transaktion kann nicht erstellt werden: {reason}"},
+  {original:"Can you help us improve?",translation:"Hilfst du uns, besser zu werden?"},
+  {original:"A wallet like this is never really finished. Below you will find answers to common questions, but we would much rather hear from you. If something is confusing, missing or worth improving, tell us. Useful feedback may even earn a small coin reward.",translation:"Eine Wallet wie diese ist eigentlich nie ganz fertig. Unten findest du Antworten auf h\u00e4ufige Fragen, aber noch lieber h\u00f6ren wir direkt von dir. Ist etwas unklar, fehlt etwas oder k\u00f6nnte etwas besser sein? Sag es uns. Hilfreiches Feedback kann dir sogar eine kleine Belohnung in Coins einbringen."},
+  {original:"Ask a question or share an idea",translation:"Stell eine Frage oder teile eine Idee"}
+].forEach(function(entry){translation.push(entry)})
+translation.push({original:"not available yet",translation:"noch nicht verfügbar"})
+;[
+  {original:"Community coins wallet",translation:"Community-Coins-Wallet"},
+  {original:"community coins wallet",translation:"Community-Coins-Wallet"},
+  {original:"Name of this wallet ",translation:"Name dieses Wallets "},
+  {original:"Wallet",translation:"Wallet"},
+  {original:"Receive",translation:"Empfangen"},
+  {original:"Receive address",translation:"Empfangsadresse"},
+  {original:"Share",translation:"Teilen"},
+  {original:"Address or payment request",translation:"Adresse oder Zahlungsanforderung"},
+  {original:"Wallet help",translation:"Wallet-Hilfe"},
+  {original:"This wallet connects you to a local coin economy. It will never really be finished. If something is confusing, missing or could work better, tell us. Helpful feedback may even earn you a small coin reward.",translation:"Dieses Wallet verbindet dich mit einer lokalen Coin-Ökonomie. Es wird eigentlich nie ganz fertig sein. Sag uns Bescheid, wenn etwas unklar ist, fehlt oder besser funktionieren könnte. Hilfreiches Feedback kann dir sogar eine kleine Belohnung in Coins einbringen."},
+  {original:"Explore your coin economy",translation:"Entdecke deine Coin-Ökonomie"},
+  {original:"Get coins",translation:"Coins erhalten"},
+  {original:"Find out how people in this community can obtain or earn coins.",translation:"Erfahre, wie Menschen in dieser Gemeinschaft Coins erhalten oder verdienen können."},
+  {original:"Spend or accept coins",translation:"Coins ausgeben oder annehmen"},
+  {original:"Discover where coins can be used, or tell others that you accept them.",translation:"Finde heraus, wo Coins verwendet werden können, oder teile anderen mit, dass du sie annimmst."},
+  {original:"Meet the community",translation:"Lerne die Gemeinschaft kennen"},
+  {original:"Meet the people behind the coin and join the conversation.",translation:"Lerne die Menschen hinter dem Coin kennen und beteilige dich am Gespräch."},
+  {original:"Report a wallet problem",translation:"Wallet-Problem melden"},
+  {original:"Something not working as expected? Tell us what happened.",translation:"Funktioniert etwas nicht wie erwartet? Sag uns, was passiert ist."},
+  {original:"About this coin, Community Coins and references",translation:"Über diesen Coin, Community Coins und Referenzen"},
+  {original:"This wallet does not hold your coins or recovery words. You are responsible for backups, addresses, amounts and the selected network. Payments are irreversible. A seen transaction is not a confirmed transaction. Software, price information and network observations are provided without warranty.",translation:"Dieses Wallet verwahrt weder deine Coins noch deine Wiederherstellungswörter. Du bist für Sicherungen, Adressen, Beträge und das ausgewählte Netzwerk verantwortlich. Zahlungen sind unumkehrbar. Eine beobachtete Transaktion ist noch keine bestätigte Transaktion. Software, Preisinformationen und Netzwerkbeobachtungen werden ohne Gewähr bereitgestellt."},
+  {original:"This wallet copy lives only in this app or browser storage on this device. Another browser, profile, private window, separately installed app or device may have different wallet storage. Recovery words restore access. A file backup is a snapshot, not live synchronization.",translation:"Diese Wallet-Kopie befindet sich nur in dieser App oder im Browserspeicher dieses Geräts. Ein anderer Browser, ein anderes Profil, ein privates Fenster, eine separat installierte App oder ein anderes Gerät kann einen getrennten Wallet-Speicher haben. Wiederherstellungswörter stellen den Zugriff wieder her. Eine Dateisicherung ist eine Momentaufnahme und keine Live-Synchronisierung."},
+  {original:"Write down your recovery words before receiving anything that matters.",translation:"Schreibe deine Wiederherstellungswörter auf, bevor du etwas von Bedeutung empfängst."},
+  {original:"Wallet setup",translation:"Wallet-Einrichtung"},
+  {original:"Change wallet identity settings",translation:"Wallet-Identitätseinstellungen ändern"},
+  {original:"Select 'Calculator' currencies",translation:"Währungen für den „Rechner“ auswählen"},
+  {original:"Backup and wallet management functions",translation:"Sicherungs- und Wallet-Verwaltungsfunktionen"},
+  {original:"Set Pincode",translation:"PIN einrichten"},
+  {original:"Wallet management",translation:"Wallet-Verwaltung"},
+  {original:"Active",translation:"Aktiv"},
+  {original:"Activity",translation:"Aktivität"},
+  {original:"ID",translation:"ID"},
+  {original:"Make a copy of the active wallet to transfer it to an external computer or storage device",translation:"Erstelle eine Kopie des aktiven Wallets, um sie auf einen externen Computer oder Datenträger zu übertragen"},
+  {original:"Create a new wallet",translation:"Neues Wallet erstellen"},
+  {original:"Delete a wallet from your device",translation:"Ein Wallet von deinem Gerät löschen"},
+  {original:"Seed",translation:"Wiederherstellungswörter"},
+  {original:"Extract the wallet seed from the active wallet",translation:"Wiederherstellungswörter des aktiven Wallets anzeigen"},
+  {original:"A wallet can be used to store cryptocurrency and carry it with you. It consists of a bunch of 'receiving addresses',  and a special key known as a <mark>'seed'</mark>. This seed lets you see how much cryptocurrency you have in your wallet and makes it possible to spend it.",translation:"Ein Wallet kann Kryptowährung speichern und ermöglicht, sie mitzunehmen. Es besteht aus mehreren Empfangsadressen und einem besonderen Schlüssel, den sogenannten <mark>„Wiederherstellungswörtern“</mark>. Mit diesen Wörtern kannst du dein Guthaben sehen und Coins ausgeben."},
+  {original:"With a backup you copy everything, the seed, your personal settings and a record of all the money coming in and going out (transactions). When you copy the seed you just copy your money.",translation:"Mit einer Sicherung kopierst du alles: die Wiederherstellungswörter, deine persönlichen Einstellungen und den Verlauf aller ein- und ausgehenden Zahlungen (Transaktionen). Wenn du nur die Wiederherstellungswörter kopierst, sicherst du nur den Zugriff auf deine Coins."},
+  {original:"It's also a good idea to have multiple wallets. For instance, you could have one on your mobile phone and another one at home. This way, you can keep larger amounts of cryptocurrency at home for added security.",translation:"Es ist außerdem sinnvoll, mehrere Wallets zu verwenden, zum Beispiel eines auf deinem Mobiltelefon und ein weiteres zu Hause. So kannst du größere Beträge für zusätzliche Sicherheit zu Hause aufbewahren."},
+  {original:"Last but not least, you also have the option to store the seed separately in a secure location. For example to write it down in your personal diary or on a piece of paper which you lock away.\n  ",translation:"Schließlich kannst du die Wiederherstellungswörter separat an einem sicheren Ort aufbewahren, zum Beispiel in deinem persönlichen Tagebuch oder auf einem Blatt Papier, das du einschließt.\n  "},
+  {original:"Wallet seed",translation:"Wiederherstellungswörter des Wallets"},
+  {original:"These words provide full access to the funds in this wallet. Keep them private and store them offline. Never send them to anyone.",translation:"Diese Wörter gewähren vollständigen Zugriff auf das Guthaben in diesem Wallet. Halte sie geheim, bewahre sie offline auf und sende sie niemals an jemanden."},
+  {original:"Wallet Settings",translation:"Wallet-Einstellungen"},
+  {original:"Wallet name:",translation:"Wallet-Name:"},
+  {original:"SET",translation:"SPEICHERN"},
+  {original:"The name is stored only in this wallet. It may be changed again and does not need to be unique.",translation:"Der Name wird nur in diesem Wallet gespeichert. Du kannst ihn später ändern; er muss nicht eindeutig sein."},
+  {original:"Wallet color:",translation:"Wallet-Farbe:"},
+  {original:"Reset wallet color to white",translation:"Wallet-Farbe auf Weiß zurücksetzen"},
+  {original:"Enter exactly six hexadecimal characters",translation:"Gib genau sechs hexadezimale Zeichen ein"},
+  {original:"Wallet name saved locally",translation:"Wallet-Name lokal gespeichert"},
+  {original:"Wallet name restored",translation:"Wallet-Name wiederhergestellt"},
+  {original:"Set wallet language",translation:"Wallet-Sprache festlegen"},
+  {original:"QR reader",translation:"QR-Leser"},
+  {original:"Backup options",translation:"Sicherungsoptionen"},
+  {original:"Reload backup-wallet",translation:"Sicherungs-Wallet wiederherstellen"},
+  {original:"Enter password",translation:"Passwort eingeben"},
+  {original:"Receive Request",translation:"Empfangsanfrage"},
+  {original:"Send Request",translation:"Zahlungsanforderung"},
+  {original:"Setup Pincode",translation:"PIN einrichten"},
+  {original:"Balance",translation:"Guthaben"},
+  {original:"Selected confirmed inputs",translation:"Ausgewählte bestätigte Inputs"},
+  {original:"OK",translation:"OK"},
+  {original:"Quit",translation:"Schließen"},
+  {original:"Present this QR-code to let new users obtain a new wallet",translation:"Zeige diesen QR-Code, damit neue Nutzer ein neues Wallet erhalten"},
+  {original:"Your current balance is",translation:"Dein aktuelles Guthaben beträgt"},
+  {original:"Your latest coin backup was on",translation:"Deine letzte Coin-Sicherung war am"},
+  {original:"Your latest full backup (coin + Transaction History) was on",translation:"Deine letzte vollständige Sicherung (Coin + Transaktionsverlauf) war am"},
+  {original:"Warning",translation:"Warnung"}
+].forEach(function(entry){translation.push(entry)})
+;[
+  {original:"PIN:",translation:"PIN:"},
+  {original:"Show PIN",translation:"PIN anzeigen"},
+  {original:"Hide PIN",translation:"PIN ausblenden"},
+  {original:"Show balance",translation:"Guthaben anzeigen"},
+  {original:"Hide balance",translation:"Guthaben ausblenden"},
+  {original:"The PIN is hidden while you type it. Enter it carefully: pressing OK applies it immediately.",translation:"Die PIN bleibt während der Eingabe verborgen. Gib sie sorgfältig ein: Mit OK wird sie sofort übernommen."},
+  {original:"Use only lowercase characters, numbers and/or a decimal point.",translation:"Verwende nur Kleinbuchstaben, Ziffern und/oder einen Punkt."},
+  {original:"One PIN protects all Community Coins wallets on this device.",translation:"Eine PIN schützt alle Community-Coins-Wallets auf diesem Gerät."},
+  {original:"A PIN adds protection, but only buys time if this device falls into the wrong hands. Restore every affected wallet on another device, transfer the funds to new wallets and stop using the compromised wallets.",translation:"Eine PIN bietet zusätzlichen Schutz, gewinnt aber nur Zeit, wenn dieses Gerät in falsche Hände gerät. Stelle alle betroffenen Wallets auf einem anderen Gerät wieder her, übertrage das Guthaben auf neue Wallets und verwende die gefährdeten Wallets nicht weiter."},
+  {original:"If you forget the PIN, enter kill. This removes every wallet and the PIN from this device. You can recover the wallets from your backups.",translation:"Wenn du die PIN vergisst, gib kill ein. Dadurch werden alle Wallets und die PIN von diesem Gerät entfernt. Du kannst die Wallets aus deinen Sicherungen wiederherstellen."}
+].forEach(function(entry){translation.push(entry)})
+;[
+  {original:"Wallet changed in another window. Another tab or app window changed the active wallet. This window has been stopped to protect your wallet data and will reload.",translation:"Wallet in einem anderen Fenster ge\u00e4ndert. Ein anderer Tab oder ein App-Fenster hat das aktive Wallet gewechselt. Dieses Fenster wurde zum Schutz deiner Wallet-Daten angehalten und wird neu geladen."}
+].forEach(function(entry){translation.push(entry)})

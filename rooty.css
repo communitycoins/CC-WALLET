@@ -1,7 +1,20 @@
-/* [CC-WALLET-018]
-Finish the release with a smaller wallet-settings surface.
-Base: - Derived from CC-WALLET-017
+/* [CC-WALLET-031]
+Give the balance its full width and stack the Wallet Help release line.
+Base: - Derived from CC-WALLET-030
 Changes:
+- [CC-WALLET-031] Move the balance privacy control into the heading row above the amount
+- Remove the reserved eye-button padding from the balance value
+- Make the Wallet Help product and Version 1.0 a vertical centered group
+- [CC-WALLET-030] Style unavailable language commitments and put Version 1.0 on its own centered line
+- [CC-WALLET-029] Keep presentation unchanged under the completed-language cache identity
+- [CC-WALLET-028] Keep presentation unchanged under the release-wide cache identity
+- [CC-WALLET-027] Remove the opaque hover fill from the balance eye while retaining keyboard focus
+- [CC-WALLET-023] Keep styling byte-compatible apart from the release source header
+- [CC-WALLET-022] Place unobtrusive visibility controls inside PIN and balance fields
+- Keep PIN guidance readable and neutral inside the global list styling
+- Add the restrained Wallet help version line
+- [CC-WALLET-021] Present the six-digit color input with a compact red white-reset control
+- [CC-WALLET-020] Refresh the release-wide cache identity without changing layout
 - [CC-WALLET-018] Remove obsolete contact-card presentation dependencies
 - [CC-WALLET-017] Keep backup-copy feedback legible and move the QR target inside the camera area
 - [MULTI-COIN-010] Give the first Wallet calculator row restrained light-green emphasis
@@ -83,6 +96,24 @@ Changes:
   .memo-container {display:flex; align-items:center}
   .backup-copy-actions {display:flex;align-items:center;gap:0.6rem;margin-top:0.55rem;flex-wrap:wrap}
   #idCopyBackupStatus {font-size:0.8rem;overflow-wrap:anywhere}
+  .wallet-color-input {display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.35rem}
+  #resultBox {width:8rem;font-family:monospace}
+  .wallet-color-reset {width:2rem;height:2rem;padding:0;border:0;border-radius:50%;background:#b00020;color:#fff;font-size:1.35rem;line-height:2rem;font-weight:bold;cursor:pointer}
+  .wallet-color-alert {min-height:1.2rem;color:#b00020;font-size:0.82rem;text-align:left}
+  .pin-input-wrap {position:relative;width:100%;}
+  .pin-input-wrap #idp {padding-right:2.65rem;}
+  .pin-visibility,.balance-privacy {display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:#56645c;cursor:pointer;}
+  .pin-visibility {position:absolute;right:.15rem;top:50%;width:2.25rem;height:2.25rem;transform:translateY(-50%);font-size:1.1rem;}
+  .pin-visibility:focus-visible,.balance-privacy:focus-visible {outline:2px solid #16723d;outline-offset:1px;}
+  .pin-tips {margin:1rem 0 0;padding-left:1.25rem;color:inherit;font-weight:400;text-align:left;cursor:default;}
+  .pin-tips li {margin:.45rem 0;}
+  .wallet-version {display:block;margin:.15rem 0 .7rem;text-align:center;color:#67716b;font-size:.76rem;line-height:1.2;letter-spacing:.04em;}
+  .wallet-help-product {flex-direction:column;}
+  .wallet-help-product>p {margin-bottom:0;}
+  .language-option {align-items:flex-start;}
+  .language-unavailable {opacity:.55;}
+  .language-unavailable .radio-label {cursor:not-allowed;}
+  .language-code,.language-status {font-size:.82em;}
   #reader {max-width:100%;overflow:hidden;border:1px solid #b8b8b8;border-radius:4px}
   .recovery-passphrase {margin-top:0.75rem}
   .recovery-passphrase p {margin-bottom:0.5rem}
@@ -155,7 +186,10 @@ Changes:
   .wallet-lock-status {min-width:0;color:#a32620;font-size:.72rem;font-weight:400;line-height:1.15;text-align:right;}
   .wallet-unlock {width:100%;padding:0.5rem 0;border:0;background:transparent;color:#a32620!important;font-weight:400;text-align:left;cursor:pointer;}
   .wallet-unlock:disabled {cursor:wait;opacity:.72;}
-  .balance-value {width:100%;border:0;background:transparent;color:#17211b;opacity:1;font-size:3.35rem;font-variant-numeric:tabular-nums;font-weight:700;line-height:1;text-align:left;-webkit-text-fill-color:#17211b;}
+  .balance-value-wrap {min-height:3.55rem;}
+  .balance-value {width:100%;padding-right:0;border:0;background:transparent;color:#17211b;opacity:1;font-size:3.35rem;font-variant-numeric:tabular-nums;font-weight:700;line-height:1;text-align:left;-webkit-text-fill-color:#17211b;}
+  .balance-privacy {flex:0 0 2.4rem;width:2.4rem;height:2.4rem;margin:-.35rem 0 0 auto;border-radius:50%;background:transparent!important;box-shadow:none;-webkit-appearance:none;appearance:none;font-size:1.05rem;}
+  .balance-privacy:hover,.balance-privacy:active {background:transparent!important;color:#17211b;}
   .balance-value.balance-medium {font-size:2.55rem;}
   .balance-value.balance-long {font-size:1.75rem;}
   .balance-status {min-height:2.4rem;margin-top:5px;color:#67716b;font-size:.78rem;}

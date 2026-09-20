@@ -1,7 +1,18 @@
-/* [EFL-SLICE-054]
-Dutch wallet translations for compact identity and calculator roles.
-Base: - Derived from EFL-SLICE-053
+/* [CC-WALLET-030]
+Complete Dutch settings, Help, management and dialog translations.
+Base: - Derived from CC-WALLET-028
 Changes:
+- [CC-WALLET-030] Translate the unavailable-package status used by the language roadmap
+- [CC-WALLET-029] Apply the later Icelandic completion scope to all 167 current interface keys
+- Translate the 62 missing Dutch interface strings and replace two remaining English settings values
+- Complete seven reachable legacy-dialog strings and nine English main labels
+- [CC-WALLET-028] Restore the complete operational Dutch table including lock, balance and Help text
+- Add the release PIN and balance-privacy translations
+- [MULTI-COIN-014] Add the shared-storage wallet-context warning without changing existing translation keys
+- [MULTI-COIN-013] Add the first Help feedback invitation and communitycoins.org/#help call to action
+- Keep this file as the canonical current translation-key template for German and Icelandic
+- [MULTI-COIN-004] Translate the browser-context warning, wallet lock and explicit unlock action
+- Translate controlled synchronization progress and retained-lock failure wording
 - [EFL-SLICE-054] Keep the shortened Wallet role language-neutral
 - [EFL-SLICE-053] Add connection status, calculator roles, settings explanations and disclaimer
 - [EFL-SLICE-052] Add the three toolbar actions, current help and selected-coin invitation
@@ -267,6 +278,111 @@ translation:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Port
   {original:"Local transaction plan",translation:"Lokaal transactieplan"},
   {original:"Back to wallet",translation:"Terug naar wallet"}
 ].forEach(function(entry){translation.push(entry)})
+translation.push({original:"not available yet",translation:"nog niet beschikbaar"})
+;[
+  {original:"Community coins wallet",translation:"Community Coins-wallet"},
+  {original:"community coins wallet",translation:"Community Coins-wallet"},
+  {original:"Name of this wallet ",translation:"Naam van deze wallet "},
+  {original:"Wallet",translation:"Wallet"},
+  {original:"Receive",translation:"Ontvangen"},
+  {original:"Receive address",translation:"Ontvangstadres"},
+  {original:"Share",translation:"Delen"},
+  {original:"Address or payment request",translation:"Adres of betaalverzoek"},
+  {original:"Wallet help",translation:"Wallethulp"},
+  {original:"This wallet connects you to a local coin economy. It will never really be finished. If something is confusing, missing or could work better, tell us. Helpful feedback may even earn you a small coin reward.",translation:"Deze wallet verbindt je met een lokale munteconomie. Hij zal eigenlijk nooit helemaal af zijn. Laat het ons weten als iets onduidelijk is, ontbreekt of beter kan werken. Nuttige feedback kan je zelfs een kleine beloning in coins opleveren."},
+  {original:"Explore your coin economy",translation:"Verken je munteconomie"},
+  {original:"Get coins",translation:"Coins verkrijgen"},
+  {original:"Find out how people in this community can obtain or earn coins.",translation:"Ontdek hoe mensen in deze gemeenschap coins kunnen verkrijgen of verdienen."},
+  {original:"Spend or accept coins",translation:"Coins uitgeven of accepteren"},
+  {original:"Discover where coins can be used, or tell others that you accept them.",translation:"Ontdek waar coins kunnen worden gebruikt, of laat anderen weten dat je ze accepteert."},
+  {original:"Meet the community",translation:"Ontmoet de gemeenschap"},
+  {original:"Meet the people behind the coin and join the conversation.",translation:"Ontmoet de mensen achter de coin en praat mee."},
+  {original:"Report a wallet problem",translation:"Meld een walletprobleem"},
+  {original:"Something not working as expected? Tell us what happened.",translation:"Werkt iets niet zoals verwacht? Laat ons weten wat er gebeurde."},
+  {original:"About this coin, Community Coins and references",translation:"Over deze coin, Community Coins en referenties"},
+  {original:"This wallet does not hold your coins or recovery words. You are responsible for backups, addresses, amounts and the selected network. Payments are irreversible. A seen transaction is not a confirmed transaction. Software, price information and network observations are provided without warranty.",translation:"Deze wallet bewaart je coins of herstelwoorden niet. Je bent zelf verantwoordelijk voor back-ups, adressen, bedragen en het gekozen netwerk. Betalingen zijn onomkeerbaar. Een waargenomen transactie is nog geen bevestigde transactie. Software, prijsinformatie en netwerkwaarnemingen worden zonder garantie geleverd."},
+  {original:"This wallet copy lives only in this app or browser storage on this device. Another browser, profile, private window, separately installed app or device may have different wallet storage. Recovery words restore access. A file backup is a snapshot, not live synchronization.",translation:"Deze walletkopie bestaat alleen in deze app of in de browseropslag op dit apparaat. Een andere browser, een ander profiel, privévenster, afzonderlijk geïnstalleerde app of ander apparaat kan andere walletopslag hebben. Herstelwoorden herstellen de toegang. Een bestandsback-up is een momentopname, geen live synchronisatie."},
+  {original:"Write down your recovery words before receiving anything that matters.",translation:"Schrijf je herstelwoorden op voordat je iets van betekenis ontvangt."},
+  {original:"Wallet setup",translation:"Walletinstellingen"},
+  {original:"Change wallet identity settings",translation:"Walletidentiteit wijzigen"},
+  {original:"Select 'Calculator' currencies",translation:"Valuta's voor 'Calculator' selecteren"},
+  {original:"Backup and wallet management functions",translation:"Back-up- en walletbeheerfuncties"},
+  {original:"Set Pincode",translation:"Pincode instellen"},
+  {original:"Wallet management",translation:"Walletbeheer"},
+  {original:"Active",translation:"Actief"},
+  {original:"Activity",translation:"Activiteit"},
+  {original:"ID",translation:"ID"},
+  {original:"Make a copy of the active wallet to transfer it to an external computer or storage device",translation:"Maak een kopie van de actieve wallet om die naar een externe computer of opslagmedium over te zetten"},
+  {original:"Create a new wallet",translation:"Een nieuwe wallet maken"},
+  {original:"Delete a wallet from your device",translation:"Een wallet van je apparaat verwijderen"},
+  {original:"Seed",translation:"Herstelwoorden"},
+  {original:"Extract the wallet seed from the active wallet",translation:"De herstelwoorden van de actieve wallet tonen"},
+  {original:"A wallet can be used to store cryptocurrency and carry it with you. It consists of a bunch of 'receiving addresses',  and a special key known as a <mark>'seed'</mark>. This seed lets you see how much cryptocurrency you have in your wallet and makes it possible to spend it.",translation:"Een wallet bewaart cryptovaluta en maakt het mogelijk die mee te nemen. Hij bestaat uit meerdere ontvangstadressen en een speciale sleutel die <mark>'herstelwoorden'</mark> wordt genoemd. Met deze woorden kun je je saldo bekijken en coins uitgeven."},
+  {original:"With a backup you copy everything, the seed, your personal settings and a record of all the money coming in and going out (transactions). When you copy the seed you just copy your money.",translation:"Met een back-up kopieer je alles: de herstelwoorden, je persoonlijke instellingen en de volledige transactiegeschiedenis. Als je alleen de herstelwoorden kopieert, kopieer je alleen de toegang tot je coins."},
+  {original:"It's also a good idea to have multiple wallets. For instance, you could have one on your mobile phone and another one at home. This way, you can keep larger amounts of cryptocurrency at home for added security.",translation:"Het is ook verstandig om meerdere wallets te hebben, bijvoorbeeld één op je telefoon en één thuis. Zo kun je grotere bedragen voor extra veiligheid thuis bewaren."},
+  {original:"Last but not least, you also have the option to store the seed separately in a secure location. For example to write it down in your personal diary or on a piece of paper which you lock away.\n  ",translation:"Tot slot kun je de herstelwoorden afzonderlijk op een veilige plek bewaren, bijvoorbeeld door ze in je dagboek of op een vel papier te schrijven en achter slot en grendel te bewaren.\n  "},
+  {original:"Wallet seed",translation:"Herstelwoorden van de wallet"},
+  {original:"These words provide full access to the funds in this wallet. Keep them private and store them offline. Never send them to anyone.",translation:"Deze woorden geven volledige toegang tot het saldo in deze wallet. Houd ze geheim, bewaar ze offline en stuur ze nooit naar iemand."},
+  {original:"Wallet Settings",translation:"Walletinstellingen"},
+  {original:"Wallet name:",translation:"Walletnaam:"},
+  {original:"SET",translation:"OPSLAAN"},
+  {original:"The name is stored only in this wallet. It may be changed again and does not need to be unique.",translation:"De naam wordt alleen in deze wallet opgeslagen. Je kunt hem later wijzigen en hij hoeft niet uniek te zijn."},
+  {original:"Wallet color:",translation:"Walletkleur:"},
+  {original:"Reset wallet color to white",translation:"Walletkleur terugzetten naar wit"},
+  {original:"Enter exactly six hexadecimal characters",translation:"Voer precies zes hexadecimale tekens in"},
+  {original:"Wallet name saved locally",translation:"Walletnaam lokaal opgeslagen"},
+  {original:"Wallet name restored",translation:"Walletnaam hersteld"},
+  {original:"Set wallet language",translation:"Wallettaal instellen"},
+  {original:"QR reader",translation:"QR-lezer"},
+  {original:"Backup options",translation:"Back-upopties"},
+  {original:"Reload backup-wallet",translation:"Back-upwallet herstellen"},
+  {original:"Enter password",translation:"Wachtwoord invoeren"},
+  {original:"Receive Request",translation:"Ontvangstverzoek"},
+  {original:"Send Request",translation:"Betaalverzoek"},
+  {original:"Setup Pincode",translation:"Pincode instellen"},
+  {original:"Balance",translation:"Saldo"},
+  {original:"Selected confirmed inputs",translation:"Geselecteerde bevestigde inputs"},
+  {original:"Change language",translation:"Taal wijzigen"},
+  {original:"Recover a backup-wallet",translation:"Een back-upwallet herstellen"},
+  {original:"OK",translation:"OK"},
+  {original:"Quit",translation:"Sluiten"},
+  {original:"Present this QR-code to let new users obtain a new wallet",translation:"Laat nieuwe gebruikers deze QR-code scannen om een nieuwe wallet te krijgen"},
+  {original:"Your current balance is",translation:"Je huidige saldo is"},
+  {original:"Your latest coin backup was on",translation:"Je laatste coinback-up was op"},
+  {original:"Your latest full backup (coin + Transaction History) was on",translation:"Je laatste volledige back-up (coin + transactiegeschiedenis) was op"},
+  {original:"Warning",translation:"Waarschuwing"},
+  {original:"Calculator",translation:"Rekenmachine"},
+  {original:"Memo",translation:"Notitie"},
+  {original:"SCAN",translation:"SCANNEN"},
+  {original:"HISTORY",translation:"GESCHIEDENIS"},
+  {original:"Backup",translation:"Back-up"},
+  {original:"Reload",translation:"Herstellen"},
+  {original:"New",translation:"Nieuw"},
+  {original:"Delete",translation:"Verwijderen"},
+  {original:"Language",translation:"Taal"}
+].forEach(function(entry){translation.push(entry)})
+;[
+  {original:"PIN:",translation:"Pincode:"},
+  {original:"Show PIN",translation:"Toon pincode"},
+  {original:"Hide PIN",translation:"Verberg pincode"},
+  {original:"Show balance",translation:"Toon saldo"},
+  {original:"Hide balance",translation:"Verberg saldo"},
+  {original:"The PIN is hidden while you type it. Enter it carefully: pressing OK applies it immediately.",translation:"De pincode blijft verborgen tijdens het typen. Voer hem zorgvuldig in: na een druk op OK wordt hij meteen toegepast."},
+  {original:"Use only lowercase characters, numbers and/or a decimal point.",translation:"Gebruik alleen kleine letters, cijfers en/of een punt."},
+  {original:"One PIN protects all Community Coins wallets on this device.",translation:"Eén pincode beveiligt alle Community Coins-wallets op dit apparaat."},
+  {original:"A PIN adds protection, but only buys time if this device falls into the wrong hands. Restore every affected wallet on another device, transfer the funds to new wallets and stop using the compromised wallets.",translation:"Een pincode biedt extra bescherming, maar wint alleen tijd als dit apparaat in verkeerde handen valt. Herstel alle betrokken wallets op een ander apparaat, zet het geld over naar nieuwe wallets en gebruik de getroffen wallets niet meer."},
+  {original:"If you forget the PIN, enter kill. This removes every wallet and the PIN from this device. You can recover the wallets from your backups.",translation:"Als je de pincode vergeet, voer dan kill in. Daarmee worden alle wallets en de pincode van dit apparaat verwijderd. Je kunt de wallets vanuit je back-ups herstellen."}
+].forEach(function(entry){translation.push(entry)})
+
+;[
+  {original:"This wallet copy exists only in this browser profile on this device. Other browsers, profiles, private windows and devices have separate storage. Recovery words and any passphrase recover the coins; a full wallet backup is a dated snapshot, not synchronization.",translation:"Deze walletkopie bestaat alleen in dit browserprofiel op dit apparaat. Andere browsers, profielen, privévensters en apparaten hebben afzonderlijke opslag. Herstelwoorden en een eventuele passphrase herstellen de munten; een volledige walletbackup is een gedateerde momentopname, geen synchronisatie."},
+  {original:"This wallet is locked",translation:"Deze wallet is vergrendeld"},
+  {original:"Unlock wallet",translation:"Wallet ontgrendelen"},
+  {original:"Synchronizing wallet…",translation:"Wallet synchroniseren…"},
+  {original:"This wallet is locked. Unlock it in Settings before making a payment.",translation:"Deze wallet is vergrendeld. Ontgrendel haar via Instellingen voordat je een betaling doet."},
+  {original:"This wallet was used on another device to spend and therefore has been locked. You can unlock it with the Settings button.",translation:"Deze wallet is op een ander apparaat gebruikt om te betalen en is daarom vergrendeld. Je kunt haar ontgrendelen met de knop Instellingen."},
+  {original:"Wallet synchronization failed. The wallet remains locked.",translation:"De walletsynchronisatie is mislukt. De wallet blijft vergrendeld."}
+].forEach(function(entry){translation.push(entry)})
 
 ;[
   {original:"Online",translation:"Online"},
@@ -326,6 +442,10 @@ translation:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Port
 
 ;[
   {original:"Coin",translation:"Munt"},
+  {original:"Reference",translation:"Referentie"},
+  {original:"Total",translation:"Totaal"},
+  {original:"Wallet balance",translation:"Walletsaldo"},
+  {original:"Balances are the last confirmed values observed for this wallet. A dash means that coin has not been checked yet.",translation:"De saldi zijn de laatst waargenomen bevestigde waarden voor deze wallet. Een streepje betekent dat die munt nog niet is gecontroleerd."},
   {original:"SHOW PAYMENT CONFIRMATION",translation:"TOON BETAALBEVESTIGING"},
   {original:"SCAN PAYMENT CONFIRMATION",translation:"SCAN BETAALBEVESTIGING"},
   {original:"PAYMENT CONFIRMATION",translation:"BETAALBEVESTIGING"},
@@ -336,6 +456,8 @@ translation:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Port
   {original:"TRANSACTION CONFIRMED",translation:"TRANSACTIE BEVESTIGD"},
   {original:"TRANSACTION NOT ACCEPTED",translation:"TRANSACTIE NIET GEACCEPTEERD"},
   {original:"PAYMENT CONFIRMATION SCANNED",translation:"BETAALBEVESTIGING GESCAND"},
+  {original:"{seen} of {configured} observer has witnessed the transaction.",translation:"{seen} van {configured} waarnemer heeft de transactie gezien."},
+  {original:"{seen} of {configured} observers has witnessed the transaction.",translation:"{seen} van {configured} waarnemers heeft de transactie gezien."},
   {original:"{seen} of {configured} observers witnessed the transaction.",translation:"{seen} van {configured} waarnemers hebben de transactie gezien."},
   {original:"BLOCKCHAIN CONFIRMATION OBSERVED",translation:"TRANSACTIE ONTVANGEN"},
   {original:"PAYMENT CONFIRMATION DOES NOT MATCH",translation:"BETAALBEVESTIGING KOMT NIET OVEREEN"},
@@ -411,4 +533,13 @@ translation:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Port
   {original:"Building and signing the transaction locally…",translation:"De transactie wordt lokaal gebouwd en ondertekend…"},
   {original:"The active wallet seed is unavailable",translation:"De seed van de actieve wallet is niet beschikbaar"},
   {original:"Unable to build the transaction: {reason}",translation:"De transactie kan niet worden gebouwd: {reason}"}
+].forEach(function(entry){translation.push(entry)})
+
+;[
+  {original:"Can you help us improve?",translation:"Help je ons verbeteren?"},
+  {original:"A wallet like this is never really finished. Below you will find answers to common questions, but we would much rather hear from you. If something is confusing, missing or worth improving, tell us. Useful feedback may even earn a small coin reward.",translation:"Een wallet als deze is eigenlijk nooit helemaal af. Hieronder vind je antwoorden op veelgestelde vragen, maar we horen nog liever rechtstreeks van jou. Is iets onduidelijk, ontbreekt er iets of kan het beter? Laat het ons weten. Nuttige feedback kan je zelfs een kleine beloning in coins opleveren."},
+  {original:"Ask a question or share an idea",translation:"Stel een vraag of deel een idee"}
+].forEach(function(entry){translation.push(entry)})
+;[
+  {original:"Wallet changed in another window. Another tab or app window changed the active wallet. This window has been stopped to protect your wallet data and will reload.",translation:"Wallet gewijzigd in een ander venster. Een ander tabblad of appvenster heeft de actieve wallet gewijzigd. Dit venster is gestopt om je walletgegevens te beschermen en wordt opnieuw geladen."}
 ].forEach(function(entry){translation.push(entry)})

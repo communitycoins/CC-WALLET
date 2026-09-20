@@ -1,3 +1,14 @@
+/* [CC-WALLET-030]
+Complete Icelandic translations for first contact and wallet operation.
+Base: - Derived from CC-WALLET-021
+Changes:
+- [CC-WALLET-030] Translate the unavailable-package status used by the language roadmap
+- [CC-WALLET-022] Translate PIN guidance and privacy-control labels
+- [CC-WALLET-021] Translate balance, invitation, PIN identity and color validation
+- [CC-WALLET-020] Add current settings, management, Help, Receive, payment and status vocabulary
+- Add dialog-title and dynamically created wallet identity strings
+*/
+
 translation.push
  ({original:'Internet Portemonnee',
 translation:'Internet Portemonnee'})
@@ -10,7 +21,7 @@ translation.push
 translation:'Þessi vasi á að '})
 translation.push
   ({original:'BALANCE',
-translation:'SALDO'})
+translation:'INNEIGN'})
 translation.push
   ({original:'Calculator',
 translation:'Reiknivél'})
@@ -313,3 +324,199 @@ translation:'Warning'},
   {original:'Change owner label',
 translation:'Breyta eignarmerki'}
 ];
+
+;[
+  {original:"Settings",translation:"Stillingar"},
+  {original:"Help",translation:"Hjálp"},
+  {original:"Invite",translation:"Bjóða"},
+  {original:"Community coins wallet",translation:"Community Coins-veski"},
+  {original:"Community Coins wallet",translation:"Community Coins-veski"},
+  {original:"community coins wallet",translation:"Community Coins-veski"},
+  {original:"Name of this wallet ",translation:"Heiti þessa veskis "},
+  {original:"This wallet is locked",translation:"Veskið er læst"},
+  {original:"Wallet",translation:"Veski"},
+  {original:"Wallet coin",translation:"Mynt veskis"},
+  {original:"Wallet coin information",translation:"Upplýsingar um mynt veskis"},
+  {original:"Fiat",translation:"Gjaldmiðill"},
+  {original:"Fiat settings",translation:"Gjaldmiðlastillingar"},
+  {original:"Reference",translation:"Viðmiðun"},
+  {original:"Reference settings",translation:"Viðmiðunarstillingar"},
+  {original:"PAY",translation:"GREIÐA"},
+  {original:"SCAN QR CODE",translation:"SKANNA QR-KÓÐA"},
+  {original:"REQUEST",translation:"BEIÐNI"},
+  {original:"Receive",translation:"Taka við"},
+  {original:"Receive address",translation:"Móttökuvistfang"},
+  {original:"Enlarge QR",translation:"Stækka QR-kóða"},
+  {original:"Share",translation:"Deila"},
+  {original:"SCAN PAYMENT CONFIRMATION",translation:"SKANNA GREIÐSLUSTAÐFESTINGU"},
+  {original:"Coin",translation:"Mynt"},
+  {original:"Amount",translation:"Upphæð"},
+  {original:"Destination address",translation:"Vistfang viðtakanda"},
+  {original:"Address or payment request",translation:"Vistfang eða greiðslubeiðni"},
+  {original:"Scan",translation:"Skanna"},
+  {original:"Edit",translation:"Breyta"},
+  {original:"Back to wallet",translation:"Til baka í veski"},
+
+  {original:"A currency comes alive when people use it.",translation:"Gjaldmiðill lifnar við þegar fólk notar hann."},
+  {original:"SCAN FOR YOUR OWN COMMUNITY COINS WALLET",translation:"SKANNAÐU TIL AÐ FÁ EIGIÐ COMMUNITY COINS-VESKI"},
+  {original:"Free wallet and open-source software.",translation:"Ókeypis veski og opinn hugbúnaður."},
+  {original:"No account, login or KYC.",translation:"Enginn reikningur, innskráning eða KYC."},
+  {original:"Non-custodial: only you control your recovery words.",translation:"Án vörslu þriðja aðila: aðeins þú ræður endurheimtarorðunum."},
+  {original:"Receive and pay simply by QR code.",translation:"Taktu við og greiddu auðveldlega með QR-kóða."},
+  {original:"Community Coins brings independent currency communities and their shared route together. The aim is to make their coins usable in one wallet, step by step.",translation:"Community Coins tengir saman sjálfstæð myntsamfélög og sameiginlega leið þeirra. Markmiðið er að gera myntir þeirra nothæfar í einu veski, skref fyrir skref."},
+  {original:"View the shared Community Coins route",translation:"Skoða sameiginlega Community Coins-leið"},
+  {original:"Let someone experience {coin}",translation:"Leyfðu einhverjum að kynnast {coin}"},
+  {original:"Know someone who feels drawn to {coin}, a sovereign digital currency from {country}? Let them scan this QR code. They immediately get their own wallet to receive, pay and experiment.",translation:"Þekkirðu einhvern sem heillast af {coin}, sjálfstæðum rafrænum gjaldmiðli frá {country}? Láttu viðkomandi skanna þennan QR-kóða. Þá fær hann strax eigið veski til að taka við, greiða og prófa."},
+  {original:"its home community",translation:"heimabyggð myntarinnar"},
+
+  {original:"Wallet help",translation:"Hjálp fyrir veski"},
+  {original:"Can you help us improve?",translation:"Geturðu hjálpað okkur að bæta veskið?"},
+  {original:"This wallet connects you to a local coin economy. It will never really be finished. If something is confusing, missing or could work better, tell us. Helpful feedback may even earn you a small coin reward.",translation:"Þetta veski tengir þig við staðbundið mynthagkerfi. Það verður í raun aldrei fullklárað. Segðu okkur frá ef eitthvað er óljóst, vantar eða mætti virka betur. Gagnleg ábending gæti jafnvel veitt þér litla mynt að launum."},
+  {original:"Ask a question or share an idea",translation:"Spyrðu spurningar eða deildu hugmynd"},
+  {original:"Explore your coin economy",translation:"Skoðaðu mynthagkerfið þitt"},
+  {original:"Get coins",translation:"Fáðu mynt"},
+  {original:"Find out how people in this community can obtain or earn coins.",translation:"Kynntu þér hvernig fólk í þessu samfélagi getur fengið eða unnið sér inn mynt."},
+  {original:"Spend or accept coins",translation:"Eyddu eða taktu við mynt"},
+  {original:"Discover where coins can be used, or tell others that you accept them.",translation:"Sjáðu hvar hægt er að nota mynt eða láttu aðra vita að þú takir við henni."},
+  {original:"Meet the community",translation:"Kynntu þér samfélagið"},
+  {original:"Meet the people behind the coin and join the conversation.",translation:"Kynntu þér fólkið á bak við myntina og taktu þátt í samtalinu."},
+  {original:"Report a wallet problem",translation:"Tilkynna vandamál í veski"},
+  {original:"Something not working as expected? Tell us what happened.",translation:"Virkar eitthvað ekki eins og búist var við? Segðu okkur hvað gerðist."},
+  {original:"About this coin, Community Coins and references",translation:"Um þessa mynt, Community Coins og tilvísanir"},
+  {original:"This wallet does not hold your coins or recovery words. You are responsible for backups, addresses, amounts and the selected network. Payments are irreversible. A seen transaction is not a confirmed transaction. Software, price information and network observations are provided without warranty.",translation:"Þetta veski geymir hvorki myntina þína né endurheimtarorðin miðlægt. Þú berð ábyrgð á öryggisafritum, vistföngum, upphæðum og völdu neti. Ekki er hægt að afturkalla greiðslur. Séð færsla er ekki staðfest færsla. Hugbúnaður, verðupplýsingar og netathuganir eru veitt án ábyrgðar."},
+  {original:"This wallet copy lives only in this app or browser storage on this device. Another browser, profile, private window, separately installed app or device may have different wallet storage. Recovery words restore access. A file backup is a snapshot, not live synchronization.",translation:"Þetta eintak veskisins er aðeins í geymslu þessa forrits eða vafra á þessu tæki. Annar vafri, prófíll, einkagluggi, séruppsett forrit eða annað tæki getur haft aðra veskisgeymslu. Endurheimtarorð endurvekja aðgang. Öryggisafrit í skrá er kyrrmynd en ekki lifandi samstilling."},
+  {original:"Write down your recovery words before receiving anything that matters.",translation:"Skrifaðu niður endurheimtarorðin áður en þú tekur við verðmætum."},
+
+  {original:"Wallet setup",translation:"Uppsetning veskis"},
+  {original:"Change language",translation:"Breyta tungumáli"},
+  {original:"Change wallet identity settings",translation:"Breyta auðkennisstillingum veskis"},
+  {original:"Select 'Calculator' currencies",translation:"Velja gjaldmiðla reiknivélar"},
+  {original:"Backup and wallet management functions",translation:"Öryggisafrit og umsjón veskja"},
+  {original:"Set Pincode",translation:"Stilla PIN-númer"},
+  {original:"Expert mode",translation:"Sérfræðihamur"},
+  {original:"Unlock wallet",translation:"Opna veski"},
+
+  {original:"Wallet management",translation:"Umsjón veskja"},
+  {original:"Active",translation:"Virkt"},
+  {original:"Activity",translation:"Virkni"},
+  {original:"ID",translation:"Auðkenni"},
+  {original:"Make a copy of the active wallet to transfer it to an external computer or storage device",translation:"Gerðu afrit af virka veskinu til að flytja það í aðra tölvu eða á geymslumiðil"},
+  {original:"Recover a backup-wallet",translation:"Endurheimta veski úr öryggisafriti"},
+  {original:"Create a new wallet",translation:"Búa til nýtt veski"},
+  {original:"Delete a wallet from your device",translation:"Eyða veski úr tækinu"},
+  {original:"Seed",translation:"Endurheimtarorð"},
+  {original:"Extract the wallet seed from the active wallet",translation:"Sýna endurheimtarorð virka veskisins"},
+  {original:"A wallet can be used to store cryptocurrency and carry it with you. It consists of a bunch of 'receiving addresses',  and a special key known as a <mark>'seed'</mark>. This seed lets you see how much cryptocurrency you have in your wallet and makes it possible to spend it.",translation:"Veski geymir rafmynt og gerir þér kleift að hafa hana meðferðis. Það samanstendur af nokkrum móttökuvistföngum og sérstökum lykli sem kallast <mark>endurheimtarorð</mark>. Orðin gera þér kleift að sjá inneignina og ráðstafa henni."},
+  {original:"With a backup you copy everything, the seed, your personal settings and a record of all the money coming in and going out (transactions). When you copy the seed you just copy your money.",translation:"Öryggisafrit afritar allt: endurheimtarorðin, persónulegar stillingar og færslusögu. Þegar þú afritar aðeins endurheimtarorðin afritarðu aðeins aðganginn að myntinni."},
+  {original:"When ROOTY creates a wallet, its seed has twelve words. Imported English BIP39 seeds may contain 12, 15, 18, 21 or 24 words. Keep the seed and any recovery passphrase together with the care normally reserved for money: both are required to reconstruct the same wallet.",translation:"Þegar ROOTY býr til veski eru endurheimtarorðin tólf. Innflutt ensk BIP39-endurheimtarorð mega vera 12, 15, 18, 21 eða 24. Geymdu orðin og mögulegt endurheimtarlykilorð af sömu varúð og peninga: hvort tveggja þarf til að endurgera sama veski."},
+  {original:"It's also a good idea to have multiple wallets. For instance, you could have one on your mobile phone and another one at home. This way, you can keep larger amounts of cryptocurrency at home for added security.",translation:"Það getur líka verið skynsamlegt að hafa fleiri en eitt veski, til dæmis eitt í símanum og annað heima. Þannig má geyma stærri upphæðir heima með auknu öryggi."},
+  {original:"Last but not least, you also have the option to store the seed separately in a secure location. For example to write it down in your personal diary or on a piece of paper which you lock away.\n  ",translation:"Þú getur einnig geymt endurheimtarorðin sérstaklega á öruggum stað, til dæmis skrifað þau á blað og læst það inni.\n  "},
+  {original:"Wallet seed",translation:"Endurheimtarorð veskis"},
+  {original:"These words provide full access to the funds in this wallet. Keep them private and store them offline. Never send them to anyone.",translation:"Þessi orð veita fullan aðgang að fjármunum veskisins. Haltu þeim leyndum, geymdu þau ótengd neti og sendu þau aldrei neinum."},
+
+  {original:"Wallet Settings",translation:"Stillingar veskis"},
+  {original:"Wallet name:",translation:"Heiti veskis:"},
+  {original:"SET",translation:"VISTA"},
+  {original:"The name is stored only in this wallet. It may be changed again and does not need to be unique.",translation:"Heitið er aðeins geymt í þessu veski. Þú getur breytt því síðar og það þarf ekki að vera einstakt."},
+  {original:"Wallet color:",translation:"Litur veskis:"},
+  {original:"Reset wallet color to white",translation:"Endurstilla lit veskis á hvítt"},
+  {original:"Enter exactly six hexadecimal characters",translation:"Sláðu inn nákvæmlega sex sextándakerfisstafi"},
+  {original:"Wallet name saved locally",translation:"Heiti veskis vistað á tækinu"},
+  {original:"Wallet name restored",translation:"Heiti veskis endurheimt"},
+
+  {original:"Set wallet language",translation:"Velja tungumál veskis"},
+  {original:"QR reader",translation:"QR-lesari"},
+  {original:"Backup options",translation:"Valkostir öryggisafrits"},
+  {original:"Reload backup-wallet",translation:"Endurheimta veski úr öryggisafriti"},
+  {original:"Enter password",translation:"Sláðu inn lykilorð"},
+  {original:"Receive Request",translation:"Móttökubeiðni"},
+  {original:"Send Request",translation:"Greiðslubeiðni"},
+  {original:"Setup Pincode",translation:"Stilla PIN-númer"},
+
+  {original:"Online",translation:"Tengt"},
+  {original:"Offline",translation:"Ótengt"},
+  {original:"Balance",translation:"Inneign"},
+  {original:"Total",translation:"Samtals"},
+  {original:"Wallet balance",translation:"Inneign veskis"},
+  {original:"Balances are the last confirmed values observed for this wallet. A dash means that coin has not been checked yet.",translation:"Inneignir eru síðustu staðfestu gildi sem veskið sá. Strik merkir að myntin hefur ekki enn verið athuguð."},
+  {original:"Synchronizing wallet…",translation:"Samstilli veski…"},
+  {original:"This wallet is locked. Unlock it in Settings before making a payment.",translation:"Veskið er læst. Opnaðu það í Stillingum áður en þú greiðir."},
+  {original:"Balance service not connected",translation:"Inneignarþjónusta ekki tengd"},
+  {original:"Confirmed {time} (block {height})",translation:"Staðfest {time} (blokk {height})"},
+  {original:"Updating · last confirmed {time} (block {height})",translation:"Uppfæri · síðast staðfest {time} (blokk {height})"},
+  {original:"Refreshing confirmed balance",translation:"Endurnýja staðfesta inneign"},
+  {original:"Confirmed balance unavailable",translation:"Staðfest inneign ekki tiltæk"},
+  {original:"Live confirmed balance",translation:"Nýjustu staðfesta inneign"},
+  {original:"Last observed balance; not currently spendable",translation:"Síðast séða inneign; ekki ráðstöfunarhæf núna"},
+
+  {original:"Reference compares the payment with personally useful measures such as Bitcoin or commodities. Fiat shows the same value in familiar national currencies. Wallet coin selects the fully supported community coin used by balance, history, Receive and Send.",translation:"Viðmiðun ber greiðsluna saman við gagnleg viðmið eins og Bitcoin eða hrávörur. Gjaldmiðill sýnir sama verðmæti í kunnuglegri þjóðarmynt. Mynt veskis velur samfélagsmyntina sem notuð er fyrir inneign, sögu, móttöku og greiðslu."},
+  {original:"Choose references",translation:"Velja viðmiðanir"},
+  {original:"Choose fiat currencies",translation:"Velja gjaldmiðla"},
+  {original:"View wallet coins",translation:"Skoða mynt veskis"},
+  {original:"Wallet coins",translation:"Mynt veskis"},
+  {original:"Select the reference measures that help you understand value. Every selected reference must be available from the price feed.",translation:"Veldu viðmiðanir sem hjálpa þér að skilja verðmæti. Sérhver valin viðmiðun verður að vera tiltæk í verðgögnum."},
+  {original:"Select the national currencies in which you want to compare wallet amounts. Every selected currency must be available from the price feed.",translation:"Veldu þjóðargjaldmiðla sem þú vilt nota til að bera saman upphæðir veskisins. Sérhver valinn gjaldmiðill verður að vera tiltækur í verðgögnum."},
+  {original:"Only community coins with a complete and tested wallet connection appear here. A wallet coin controls balance, history, Receive and Send together.",translation:"Hér birtast aðeins samfélagsmyntir með fullbúna og prófaða veskistengingu. Mynt veskis stýrir inneign, sögu, móttöku og greiðslu saman."},
+
+  {original:"REVIEW TRANSACTION",translation:"YFIRFARA FÆRSLU"},
+  {original:"BUILD AND SIGN LOCALLY",translation:"BYGGJA OG UNDIRRITA Á TÆKINU"},
+  {original:"LOCAL ONLY — NOT BROADCAST",translation:"AÐEINS Á TÆKINU — EKKI SENT"},
+  {original:"LOCAL ONLY · NOT SIGNED · NOT BROADCAST",translation:"AÐEINS Á TÆKINU · EKKI UNDIRRITAÐ · EKKI SENT"},
+  {original:"Checkpoint",translation:"Staða"},
+  {original:"Destination",translation:"Viðtakandi"},
+  {original:"Minimum fee",translation:"Lágmarksgjald"},
+  {original:"Input total",translation:"Samtals inn"},
+  {original:"Change",translation:"Afgangur"},
+  {original:"Change address",translation:"Afgangsvistfang"},
+  {original:"Selected confirmed inputs",translation:"Valdar staðfestar færslur inn"},
+  {original:"Selected confirmed inputs (maximum 6)",translation:"Valdar staðfestar færslur inn (mest 6)"},
+  {original:"Index",translation:"Vísir"},
+  {original:"Outpoint",translation:"Úttakspunktur"},
+  {original:"Transaction ID",translation:"Færsluauðkenni"},
+  {original:"Serialized size",translation:"Stærð færslu"},
+  {original:"Verified fee",translation:"Staðfest gjald"},
+  {original:"Signatures",translation:"Undirritanir"},
+  {original:"Verified outputs",translation:"Staðfest úttök"},
+  {original:"Role",translation:"Hlutverk"},
+  {original:"Address",translation:"Vistfang"},
+  {original:"Raw transaction",translation:"Hrá færsla"},
+  {original:"CONTINUE TO BROADCAST",translation:"HALDA ÁFRAM AÐ SENDINGU"},
+  {original:"BROADCAST NOW",translation:"SENDA NÚNA"},
+  {original:"SHOW PAYMENT CONFIRMATION",translation:"SÝNA GREIÐSLUSTAÐFESTINGU"},
+  {original:"PAYMENT CONFIRMATION",translation:"GREIÐSLUSTAÐFESTING"},
+  {original:"TRANSACTION SUBMITTING...",translation:"FÆRSLA SEND..."},
+  {original:"TRANSACTION SUBMITTED",translation:"FÆRSLA SEND"},
+  {original:"TRANSACTION CONFIRMED",translation:"FÆRSLA STAÐFEST"},
+  {original:"TRANSACTION NOT ACCEPTED",translation:"FÆRSLA EKKI SAMÞYKKT"},
+  {original:"PAYMENT CONFIRMATION SCANNED",translation:"GREIÐSLUSTAÐFESTING SKÖNNUÐ"},
+  {original:"BLOCKCHAIN CONFIRMATION OBSERVED",translation:"STAÐFESTING Í BLOKKAKEÐJU SÉÐ"},
+  {original:"PAYMENT CONFIRMATION DOES NOT MATCH",translation:"GREIÐSLUSTAÐFESTING PASSAR EKKI"},
+  {original:"TRANSACTION STATUS CHECKING...",translation:"ATHUGA STÖÐU FÆRSLU..."},
+  {original:"Receive {coin}",translation:"Taka við {coin}"},
+  {original:"Receive {amount} {coin}",translation:"Taka við {amount} {coin}"},
+  {original:"Send {coin}",translation:"Greiða {coin}"},
+  {original:"Send {amount} {coin}",translation:"Greiða {amount} {coin}"},
+  {original:"Enter or scan a destination, then review the transaction",translation:"Sláðu inn eða skannaðu viðtakanda og yfirfarðu síðan færsluna"},
+  {original:"Transaction review",translation:"Yfirferð færslu"},
+  {original:"Recipient",translation:"Viðtakandi"},
+  {original:"Transaction built, signed and verified locally",translation:"Færslan var byggð, undirrituð og sannreynd á tækinu"},
+  {original:"Building and signing the transaction locally…",translation:"Byggi og undirrita færsluna á tækinu…"},
+  {original:"Checking transaction status…",translation:"Athuga stöðu færslu…"}
+].forEach(function(entry){
+  if (!translation.some(function(current){return current.original===entry.original})){translation.push(entry)}
+})
+translation.push({original:"not available yet",translation:"ekki enn í boði"})
+;[
+  {original:"PIN:",translation:"PIN-númer:"},
+  {original:"Show PIN",translation:"Sýna PIN-númer"},
+  {original:"Hide PIN",translation:"Fela PIN-númer"},
+  {original:"Show balance",translation:"Sýna inneign"},
+  {original:"Hide balance",translation:"Fela inneign"},
+  {original:"The PIN is hidden while you type it. Enter it carefully: pressing OK applies it immediately.",translation:"PIN-númerið er falið á meðan þú slærð það inn. Sláðu það vandlega inn: þegar ýtt er á OK tekur það strax gildi."},
+  {original:"Use only lowercase characters, numbers and/or a decimal point.",translation:"Notaðu aðeins lágstafi, tölustafi og/eða punkt."},
+  {original:"One PIN protects all Community Coins wallets on this device.",translation:"Eitt PIN-númer verndar öll Community Coins-veski á þessu tæki."},
+  {original:"A PIN adds protection, but only buys time if this device falls into the wrong hands. Restore every affected wallet on another device, transfer the funds to new wallets and stop using the compromised wallets.",translation:"PIN-númer eykur öryggið en kaupir aðeins tíma ef tækið kemst í rangar hendur. Endurheimtu öll viðkomandi veski í öðru tæki, færðu fjármunina í ný veski og hættu að nota þau veski sem gætu hafa verið afhjúpuð."},
+  {original:"If you forget the PIN, enter kill. This removes every wallet and the PIN from this device. You can recover the wallets from your backups.",translation:"Ef þú gleymir PIN-númerinu skaltu slá inn kill. Þá eyðast öll veski og PIN-númerið úr þessu tæki. Þú getur endurheimt veskin úr öryggisafritum."}
+].forEach(function(entry){
+  if (!translation.some(function(current){return current.original===entry.original})){translation.push(entry)}
+})

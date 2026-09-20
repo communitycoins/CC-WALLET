@@ -1,8 +1,24 @@
 <!DOCTYPE html>
-<!-- [CC-WALLET-018]
-Finish the release with a smaller wallet-settings surface and clearer diagnostics.
-Base: - Derived from CC-WALLET-017
+<!-- [CC-WALLET-031]
+Clarify send fees and correct transaction, Help-version and balance-privacy presentation.
+Base: - Derived from CC-WALLET-030
 Changes:
+- [CC-WALLET-031] Place the balance privacy control in the heading row above the full-width balance
+- Stack Version 1.0 below the Wallet Help product name
+- Refresh JavaScript and CSS for the cross-coin reset and calculated-fee message
+- [CC-WALLET-030] Show the release version on its own line and refresh the language-roadmap assets
+- [CC-WALLET-029] Refresh browser assets for the completed Dutch and German interface tables
+- [CC-WALLET-028] Refresh browser assets for the restored Dutch and German translations
+- [CC-WALLET-027] Refresh JavaScript, CSS and selected language tables with one new cache identity
+- Keep the balance privacy button transparent in pointer and touch interaction states
+- [CC-WALLET-023] Refresh rooty.js for terminal SEEN handling and proxy telemetry release alignment
+- [CC-WALLET-022] Add separate PIN-visibility and balance-privacy controls
+- Present the complete PIN guidance as individually translatable text
+- Show Version 1.0 only in Wallet help
+- [CC-WALLET-021] Refresh wallet, style and language assets for final first-contact fixes
+- Make the startup PIN identity translatable
+- [CC-WALLET-020] Refresh wallet and language assets for fiat defaults and Icelandic dialog completion
+- Make the wallet-name label an exact translatable string
 - [CC-WALLET-018] Remove the obsolete contact-card controls, payment fragment and motivation essays
 - Refresh the release-wide JavaScript and CSS cache key
 - [CC-WALLET-017] Use local interface libraries, a portable manifest and one release-wide cache key
@@ -45,7 +61,7 @@ Changes:
 <script type="text/javascript" src="js/pako.1.0.3.min.js"></script>
 
 <title class=T>Community coins wallet</title>
-<link rel='stylesheet' href='rooty.css?v=CC-WALLET-018'>
+<link rel='stylesheet' href='rooty.css?v=CC-WALLET-031'>
 </head>
 <body>
   <div class="splash-screen" id="splashScreen">
@@ -87,8 +103,11 @@ Changes:
         <div class=balance-heading-row>
           <button class="balance-button T" id=balanceButton type=button>BALANCE</button>
           <span class="wallet-lock-status hidden T" id=idWalletLockStatus>This wallet is locked</span>
+          <button id=idBalancePrivacy type=button class=balance-privacy aria-label="Hide balance" title="Hide balance" aria-pressed=false><span class="bi bi-eye-slash" aria-hidden=true></span></button>
         </div>
-        <input id=inputBalance class="balance-value" type="text" value="0" readonly>
+        <div class=balance-value-wrap>
+          <input id=inputBalance class="balance-value" type="text" value="0" readonly>
+        </div>
         <div class="balance-status" id=idBalanceStatus aria-live=polite>Waiting for live state</div>
         <div class="state-timing expert-only" id=idStateTiming></div>
         <select class=hidden id=comboBalance aria-hidden=true></select>
@@ -278,8 +297,9 @@ Changes:
       <div class="max-width-image">
           <img src="img/rooty.png" alt="Community coins" class="img-fluid">
       </div>
-      <div class=div-center>
+      <div class="div-center wallet-help-product">
         <p class=T>Community Coins wallet</p>
+        <p class=wallet-version>Version 1.0</p>
       </div>
     </div>
     <div class="panel">
@@ -587,7 +607,7 @@ Changes:
       <input type="password" id="idp" style="width:100%;box-sizing:border-box" autocomplete="off" autocapitalize="none" spellcheck="false" autofocus>
     </div>
   </div><br><br>
-  <h3>community coins wallet</h3>
+  <h3 class=T>community coins wallet</h3>
   <div align=center style='margin-top:40px'><img style='width:100px' src='img/rooty.png'>
 </div>
 
@@ -649,17 +669,18 @@ Changes:
     <table class=table>
       <tr><td colspan=2>
         <table cellspacing=0 cellpadding=0><tr>
-        <td valign=top><label for="idPin" class="label T">&nbsp;Pincode:&nbsp;</label></td>
+        <td valign=top><label for="idp" class="label T">PIN:</label></td>
         <td width=100%>
         <input type="password" id="idp" style="width:100%;box-sizing:border-box" autocomplete="off" autocapitalize="none" spellcheck="false" onkeypress="return validPin(event,this)" class="walletName">
         </td></tr></table>
-        <div id=idPinTips class="small T">
-        <br />&nbsp;<br />&nbsp;
-- The pincode is hidden while you type it. Enter it carefully because a typing mistake takes effect immediately after pressing OK.
-- Use only lowercase characters, numbers and/or a decimal point
-- One pin-code protects access to all cc-wallets on this device
-- The pin-code gives you extra security but it only buys you time if your device falls in the wrong hands. If so, restore backups of all concerned wallets to another device and transfer all funds to a new wallet. Once the transfer is complete delete the compromised wallets and never use them again.
-- If you forget your pincode just use <mark>kill</mark> as pincode. All wallets and the pincode will be removed from your device. You can recover the wallets from your backups.
+        <div id=idPinTips class=small>
+          <ul class=pin-tips>
+            <li class=T>The PIN is hidden while you type it. Enter it carefully: pressing OK applies it immediately.</li>
+            <li class=T>Use only lowercase characters, numbers and/or a decimal point.</li>
+            <li class=T>One PIN protects all Community Coins wallets on this device.</li>
+            <li class=T>A PIN adds protection, but only buys time if this device falls into the wrong hands. Restore every affected wallet on another device, transfer the funds to new wallets and stop using the compromised wallets.</li>
+            <li class=T>If you forget the PIN, enter kill. This removes every wallet and the PIN from this device. You can recover the wallets from your backups.</li>
+          </ul>
         </div>
       </td></tr>
     </table>
@@ -671,7 +692,7 @@ Changes:
     <table class=table>
       <tr><td colspan=2>
         <table cellspacing=0 cellpadding=0><tr>
-        <td valign=top><label for="idOwner" class="label T">&nbsp;Wallet&nbsp;name:&nbsp;</label></td>
+        <td valign=top><label for="idOwner" class="label"><span class=T>Wallet name:</span>&nbsp;</label></td>
         <td width=100%>
         <input type="text" id="idOwner" style="width:100%;box-sizing:border-box" onkeypress="return validName(event,this)" class="walletName">
         <div id=claimAlert style="color:red">&nbsp;</div>
@@ -852,7 +873,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=CC-WALLET-018'></script>
+<script src='rooty.js?v=CC-WALLET-031'></script>
 
 </body>
 </html>

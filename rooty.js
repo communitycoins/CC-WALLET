@@ -1,7 +1,28 @@
-/* [CC-WALLET-018]
-Finish the release with a smaller wallet-settings surface and clearer discovery diagnostics.
-Base: - Derived from CC-WALLET-017
+/* [CC-WALLET-031]
+Close cross-coin transaction views and clarify the calculated send fee.
+Base: - Derived from CC-WALLET-030
 Changes:
+- [CC-WALLET-031] Clear a retained Receive or Send view before the Balance dialog changes coin
+- Append the calculated tiered fee and coin ticker to insufficient-balance messages
+- Move balance privacy and Wallet Help layout through the matching HTML and CSS release
+- [CC-WALLET-030] Publish the language roadmap, enable only installed packages and load completed Portuguese and Russian tables
+- [CC-WALLET-029] Load the completed Dutch and German interface tables under a fresh cache identity
+- [CC-WALLET-028] Load the restored reviewed Dutch and German translations under a fresh cache identity
+- [CC-WALLET-027] Give JavaScript, CSS and selected language tables one new cache identity
+- Resolve duplicate translation keys from newest to oldest so later corrections take precedence
+- [CC-WALLET-023] Stop five-second zero-confirmation polling as soon as any ROT reports SEEN
+- Let the normal state cycle discover the later blockchain confirmation
+- [CC-WALLET-022] Add accessible visibility toggles for PIN entry and the displayed balance
+- Keep a hidden balance blank across state refreshes and reset the calculator wallet amount to zero
+- Complete translatable PIN guidance and expose Version 1.0 only in Wallet help
+- [CC-WALLET-021] Preserve fiat preferences while partial price feeds arrive
+- Keep wallet contents hidden until the startup PIN has been validated
+- Accept an exact six-digit wallet color and offer a white reset control
+- Select the first available browser language for previously unseen wallet storage
+- Complete the Icelandic balance, invitation and PIN presentation
+- [CC-WALLET-020] Select practical fiat defaults for a new EFL, DEM, AUR or CDN wallet
+- Translate modal titles and late-created wallet identity controls through the active language table
+- Complete the Icelandic strings used by wallet settings, management, Help, Receive and payment flows
 - [CC-WALLET-018] Remove the obsolete contact-card settings, payment presentation and long motivation help
 - Report the proxy's bounded directory failure reason without changing silent cached discovery behavior
 - [CC-WALLET-017] Try at most two approved external proxies after a technical local failure, preferring bootstrap second
@@ -56,10 +77,16 @@ String.prototype.subs = function (start, length){
 };
 
 function increaseContrast(color, amount) {return Math.max(0, Math.min(255, color + amount))}
-function hexToRgb(hex) {return hex.match(/\w\w/g).map(c => parseInt(c, 16))}
+function normalizeWalletColor(value){
+  var color=String(value||"").trim().replace(/^#/,"").toLowerCase()
+  return /^[0-9a-f]{6}$/.test(color)?color:null
+}
+function walletCssColor(value){return "#"+(normalizeWalletColor(value)||"ffffff")}
+function hexToRgb(hex) {return walletCssColor(hex).substring(1).match(/\w\w/g).map(c => parseInt(c, 16))}
 function rgbToHex(rgb) {return "#" + rgb.map(c => Math.min(255, c).toString(16).padStart(2, '0')).join('')}
 function glossify(){
-  var currentColorHex=localStorage.getItem("glossiColor")
+  var currentColorHex=walletCssColor(localStorage.getItem("glossiColor"))
+  localStorage.setItem("glossiColor",currentColorHex)
   var currentColorRgb = hexToRgb(currentColorHex.substring(1))
   var newColorRgb = currentColorRgb.map(c => Math.max(0,c - 40))
   var newColorHex = rgbToHex(newColorRgb)
@@ -493,6 +520,9 @@ function online() {
   onlineTO=setTimeout("online()",onlineTimeout)
 }
 
+var startupPinReadyResolve
+var startupPinReady=new Promise(function(resolve){startupPinReadyResolve=resolve})
+
 setTimeout(() => {
   $$$("#splashScreen").style.transition = "opacity 1s ease-in";
   $$$("#splashScreen").style.opacity = "0";
@@ -501,12 +531,22 @@ setTimeout(() => {
 $$$("#splashScreen").addEventListener("transitionend", () => {
   splashScreen.remove();
   markWalletBoot("splash-removed")
-  if (settings.pinDefined()){getPin()}
+  if (settings.pinDefined()){
+    getPin(function(){startupPinReadyResolve(true)},false,false,false)
+  }else{
+    startupPinReadyResolve(true)
+  }
 });
 
 var networks={}
 var supportedCoins={}
 const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem"])
+const walletFiatDefaults=Object.freeze({
+  efl:Object.freeze(["eur","usd"]),
+  dem:Object.freeze(["eur","usd"]),
+  aur:Object.freeze(["isk","eur","usd"]),
+  cdn:Object.freeze(["cad","usd"])
+})
 combos={
   Balance:{available:"|",selected:"|",active:"|",old:"|"},
   Reference:{available:"|",selected:"|",active:"|",old:"|"},
@@ -520,8 +560,8 @@ if (walletCoinChoiceStored) {
   combos['Balance']['active']='|isk|'
   combos['Reference']['active']='|btc|'
   combos['Reference']['selected']='|btc|'
-  combos['Fiat']['active']='|eur|'
-  combos['Fiat']['selected']='|eur|'
+  combos['Fiat']['active']='|isk|'
+  combos['Fiat']['selected']='|isk|eur|usd|'
   combos['Supported']['active']='|aur|'  
 }
 
@@ -763,6 +803,14 @@ function normalizeComboChoices(limitFiatToAvailable=false){
 function operationalWalletCoins(){
   return walletCoinTargets.filter(function(coin){return (supportedCoins[coin]!=undefined)&&(supportedCoins[coin].stateService!=undefined)})
 }
+function applyDefaultFiatChoices(coin){
+  var defaults=walletFiatDefaults[coin]
+  if (!Array.isArray(defaults)||defaults.length===0){return false}
+  combos.Fiat.selected=canonicalComboList(defaults.join("|"))
+  combos.Fiat.active="|"+defaults[0]+"|"
+  localStorage.setItem("combos",JSON.stringify(combos))
+  return true
+}
 function enforceWalletCoinChoices(){
   var operational=operationalWalletCoins()
   if (operational.length===0){throw new Error("No operational wallet coin configured")}
@@ -798,19 +846,59 @@ var ids=[]
 var wallets=[]
 var LOG=""
 var clickedIt=Date.now()
-var supportedLanguages="en|nl|is|de|ur|pt|ru".split('|');
+const languageCandidates=Object.freeze(["en","nl","is","de","pt","ru","es","ja","pl","fr","ur"])
+const bundledLanguages=Object.freeze(["en","nl","is","de","pt","ru"])
+const languageNames=Object.freeze({
+  en:"English",nl:"Nederlands",is:"Íslenska",de:"Deutsch",pt:"Português",ru:"Русский",
+  es:"Español",ja:"日本語",pl:"Polski",fr:"Français",ur:"اردو"
+})
+const availableLanguages=new Set(bundledLanguages)
 const translation=[]
 
-if (localStorage.getItem("language")!=null) {
-  language=localStorage.getItem("language")
-} else if (urlLanguage!=null) {
-  for (let i=0; i<supportedLanguages.length; i++) {
-    if (supportedLanguages[i]==urlLanguage){language=urlLanguage}
-  }
-} else {
-  language=defaultLanguage
+function supportedLanguage(value){
+  value=String(value||"").trim().toLowerCase().split("-")[0]
+  return languageCandidates.includes(value)?value:null
 }
+function browserPreferredLanguage(){
+  var requested=navigator.languages==null?[]:Array.from(navigator.languages)
+  if ((typeof navigator.language==="string")&&(!requested.includes(navigator.language))){requested.push(navigator.language)}
+  for (const value of requested){
+    var candidate=supportedLanguage(value)
+    if ((candidate!=null)&&(bundledLanguages.includes(candidate))){return candidate}
+  }
+  return defaultLanguage
+}
+
+async function languagePackageAvailable(code){
+  if (bundledLanguages.includes(code)){return true}
+  const controller=new AbortController()
+  const timeout=setTimeout(function(){controller.abort()},2500)
+  try{
+    const response=await fetch(`js/language_${code}.js`,{
+      method:"HEAD",cache:"no-store",signal:controller.signal
+    })
+    return response.ok
+  }catch(error){
+    return false
+  }finally{
+    clearTimeout(timeout)
+  }
+}
+
+async function openLanguageMenu(){
+  const optionalLanguages=languageCandidates.filter(function(code){return !bundledLanguages.includes(code)})
+  const results=await Promise.all(optionalLanguages.map(languagePackageAvailable))
+  optionalLanguages.forEach(function(code,index){
+    if (results[index]){availableLanguages.add(code)}else{availableLanguages.delete(code)}
+  })
+  dial("menuLanguage",0,1)
+}
+var storedLanguage=supportedLanguage(localStorage.getItem("language"))
+var requestedLanguage=supportedLanguage(urlLanguage)
+language=storedLanguage||requestedLanguage||browserPreferredLanguage()
 localStorage.setItem("language",language)
+document.documentElement.lang=language
+document.documentElement.dir=language==="ur"?"rtl":"ltr"
 
 if (localStorage.getItem("ids")==null) {
   for(var i=0;i<5;i++) {ids.push(b58())}
@@ -841,10 +929,17 @@ var translationReady
 if (language!=defaultLanguage) {
   translationReady=new Promise(function(resolve){
   const scriptLanguage = document.createElement('script');
-  scriptLanguage.src = `js/language_${language}.js?v=MULTI-COIN-014`;
+  scriptLanguage.src = `js/language_${language}.js?v=CC-WALLET-031`;
   scriptLanguage.defer=true
   scriptLanguage.onload=function(){translate();resolve()}
-  scriptLanguage.onerror=function(){translate();resolve()}
+  scriptLanguage.onerror=function(){
+    language=defaultLanguage
+    localStorage.setItem("language",language)
+    document.documentElement.lang=language
+    document.documentElement.dir="ltr"
+    translate()
+    resolve()
+  }
   document.head.appendChild(scriptLanguage);
   })
 } else {
@@ -877,6 +972,7 @@ var currentReceiveRequest
 var receiveUpdateTimer
 var transactionPresentation="closed"
 var calculatorShowsBalance=false
+var balancePrivacyHidden=false
 var localSendPlan
 var sendPlanning=false
 var localSignedTransaction
@@ -1623,6 +1719,61 @@ function scaleBalanceValue(){
   if (length>12){balanceInput.classList.add('balance-long')}
   else if (length>8){balanceInput.classList.add('balance-medium')}
 }
+function balanceValueForPresentation(){
+  var balanceInput=$$$('#inputBalance')
+  if (balanceInput==null){return "0"}
+  return balanceInput.dataset.balanceValue==null?String(balanceInput.value||"0"):balanceInput.dataset.balanceValue
+}
+function presentBalanceValue(value){
+  var balanceInput=$$$('#inputBalance')
+  if (balanceInput==null){return false}
+  balanceInput.dataset.balanceValue=String(value==null?"0":value)
+  balanceInput.value=balancePrivacyHidden?"":balanceInput.dataset.balanceValue
+  scaleBalanceValue()
+  return true
+}
+function updateBalancePrivacyControl(){
+  var button=$$$('#idBalancePrivacy')
+  if (button==null){return false}
+  var label=translateValue(balancePrivacyHidden?"Show balance":"Hide balance")
+  button.setAttribute("aria-label",label)
+  button.setAttribute("title",label)
+  button.setAttribute("aria-pressed",balancePrivacyHidden?"true":"false")
+  var icon=button.querySelector('.bi')
+  if (icon!=null){icon.className="bi "+(balancePrivacyHidden?"bi-eye":"bi-eye-slash")}
+  return true
+}
+function resetCalculatorForPrivateBalance(){
+  var supportedInput=$$$('#inputSupported')
+  if (supportedInput==null){return false}
+  supportedInput.value="0"
+  calculatorShowsBalance=false
+  try{reCalc(supportedInput,true)}catch(error){}
+  return true
+}
+function setBalancePrivacy(hidden){
+  balancePrivacyHidden=hidden===true
+  var balanceInput=$$$('#inputBalance')
+  if (balanceInput!=null){
+    if (balanceInput.dataset.balanceValue==null){balanceInput.dataset.balanceValue=String(balanceInput.value||"0")}
+    balanceInput.value=balancePrivacyHidden?"":balanceInput.dataset.balanceValue
+    scaleBalanceValue()
+  }
+  if (balancePrivacyHidden){resetCalculatorForPrivateBalance()}
+  updateBalancePrivacyControl()
+  return balancePrivacyHidden
+}
+function configureBalancePrivacyControl(){
+  var button=$$$('#idBalancePrivacy')
+  if (button==null){return false}
+  if (button.dataset.configured!=="1"){
+    button.dataset.configured="1"
+    button.addEventListener("click",function(event){event.preventDefault();setBalancePrivacy(!balancePrivacyHidden)})
+  }
+  presentBalanceValue($$$('#inputBalance').value)
+  updateBalancePrivacyControl()
+  return true
+}
 function updateCoinPresentation(coin,refreshBalance=true){
   var coinData=supportedCoins[coin]
   if (coinData==undefined){return false}
@@ -1676,6 +1827,36 @@ function configurePinField(pinField){
   pinField.autocomplete="off"
   pinField.setAttribute("autocapitalize","none")
   pinField.setAttribute("spellcheck","false")
+  var wrapper=pinField.parentElement
+  if ((wrapper==null)||(!wrapper.classList.contains("pin-input-wrap"))){
+    wrapper=document.createElement("div")
+    wrapper.className="pin-input-wrap"
+    pinField.parentNode.insertBefore(wrapper,pinField)
+    wrapper.appendChild(pinField)
+  }
+  var button=wrapper.querySelector('.pin-visibility')
+  if (button==null){
+    button=document.createElement("button")
+    button.type="button"
+    button.className="pin-visibility"
+    button.innerHTML='<span class="bi bi-eye" aria-hidden="true"></span>'
+    wrapper.appendChild(button)
+    button.addEventListener("click",function(event){
+      event.preventDefault()
+      var visible=pinField.type==="password"
+      pinField.type=visible?"text":"password"
+      var label=translateValue(visible?"Hide PIN":"Show PIN")
+      button.setAttribute("aria-label",label)
+      button.setAttribute("title",label)
+      button.setAttribute("aria-pressed",visible?"true":"false")
+      button.firstElementChild.className="bi "+(visible?"bi-eye-slash":"bi-eye")
+      focusPinField(pinField)
+    })
+  }
+  var label=translateValue("Show PIN")
+  button.setAttribute("aria-label",label)
+  button.setAttribute("title",label)
+  button.setAttribute("aria-pressed","false")
   return pinField
 }
 function focusPinField(pinField){
@@ -1740,18 +1921,14 @@ function translate(){
 
   for(var i = 0; i < elements.length; i++){
     var str = elements[i].innerHTML
-    if (language!=defaultLanguage) {
-        var foundTranslation = translation.find(obj => obj.original == str);
-    }else{
-    	var foundTranslation={original:str,translation:str}
-    }
-    if (foundTranslation!=undefined) {
-      if (foundTranslation.translation.indexOf("\n")<0) {
-          elements[i].innerHTML=foundTranslation.translation
+    var translated=translateValue(str)
+    if (translated!==str) {
+      if (translated.indexOf("\n")<0) {
+          elements[i].innerHTML=translated
       } else{
         var trans=""
-        foundTranslation.translation=foundTranslation.translation.replace(/\n\n/g,"<br><br style='line-height:75%'>")
-        lines=foundTranslation.translation.split("\n")
+        translated=translated.replace(/\n\n/g,"<br><br style='line-height:75%'>")
+        lines=translated.split("\n")
         for (var line in lines){
             if (lines[line].substr(0,2)=="- "){
           trans+="<li>"+lines[line].substr(2)+"</li>\n"
@@ -1761,13 +1938,18 @@ function translate(){
         }
         elements[i].innerHTML=trans
       }
-    } else {
-      var gotOne=true
     }
   }
   applyTranslatedAttributes()
   countries=$$$("#countries").innerHTML.split("|")
   endorse()
+}
+function translateValue(value){
+  if (language===defaultLanguage){return value}
+  for(var index=translation.length-1;index>=0;index--){
+    if(translation[index].original===value){return translation[index].translation}
+  }
+  return value
 }
 function refreshCombos(){
   try{
@@ -1863,14 +2045,18 @@ function applyRequestedCoin(){
 }
 async function applyInitialProxyCoin(){
   var requestedCoin=urlCoin==null?null:String(urlCoin).trim().toLowerCase()
-  if (walletCoinChoiceStored||operationalWalletCoins().includes(requestedCoin)){return false}
-  await proxyNetworkReady
-  var coin=proxyNetworkView==null?null:proxyNetworkView.primaryCoin
+  if (walletCoinChoiceStored){return false}
+  var coin=operationalWalletCoins().includes(requestedCoin)?requestedCoin:null
+  if (coin==null){
+    await proxyNetworkReady
+    coin=proxyNetworkView==null?null:proxyNetworkView.primaryCoin
+  }
   if ((coin==null)||(!operationalWalletCoins().includes(coin))){return false}
   combos.Supported.active="|"+coin+"|"
   combos.Supported.old=combos.Supported.active
   combos.Balance.active=combos.Supported.active
   combos.Balance.old=combos.Supported.active
+  applyDefaultFiatChoices(coin)
   stateCoin=coin
   localStorage.setItem("combos",JSON.stringify(combos))
   return true
@@ -1887,13 +2073,13 @@ function testInputBalance(){
   combos["Balance"]['active']=$$$('#comboBalance').value
   localStorage.setItem("combos",JSON.stringify(combos))
   if (selectedOption.value==stateCoin) {
-    balanceInput.value=getDisplayedBalance()
+    presentBalanceValue(getDisplayedBalance())
   } else if (supportedCoins[selectedOption.value]!=undefined) {//TEST
-    balanceInput.value=supportedCoins[selectedOption.value].balance
+    presentBalanceValue(supportedCoins[selectedOption.value].balance)
   } else {
     reCalc()
   }
-  reCalc("inputBalance",false);
+  if (balancePrivacyHidden){resetCalculatorForPrivateBalance()}else{reCalc("inputBalance",false)}
   scaleBalanceValue()
   combos["Reference"]['old']=combos["Reference"]['active']
 }
@@ -1913,13 +2099,13 @@ function refreshCurrencyAvailability(){
   }
   var available=canonicalComboList(fiatAvailable.join("|"))
   if (combos.Fiat.available!==available){combos.Fiat.available=available;change=true}
-  if (normalizeComboChoices(true)){change=true}
+  if (normalizeComboChoices(false)){change=true}
   if (change){
     localStorage.setItem("combos",JSON.stringify(combos))
     refreshCombos()
   }
 }
-function updateLayout() {
+function updateLayout(revealWallet=true) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   document.body.classList.add("landscape");
@@ -1930,7 +2116,7 @@ function updateLayout() {
   var receiptOverlay=$$$('#idPaymentReceiptQrOverlay')
   if ((receiptOverlay!=null)&&(!receiptOverlay.classList.contains('hidden'))){renderPaymentReceiptQrOverlay()}
 
-  setTimeout(() => {$$$("#wallet").style.visibility="visible";}, 500);
+  if (revealWallet){setTimeout(() => {$$$("#wallet").style.visibility="visible";}, 500)}
 }
 function handleClick(event) {
   clickedIt=Date.now()
@@ -2053,7 +2239,7 @@ function handleClick(event) {
   if (clickedId=="id_helpMemo") {dial("helpMemo",0,0)}
   if (clickedId=="idHelpReferences") {dial("infoMain",0,0)}
   if (clickedId=="id_speak") {dial("promote",0,0)}
-  if (clickedId=="menuLanguage") {dial("menuLanguage",0,1)}
+  if (clickedId=="menuLanguage") {openLanguageMenu()}
   if (clickedId.substr(0,4)=="exit") {
     if (scannerActive){closeScannerModal()}else{hideWalletModal()}
   }
@@ -2066,7 +2252,7 @@ function handleClick(event) {
   if ((clickedId=="balanceButton")||(clickedId=="idPaymentIcon")) {dial("balance",0,0)}
   if (clickedId=="nameClaim") {setLocalWalletName()}
 }
-function getPin(onValid=null,allowCancel=false,allowKill=false){
+function getPin(onValid=null,allowCancel=false,allowKill=false,revealWallet=true){
     modalContext="grassroot"
     diaLog=modalContext
     pinRequestSequence++
@@ -2077,8 +2263,8 @@ function getPin(onValid=null,allowCancel=false,allowKill=false){
     var pinField=configurePinField($$$("#id_modalbody #idp"))
     $$$("#Modal").style.backgroundColor="#AEBB8F"
     title=$$$(`#${"en_"+diaLog}`).getAttribute('title');
-    if (title!=undefined) {$$$("#ModalTitle").innerHTML=title}
-    updateLayout()
+    if (title!=undefined) {$$$("#ModalTitle").innerHTML=translateValue(title)}
+    updateLayout(revealWallet)
     if (!$$$("#buttonHelp").classList.contains("invisible")) {$$$("#buttonHelp").classList.toggle("invisible")}
     if (!$$$("#save").classList.contains("invisible")) {$$$("#save").classList.toggle("invisible")}
     ;["#exit0","#exit1"].forEach(function(selector){
@@ -2292,7 +2478,7 @@ function helloWorld(){
 }
 function testCalc(e) {
   if (supportedCoins[comboBalance.value]!=undefined){
-    supportedCoins[comboBalance.value].balance=$$$('#inputBalance').value
+    supportedCoins[comboBalance.value].balance=balanceValueForPresentation()
     saveSupportedCoins()
   }
 }
@@ -2305,6 +2491,7 @@ function syncBalanceToCalculator(coin=stateCoin,force=false){
   var supportedCombo=$$$('#comboSupported')
   var supportedInput=$$$('#inputSupported')
   if ((supportedCombo==null)||(supportedInput==null)){return false}
+  if (balancePrivacyHidden){resetCalculatorForPrivateBalance();return false}
   var available=Array.from(supportedCombo.options).some(function(option){return option.value===coin})
   if (!available){return false}
   if ((!force)&&(supportedCombo.value!==coin)){return false}
@@ -2361,8 +2548,8 @@ function reCalc(e,changedInput=true) {
       }
       var balanceRate=calculatorRate($$$('#comboBalance').value)
       if (balanceComplete&&(balanceRate!=null)){
-        $$$('#inputBalance').value=balance*balanceRate
-        flash($$$('#inputBalance'))
+        presentBalanceValue(balance*balanceRate)
+        if (!balancePrivacyHidden){flash($$$('#inputBalance'))}
       }
     }
     var supportedCombo=$$$('#comboSupported')
@@ -2623,8 +2810,9 @@ function selectedPromotionCoin(){
 }
 function promotionCountry(coin){
   const countriesByLanguage={
-    en:{efl:"the Netherlands",aur:"Iceland",cdn:"Canada",dem:"Germany",pak:"Pakistan",slg:"the United Kingdom",cesc:"Portugal",fuji:"Japan",rubtc:"Russia"},
-    nl:{efl:"Nederland",aur:"IJsland",cdn:"Canada",dem:"Duitsland",pak:"Pakistan",slg:"het Verenigd Koninkrijk",cesc:"Portugal",fuji:"Japan",rubtc:"Rusland"}
+    en:{efl:"the Netherlands",aur:"Iceland",cdn:"Canada",dem:"Germany",pak:"Pakistan",slg:"the United Kingdom",cesc:"Portugal",fjc:"Japan",rubtc:"Russia"},
+    nl:{efl:"Nederland",aur:"IJsland",cdn:"Canada",dem:"Duitsland",pak:"Pakistan",slg:"het Verenigd Koninkrijk",cesc:"Portugal",fjc:"Japan",rubtc:"Rusland"},
+    is:{efl:"Hollandi",aur:"Íslandi",cdn:"Kanada",dem:"Þýskalandi",pak:"Pakistan",slg:"Bretlandi",cesc:"Portúgal",fjc:"Japan",rubtc:"Rússlandi"}
   }
   var names=countriesByLanguage[language]||countriesByLanguage.en
   return names[coin]||T("txtPromotionHomeCommunity")
@@ -2685,7 +2873,7 @@ async function buildWalletView_() {
   const txtActive=T("txtActive")
   const txtName=T("txtName")
   const txtActivity=T("txtActivity")
-  var collection=`<table class='table table-bordered table-hover'><tr><td></td><td>${txtName}</td><td>${txtActivity}</td><td>ID</td></tr>`
+  var collection=`<table class='table table-bordered table-hover'><tr><td></td><td>${txtName}</td><td>${txtActivity}</td><td>${translateValue("ID")}</td></tr>`
   walletCount=0
   wallets=[]
   const db=await openDatabase()
@@ -2799,14 +2987,14 @@ async function dial(diaLog,help,save) {
   } else if(diaLog=="setupOwner"){
     $$$("#id_modalbody").innerHTML=$$$(`#${"en_"+diaLog}`).innerHTML.replace(/colorpickerWrapper/,colorpicker)
     title=$$$(`#${"en_"+diaLog}`).getAttribute('title');
-    if (title!=undefined) {$$$("#ModalTitle").innerHTML=title}
+    if (title!=undefined) {$$$("#ModalTitle").innerHTML=translateValue(title)}
+    var colorLabel=$$$("#idWalletColorLabel")
+    if (colorLabel!=null){colorLabel.textContent=translateValue("Wallet color:")+"\u00a0"}
     ini_colorpicker()
-    resultBox.style.backgroundColor=localStorage.getItem("glossiColor")
-    resultBox.value=localStorage.getItem("glossiColor")
   } else if (diaLog!="Warning") { //loading of modal defaultcontent 
     $$$("#id_modalbody").innerHTML=$$$(`#${"en_"+diaLog}`).innerHTML
     title=$$$(`#${"en_"+diaLog}`).getAttribute('title');
-    if (title!=undefined) {$$$("#ModalTitle").innerHTML=title}
+    if (title!=undefined) {$$$("#ModalTitle").innerHTML=translateValue(title)}
   }
   modalContext=diaLog
   if (diaLog==="setup"){
@@ -2843,10 +3031,10 @@ async function dial(diaLog,help,save) {
   if (diaLog=="setupOwner"){ 
     $$$("#claimAlert").innerHTML="&nbsp;"
     $$$("#nameClaim").style.display="block"
-    $$$("#nameClaim").textContent="SET"
+    $$$("#nameClaim").textContent=translateValue("SET")
     $$$("#claimLoading").style.display="none"
     $$$("#idOwner").disabled=false
-    $$$("#idNameTips").innerHTML="The name is stored only in this wallet. It may be changed again and does not need to be unique."
+    $$$("#idNameTips").textContent=translateValue("The name is stored only in this wallet. It may be changed again and does not need to be unique.")
     $$$("#idOwner").value=localStorage.getItem("owner")
   }
   if (diaLog=="contact"){
@@ -2859,12 +3047,15 @@ async function dial(diaLog,help,save) {
   if (diaLog=="menuLanguage"){
     var languageButtons = ""
     var checked
-    for (let i = 0; i < supportedLanguages.length; i++) {
-      const option=supportedLanguages[i]
+    for (let i = 0; i < languageCandidates.length; i++) {
+      const option=languageCandidates[i]
+      const isAvailable=availableLanguages.has(option)
       if (option==language){checked=' checked'} else {checked=''}
-      languageButtons+=`<div class="radio-option"><input type="radio" class="radio-button" name="languages" `
-      languageButtons+=`value="${supportedLanguages[i]}" ${checked}>`
-      languageButtons+=`<label class="radio-label">${option}</label></div>`;
+      const disabled=isAvailable?'':' disabled'
+      const unavailable=isAvailable?'':` <span class="language-status">— ${translateValue("not available yet")}</span>`
+      languageButtons+=`<div class="radio-option language-option${isAvailable?'':' language-unavailable'}"><input id="language-option-${option}" type="radio" class="radio-button" name="languages" `
+      languageButtons+=`value="${option}"${checked}${disabled}>`
+      languageButtons+=`<label class="radio-label" for="language-option-${option}">${languageNames[option]} <span class="language-code">(${option})</span>${unavailable}</label></div>`;
     }
     $$$("#selectLanguage").innerHTML=languageButtons
   }
@@ -2926,10 +3117,16 @@ function submit() {  // Modal OK-button
       $$$('#claimAlert').textContent="Use at most 32 letters, numbers, spaces, @ or ."
       return false
     }
+    var walletColor=normalizeWalletColor(resultBox.value)
+    if (walletColor==null){
+      var colorAlert=$$$("#idColorAlert")
+      if (colorAlert!=null){colorAlert.textContent=translateValue("Enter exactly six hexadecimal characters")}
+      return false
+    }
     localStorage.setItem("owner",name)
     localStorage.removeItem("claimed")
     setOwner()
-    localStorage.setItem("glossiColor",resultBox.value)
+    localStorage.setItem("glossiColor","#"+walletColor)
     glossify()
     updateDb().catch(function(error){console.error("Unable to save wallet settings:",error)})
   } else if (modalContext=="menuLanguage"){
@@ -3398,6 +3595,7 @@ async function restoreWalletMnemonic(mnemonicText,passphrase="",repeatedPassphra
 }
 function gotoBalance(coin){
   if (!operationalWalletCoins().includes(coin)){return false}
+  if (!$$$('#panel-transaction').classList.contains('hidden')){closeTransactionView()}
   //$$$("#inputBalance").value=supportedCoins[coin].balance
   $$$("#comboSupported").value=coin
   $$$("#comboBalance").value=coin  
@@ -4465,7 +4663,7 @@ function updateBalanceDisplay(coin=stateCoin){
     var balanceInput=$$$('#inputBalance')
     balanceInput.removeAttribute('disabled')
     balanceInput.setAttribute('readonly','true')
-    balanceInput.value=supportedCoins[coin].balance
+    presentBalanceValue(supportedCoins[coin].balance)
     balanceInput.dataset.stateStatus=walletState.status
     balanceInput.title=isStateCurrent(coin)?T("txtLiveConfirmedBalance"):T("txtLastObservedNotSpendable")
     scaleBalanceValue()
@@ -4857,6 +5055,10 @@ function sendPlanError(code,message){
   error.code=code
   return error
 }
+function insufficientBalanceMessage(feeSats,coin=stateCoin){
+  var service=getStateService(coin)
+  return T("txtInsufficientConfirmedBalance")+" ("+formatSats(feeSats,coin)+" "+service.responseCoin+")"
+}
 function parseCoinAmount(amount,coin=stateCoin){
   var service=getStateService(coin)
   var text=String(amount==null?"":amount).trim()
@@ -4925,7 +5127,7 @@ function createLocalSendPlan(snapshot,destination,amount,coin=stateCoin){
   })
   var availableSats=candidates.reduce(function(total,utxo){return total+utxo.valueSats},0)
   if ((!Number.isSafeInteger(availableSats))||(availableSats<amountSats+service.minimumFeeSats)){
-    throw sendPlanError("INSUFFICIENT_BALANCE",T("txtInsufficientConfirmedBalance"))
+    throw sendPlanError("INSUFFICIENT_BALANCE",insufficientBalanceMessage(service.minimumFeeSats,coin))
   }
   var inputs=[]
   var inputTotalSats=0
@@ -4939,7 +5141,7 @@ function createLocalSendPlan(snapshot,destination,amount,coin=stateCoin){
     if (!Number.isSafeInteger(inputTotalSats)||!Number.isSafeInteger(targetSats)){throw sendPlanError("INVALID_AMOUNT",T("txtAmountOutsideSafeRange"))}
     if (inputTotalSats>=targetSats){break}
   }
-  if (inputTotalSats<targetSats){throw sendPlanError("INSUFFICIENT_BALANCE",T("txtInsufficientConfirmedBalance"))}
+  if (inputTotalSats<targetSats){throw sendPlanError("INSUFFICIENT_BALANCE",insufficientBalanceMessage(feeSats,coin))}
   var changeState=snapshot.addresses[service.changeIndex]
   if ((changeState==null)||(typeof changeState.address!=="string")){throw sendPlanError("INVALID_STATE",T("txtChangeAddressUnavailable"))}
   var frozenInputs=inputs.map(function(input){return Object.freeze(Object.assign({},input))})
@@ -5498,7 +5700,10 @@ async function requestZeroConfirmation(receipt=currentPaymentReceipt,coin=stateC
     var aggregate=parseZeroConfirmationResponse(data,receipt,coin)
     if (!isZeroConfirmationRequestCurrent(requestId,receipt)){return false}
     if (['UNCONFIRMED','CONFIRMED','OUTPUT_MISMATCH'].includes(aggregate.status)){renderZeroConfirmation(aggregate)}
-    if (aggregate.status==="CONFIRMED"){
+    if (aggregate.status==="UNCONFIRMED"){
+      terminal=true
+      scheduleStateRefresh()
+    }else if (aggregate.status==="CONFIRMED"){
       terminal=true
       wakeState("receipt-confirmed",false)
       syncConfirmedReceiptState(receipt,coin)
@@ -5758,7 +5963,14 @@ function verifyLocalSendPlanning(coin=stateCoin){
   var failures=0
   try{createLocalSendPlan(snapshot,addresses[1],"1",coin)}catch(error){if (error.code==="SELF_ADDRESS"){failures++}}
   try{createLocalSendPlan(snapshot,destination,"1."+"0".repeat(service.decimals)+"1",coin)}catch(error){if (error.code==="INVALID_AMOUNT"){failures++}}
-  if (failures!==2){throw new Error("Local send plan rejection test failed")}
+  var fragmented=Array.from({length:13},function(_,index){return makeUtxo(index+20,(index===0?8:1)*service.minimumFeeSats,(index%service.initialReceiveCount)+1)})
+  var fragmentedSnapshot=Object.assign({},snapshot,{utxos:fragmented})
+  try{
+    createLocalSendPlan(fragmentedSnapshot,destination,formatSats(19*service.minimumFeeSats,coin),coin)
+  }catch(error){
+    if ((error.code==="INSUFFICIENT_BALANCE")&&(error.message===insufficientBalanceMessage(3*service.minimumFeeSats,coin))){failures++}
+  }
+  if (failures!==3){throw new Error("Local send plan rejection test failed")}
   var small=Array.from({length:7},function(_,index){return makeUtxo(index+10,2*units/100,(index%service.initialReceiveCount)+1)})
   var tiered=createLocalSendPlan(Object.assign({},snapshot,{utxos:small}),destination,"0.138",coin)
   if ((tiered.inputs.length!==7)||(tiered.feeTiers!==2)||(tiered.feeSats!==2*service.minimumFeeSats)||(tiered.changeSats!==0)){
@@ -6782,11 +6994,12 @@ async function cc(){
   setEntropy()
   initializeWalletContext()
   if (!assertWalletContext("startup-context",false)){return false}
-  await waitForValidPin()
+  await startupPinReady
   if (!assertWalletContext("startup-after-pin",false)){return false}
   markWalletBoot("pin-ready")
   $$$("#idMemo").value=""
   updateLayout()
+  configureBalancePrivacyControl()
   refreshCombos()
 
   $$$('#comboBalance').addEventListener("change", function() {
@@ -6896,14 +7109,16 @@ async function cc(){
 }
 cc()
 
-let colorpicker='<label class="label T">Wallet color:&nbsp;</label><input type=text id="resultBox"><!--div id="colorValue"--></div>'
+let colorpicker='<div class=wallet-color-input><label class="label" id=idWalletColorLabel>Wallet color:&nbsp;</label>'
+colorpicker+='<input type=text id=resultBox maxlength=6 inputmode=text autocomplete=off autocapitalize=none spellcheck=false>'
+colorpicker+='<button type=button id=idResetWalletColor class=wallet-color-reset aria-label="Reset wallet color to white">&times;</button></div>'
+colorpicker+='<div id=idColorAlert class=wallet-color-alert role=status aria-live=polite></div>'
 colorpicker+='<canvas id="colorPicker" width="300" height="300"></canvas>'
 colorpicker+='<canvas id="luminosityPicker" width="30" height="300"></canvas>'
 var baseCanvas,baseContext,luminosityCanvas,luminosityContext,resultBox
 var hue=0
 var saturation=0
 var luminosity=0
-var selectedColor=localStorage.getItem("glossiColor")
 glossify()
 
 function ini_colorpicker(){
@@ -6912,28 +7127,44 @@ function ini_colorpicker(){
   luminosityCanvas = document.getElementById('luminosityPicker');
   luminosityContext = luminosityCanvas.getContext('2d');
   resultBox = document.getElementById('resultBox');
-  resultBox.value=localStorage.getItem("glossiColor")
-  
-  selectedColor=localStorage.getItem("glossiColor")
-  const hsl=hexToHsl(selectedColor)
+  var resetButton=document.getElementById('idResetWalletColor')
+  var colorAlert=document.getElementById('idColorAlert')
+  var initialColor=normalizeWalletColor(localStorage.getItem("glossiColor"))||"ffffff"
+  resultBox.value=initialColor
+  resultBox.style.backgroundColor="#"+initialColor
+  resetButton.setAttribute("aria-label",translateValue("Reset wallet color to white"))
+  resetButton.setAttribute("title",translateValue("Reset wallet color to white"))
+  hexToHsl(initialColor)
   updateLuminosityPicker()
   
   for (let x = 0; x < baseCanvas.width; x++) {
     for (let y = 0; y < baseCanvas.height; y++) {
-      hue = Math.round((x / baseCanvas.width) * 360);
-      saturation = Math.round((1 - (y / baseCanvas.height)) * 100);
-      baseContext.fillStyle = `hsl(${hue}, ${saturation}%, 50%)`;
+      var drawHue = Math.round((x / baseCanvas.width) * 360);
+      var drawSaturation = Math.round((1 - (y / baseCanvas.height)) * 100);
+      baseContext.fillStyle = `hsl(${drawHue}, ${drawSaturation}%, 50%)`;
       baseContext.fillRect(x, y, 1, 1);
     }
   }
-  resultBox.addEventListener('input', function(event) {
-    let inputValue = resultBox.value.trim();
-    inputValue = inputValue.replace(/[^0-9a-fA-F#]/g, '');
-    resultBox.value = inputValue;
-    const hsl=hexToHsl(inputValue)
-    updateLuminosityPicker();
-    updateSelectedColor();
+  resultBox.addEventListener('input', function() {
+    var inputValue=resultBox.value.replace(/[^0-9a-fA-F]/g,'').substring(0,6).toLowerCase()
+    resultBox.value=inputValue
+    if (inputValue.length!==6){
+      colorAlert.textContent=translateValue("Enter exactly six hexadecimal characters")
+      return
+    }
+    colorAlert.textContent=""
+    hexToHsl(inputValue)
+    resultBox.style.backgroundColor="#"+inputValue
+    updateLuminosityPicker()
   });
+  resetButton.addEventListener('click',function(){
+    resultBox.value="ffffff"
+    resultBox.style.backgroundColor="#ffffff"
+    colorAlert.textContent=""
+    hexToHsl("ffffff")
+    updateLuminosityPicker()
+    resultBox.focus()
+  })
   baseCanvas.addEventListener('click', function(event) {
     const rect = event.target.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -6950,7 +7181,6 @@ function ini_colorpicker(){
     updateSelectedColor();
   });
   function updateLuminosityPicker() {
-    const x=1
     for (let y = 0; y < luminosityCanvas.height; y++) {
       const lumin = Math.round((luminosityCanvas.height - y) / luminosityCanvas.height * 100);
       luminosityContext.fillStyle = `hsl(${hue}, ${saturation}%, ${lumin}%)`;
@@ -6960,7 +7190,8 @@ function ini_colorpicker(){
   function updateSelectedColor() {
     const color = `hsl(${hue}, ${saturation}%, ${luminosity}%)`;
     resultBox.style.backgroundColor = color;
-    resultBox.value = `${hslToHex(hue, saturation, luminosity)}`;
+    resultBox.value = hslToHex(hue, saturation, luminosity);
+    colorAlert.textContent=""
   }
   function hslToHex(h, s, l) {
     s /= 100;
@@ -6985,10 +7216,10 @@ function ini_colorpicker(){
     r = Math.round((r + m) * 255).toString(16).padStart(2, '0');
     g = Math.round((g + m) * 255).toString(16).padStart(2, '0');
     b = Math.round((b + m) * 255).toString(16).padStart(2, '0');
-    return `#${r}${g}${b}`;
+    return `${r}${g}${b}`;
   }
   function hexToHsl(hex) {
-    hex = hex.replace('#', '');
+    hex = normalizeWalletColor(hex)||"ffffff"
     const r = parseInt(hex.substring(0, 2), 16) / 255;
     const g = parseInt(hex.substring(2, 4), 16) / 255;
     const b = parseInt(hex.substring(4, 6), 16) / 255;
@@ -7016,7 +7247,6 @@ function ini_colorpicker(){
     hue=Math.round(h)
     saturation=Math.round(s*100)
     luminosity=Math.round(l*100)
-    return `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
   }
   
 }

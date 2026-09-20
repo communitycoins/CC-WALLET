@@ -31,6 +31,17 @@ The `curl` command is useful for operational checks, but it is not a browser
 wallet dependency. ROT runs externally beside Coin Core and requires its own
 Docker installation.
 
+An operator with an existing clean checkout migrates the wallet webroot with
+one Git command:
+
+```sh
+git -C /var/www/CC-WALLET pull --ff-only
+```
+
+The private sibling `/var/www/CC-PROXY` is not part of the checkout and is
+therefore preserved. Local changes in the public checkout must be committed or
+removed before this fast-forward update can succeed.
+
 `operator-config.json` is optional. If absent, `proxy.php` derives the primary
 coin from the root domain (`egulden.org` and `e-gulden.org` → EFL,
 `auroracoin.is` → AUR, `canadaecoin.ca` and `ourcoin.ca` → CDN, and
@@ -48,24 +59,80 @@ or invalidate ROT registrations that a proxy already holds.
 
 The browser bundle includes Bootstrap 5.3.2 and Bootstrap Icons 1.11.2 locally.
 There is deliberately no service worker in this release; upgrades use the
-`CC-WALLET-018` query key on the wallet JavaScript and CSS.
+`CC-WALLET-031` query key on the wallet JavaScript, CSS and selected language
+table.
 
-### Hourly network-log forwarding
+### Hourly network metrics and seven-day detail
 
-`proxy.php` keeps serving the wallet request first. At shutdown it acquires the
-private `network.hour` watch non-blockingly and only acts when the next hourly
-boundary or a retry is due. It reads at most 200 complete new JSONL records and
-24 KiB from `network.log`. Under PHP-FPM, `fastcgi_finish_request()` releases
-the browser response before the HTTPS submission begins. One sender holds the
-watch while other completed requests simply skip the work; a failed submission
-keeps the byte cursor unchanged and is retried after five minutes.
+`proxy.php` writes full operational events to UTC-dated files below the private
+`network-logs` directory. It retains the current date and six preceding dates;
+the fixed `network.log` left by an earlier release is no longer extended and is
+removed seven days after its last modification.
+
+Every completed request also updates a locked accumulator below
+`network-hours`. After the hour closes, the next request serializes the summary
+and active-coin rows as compact pipe-separated integers. The record contains
+request outcomes and payload-byte totals for wallet, directory, registration,
+ROT and central traffic; it never contains addresses, transaction IDs, raw
+transactions or request bodies. Byte fields measure application payloads, not
+HTTP or TLS framing.
+
+At shutdown `proxy.php` acquires the private `network.hour` sender watch
+non-blockingly. Under PHP-FPM, `fastcgi_finish_request()` releases the browser
+response before the bounded HTTPS submission begins. A failed submission keeps
+the completed accumulator and is retried after five minutes. A successful
+submission removes only that already accepted local accumulator; the seven-day
+detailed logs remain available for operator diagnosis.
 
 The bootstrap stores accepted batches below the private
-`CC-PROXY/network-inbox/<proxyId>/` directory. It accepts only bounded,
-digest-verified log records from a proxy whose exact URL is currently `OK` in
-the directory. These files are deliberately an inbox, not yet an aggregation
-or public monitor. The observations contain operational timings, sizes, routes
-and result codes, never wallet request contents.
+`CC-PROXY/network-inbox/<proxyId>/` directory as plain files named
+`1_YYYYMMDDTHH0000Z`. It accepts only bounded, digest-verified records from a
+proxy whose exact URL is currently `OK` in the directory. The shared schema is
+created once by the bootstrap in `network-inbox/versions/version.1`; it is not
+duplicated inside every proxy directory and is never rewritten. An embedded
+definition that differs from an existing `version.1` is reported as
+`NETWORK_METRIC_DEFINITION_CONFLICT`; a changed schema must use `version.2`.
+Repeating an accepted proxy/hour with the same digest is harmless, while
+conflicting content is rejected.
+
+Rejected upload attempts are appended to daily JSONL sidecars below
+`network-inbox/rejections/`. Each row contains `receivedUTC`, `proxyId`,
+`hourUTC`, `reason` and `digest`; unavailable or invalid identity fields are
+`null`. A daily sidecar is capped at 1 MiB. These rows let the monitor
+distinguish accepted, late, absent and rejected submissions, but they are
+attempt records and may include repeated retries.
+
+All telemetry paths are fail-open. An unavailable `network.hour`,
+`network-logs`, `network-hours`, schema file or rejection sidecar can lose
+telemetry and emits a bounded local PHP error-log warning, but it cannot make
+wallet, registry, coin or ROT operations return HTTP 503.
+
+The record digest detects changed content and makes repeat acceptance
+idempotent. It is not sender authentication: protocol 2 has no per-proxy secret
+or signature, so a party able to reach the endpoint can claim an `OK` proxy's
+identity and URL. The operational monitor must therefore treat both accepted
+records and rejection sidecars as non-attested input.
+
+### X-help configuration collection
+
+Each proxy validates its public `tweets.json`, normalizes the configured help
+links and keeps the last accepted digest in the private `xhelp.report` watch.
+The first ordinary request after a semantic content change reports the new
+configuration after releasing the wallet response. Failed reports remain
+pending and retry after one minute; an absent or invalid file only produces a
+rate-limited local warning.
+
+The installation hostname (`proxyId`) is the archive identity. The bootstrap
+accepts a report only when the exact reporting proxy URL currently has status
+`OK` and stores the normalized configuration atomically as
+`CC-PROXY/xhelp/<proxyId>/tweets.json`. X-help configuration is deliberately
+independent of `primaryCoin`; any optional team or coin grouping belongs in the
+monitor presentation layer.
+
+X-help reporting is fail-open and has no effect on wallet routing. As with the
+hour metrics, the digest provides content integrity and idempotence but not
+sender authentication; `proxyId` remains operational metadata claimed by an
+`OK` proxy URL.
 
 ### Routeable directory coverage
 
@@ -80,6 +147,142 @@ response has completed. A failed report leaves the successful digest unchanged
 and is retried after one minute by the next ordinary proxy request. Unchanged
 ROT status traffic performs no central hello. Bootstrap directory mutations
 are serialized through the private `proxy-directory.lock` file.
+
+A satellite answers `proxyDirectory` from its validated local copy while that
+copy is less than one hour old. Only a stale or missing copy triggers a
+synchronous central hello. When that attempt fails, the older validated copy
+remains the availability fallback. Bootstrap-local requests never perform an
+external directory fetch.
+
+## Release number and language roadmap — 19 September 2026
+
+CC-WALLET-031 shows `Version 1.0` on a separate centered line below the product
+name in Wallet Help. The corresponding first Git release tag is `v1.0.0`.
+Git tags follow `vMAJOR.MINOR.PATCH`; the wallet deliberately shows only
+`MAJOR.MINOR` so an operational bug-fix build does not turn the Help screen
+into release engineering information.
+
+This compatible patch also closes an open Receive or Send panel before the
+Balance dialog changes coin, reports the calculated tiered fee beside an
+insufficient-balance message, and moves the balance-privacy control above the
+amount so it cannot hide the final digits.
+
+- `PATCH` is increased for compatible bug fixes, performance work and wording
+  or translation corrections.
+- `MINOR` is increased when another coin becomes fully supported and visible.
+- `MAJOR` is reserved for a breaking wallet, storage or network-contract
+  change.
+
+The language selector always shows the committed roadmap: English, Dutch,
+Icelandic, German, Portuguese, Russian, Spanish, Japanese, Polish, French and
+Urdu. English through Russian are bundled and selectable. Spanish, Japanese,
+Polish, French and Urdu remain visible but disabled while their corresponding
+`js/language_<code>.js` file is absent. The selector checks those files without
+using the release cache, so installing a future package enables it without a
+change to `rooty.js` or a new wallet-code release. A stored or URL-requested
+language whose file cannot be loaded falls back to English and clears that
+unusable choice.
+
+Portuguese and Russian now cover the same 167-key current-interface completion
+scope as the Icelandic completion round, including settings, Help, wallet
+management, backup, Receive and transaction dialogs, plus the current PIN and
+privacy controls. Native speakers should still review tone and terminology
+before the release tag is signed; package completeness is not a substitute for
+language review.
+
+## Dutch and German interface completion — 19 September 2026
+
+CC-WALLET-029 applies the later Icelandic completion scope to Dutch and German.
+Both tables now cover all 167 current main-interface, settings, Help, wallet
+management, backup, recovery, Receive, payment and status keys in that scope.
+The update adds the 62 strings that were still absent from each language and
+completes seven reachable older dialog strings outside that scope. Dutch also
+replaces two English settings values and nine English main labels. User-facing
+German PIN guidance is aligned with the informal voice used by the rest of the
+German wallet. A fresh cache identity prevents an earlier table from remaining
+active. Coin-team statements in the reference screen remain in their original
+English wording.
+
+## Dutch and German translation restoration — 19 September 2026
+
+CC-WALLET-028 restores the complete reviewed Dutch and German tables from the
+operational MULTI-COIN-014 wallet source. Recent packages had inadvertently
+carried an older English placeholder as `language_de.js` and had omitted
+sixteen Dutch entries covering wallet locking, synchronization, balances and
+Help. The newer PIN and balance-privacy translations are retained. All browser
+assets receive a fresh cache identity so an already loaded CC-WALLET-027 table
+cannot remain active.
+
+## Language-cache and balance-eye correction — 19 September 2026
+
+CC-WALLET-027 refreshes the browser-wide cache identity, including the
+dynamically selected language table. This prevents a browser that cached an
+older short language table under the previous shared key from mixing old
+English labels with current translations. Duplicate translation keys are read
+newest first so a later reviewed correction can supersede an older value.
+
+The balance privacy eye no longer receives an opaque hover or touch-state
+background. Its keyboard focus outline remains visible.
+
+## X-help collection — 18 September 2026
+
+CC-WALLET-026 corrects X-help identity to the wallet installation hostname.
+The bootstrap stores one normalized `tweets.json` under each proxy ID and no
+longer sends, accepts or stores `primaryCoin` as part of this contract.
+
+## X-help collection — 18 September 2026
+
+CC-WALLET-025 is a proxy-only monitor-support build. It reports changed,
+validated `tweets.json` content after the client response and archives it on
+the bootstrap. Its coin/team-based archive layout is superseded by
+CC-WALLET-026 and should not be deployed. The browser bundle and its
+CC-WALLET-023 cache key remain unchanged.
+
+## Telemetry hardening — 18 September 2026
+
+CC-WALLET-024 is a proxy-only telemetry hardening build. It makes telemetry
+storage fail-open, makes `version.1` immutable, records bounded bootstrap
+rejection sidecars and documents that the digest provides content integrity
+but no sender authentication. The browser bundle remains CC-WALLET-023, so its
+cache key does not change.
+
+## Release 1.0 — 18 September 2026
+
+CC-WALLET-023 replaces raw hourly log forwarding with versioned aggregates,
+retains seven UTC dates of local diagnostic detail and bounds synchronous
+directory discovery with a one-hour proxy cache. Zero-confirmation polling now
+stops as soon as one ROT reports the exact output as seen; ordinary state
+polling discovers the later block confirmation.
+
+## Status — 16 September 2026
+
+CC-WALLET-022 closes the release UI. PIN fields have an explicit visibility
+control; the balance has a separate, non-persistent privacy control that keeps
+the balance field blank during subsequent state updates and resets the wallet
+calculator amount to zero. PIN guidance is independently translatable, and the
+Help screen is the only user-facing place that carries the `Version 1.0`
+label.
+
+## Status — 16 September 2026
+
+CC-WALLET-021 preserves first-run fiat selections while price feeds arrive in
+stages, keeps the wallet hidden until startup PIN validation, and replaces the
+wallet-color text field with an exact six-digit hexadecimal value plus a white
+reset action. New browser storage chooses the first available language from
+`navigator.languages`, after an explicit URL language and before the English
+fallback. The selectable release languages are the tables actually shipped:
+English, Dutch, Icelandic, German, Portuguese and Russian. Urdu and Japanese
+must not be advertised until reviewed translation files exist; Urdu will also
+require right-to-left presentation testing.
+
+## Status — 16 September 2026
+
+CC-WALLET-020 completes the first-run presentation. A new wallet selects fiat
+currencies from its primary coin: EFL and DEM use EUR plus USD, AUR uses ISK,
+EUR and USD, and CDN uses CAD plus USD. Existing wallet preferences are never
+replaced. The Icelandic wallet screens now cover settings, wallet management,
+Help, Receive and the payment path, including dialog titles and controls that
+are created after initial page translation.
 
 ## Status — 16 September 2026
 
@@ -105,9 +308,9 @@ remain deployment acceptance tests rather than build-time claims.
 
 ## Status — 9 September 2026
 
-Wallet presented for beta-testing, just before the ROT-layer will be closed.
-relay/proxy-layer enters canary-modus, meaning it still offers a heardcoded ROT escape route but is being prepared for ROT-registry
-AUR and DEM are integrated. PAK will be next but after the first release.
+Initial public wallet evaluation began while the relay/proxy layer still used
+a hard-coded ROT escape route and was being prepared for the ROT registry. AUR
+and DEM were integrated; PAK was deliberately deferred until after 1.0.
 
 ## Status — 29 August 2026
 
@@ -385,7 +588,9 @@ and add redundancy or adjust limits where the evidence requires it.
 
 ## Known boundaries
 
-- Only EFL is currently exposed as a complete operational wallet coin.
+- The 1.0 interface exposes EFL, AUR, CDN and DEM. PAK remains hidden until its
+  full derivation, state, history, payment and restart path has passed the same
+  end-to-end acceptance gate.
 - Legacy P2PKH is a deliberate compatibility boundary, not a temporary claim
   of support for every output type.
 - Address discovery is presently bounded at index 50.
@@ -403,19 +608,19 @@ and add redundancy or adjust limits where the evidence requires it.
 
 ## Near-term route
 
-1. Commit and publish the DEM transaction-comment changes and reproducible
-   browser bundle from the bitcoinjs fork.
-2. Add the DEM proxy and coin service specification without changing EFL
-   serialization.
-3. Verify DEM seed recovery, state, history, fixed raw vectors, and a small real
-   payment loop.
-4. Move fee, denomination, URI, and transaction-format policy into explicit
-   per-coin specifications.
-5. Apply the same gated integration process to AUR and CDN.
-6. Measure state and history load, then add ROT/proxy redundancy and tune limits
+1. Bring PAK online behind the existing interface and keep it hidden until its
+   derivation, state, history, Send, Receive, restart and recovery path passes.
+2. Upgrade one PAK ROT first, observe registration and health, then add further
+   ROTs individually without changing the 1.0 user interface.
+3. Review the new Portuguese and Russian tables with their coin teams and
+   prepare complete `es`, `fr`, `pl`, `ur` and `ja` language tables. All five
+   commitments are already visible but disabled in the selector. Urdu also
+   requires right-to-left layout tests; Japanese requires font, line-breaking
+   and narrow-screen checks.
+4. Measure state and history load, then add ROT/proxy redundancy and tune limits
    from observed data.
-7. Continue PWA, deployment, backup/recovery, reorganisation, and hostile-input
-   testing before describing CC-WALLET as production-ready.
+5. Continue deployment, backup/recovery, reorganisation, hostile-input and
+   device testing before describing CC-WALLET as production-ready.
 
 ## Development checks
 
