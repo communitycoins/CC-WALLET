@@ -1,7 +1,9 @@
-/* [CC-WALLET-031]
-Close cross-coin transaction views and clarify the calculated send fee.
-Base: - Derived from CC-WALLET-030
+/* [CC-WALLET-V2-013]
+Accept approved native SegWit destinations while retaining legacy wallet ownership.
+Base: - Derived from CC-WALLET-031
 Changes:
+- [CC-WALLET-V2-013] Accept P2WPKH destinations for AUR and CDN while keeping EFL and DEM legacy-only
+- Verify Bech32 HRP isolation, checksum handling, witness-program size and legacy-input transaction construction
 - [CC-WALLET-031] Clear a retained Receive or Send view before the Balance dialog changes coin
 - Append the calculated tiered fee and coin ticker to insufficient-balance messages
 - Move balance privacy and Wallet Help layout through the matching HTML and CSS release
@@ -541,6 +543,7 @@ $$$("#splashScreen").addEventListener("transitionend", () => {
 var networks={}
 var supportedCoins={}
 const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem"])
+const p2wpkhDestinationCoins=Object.freeze(["aur","cdn"])
 const walletFiatDefaults=Object.freeze({
   efl:Object.freeze(["eur","usd"]),
   dem:Object.freeze(["eur","usd"]),
@@ -5081,7 +5084,9 @@ function validateCoinAddress(address,coin=stateCoin){
   try{
     var network=bitcoin.networks[networks[coin].index]
     var script=bitcoin.address.toOutputScript(candidate,network).toString("hex")
-    if (!/^76a914[0-9a-f]{40}88ac$/.test(script)){throw new Error("Unsupported address type")}
+    var p2pkh=/^76a914[0-9a-f]{40}88ac$/.test(script)
+    var p2wpkh=p2wpkhDestinationCoins.includes(coin)&&/^0014[0-9a-f]{40}$/.test(script)
+    if ((!p2pkh)&&(!p2wpkh)){throw new Error("Unsupported address type")}
   }catch(error){
     throw sendPlanError("INVALID_ADDRESS",T("txtInvalidCoinAddress",{coin:supportedCoins[coin].name}))
   }
@@ -6028,9 +6033,51 @@ function verifyLocalTransactionBuilding(coin=stateCoin){
   if ((tieredResult.inputs.length!==7)||(tieredResult.outputs.length!==1)||(tieredResult.feeSats!==2*service.minimumFeeSats)||(!tieredResult.signaturesVerified)){
     throw new Error("Local tiered transaction test failed")
   }
+  if (p2wpkhDestinationCoins.includes(coin)){
+    var witnessProgram=Buffer.from("00112233445566778899aabbccddeeff00112233","hex")
+    var witnessDestination=bitcoin.address.toBech32(witnessProgram,0,network.bech32)
+    var witnessPlan=createLocalSendPlan(snapshot,witnessDestination,"3.5",coin)
+    var witnessResult=buildSignedTransaction(witnessPlan,service.testMnemonic,coin,"",transactionTime)
+    if ((witnessResult.inputs.length!==2)||(witnessResult.outputs.length!==2)||(witnessResult.outputs[0].address!==witnessDestination)||(!/^0014[0-9a-f]{40}$/.test(witnessResult.outputs[0].scriptPubKey))||(!/^76a914[0-9a-f]{40}88ac$/.test(witnessResult.outputs[1].scriptPubKey))||(!witnessResult.signaturesVerified)){
+      throw new Error("Local P2WPKH destination transaction test failed")
+    }
+  }
   console_log(service.responseCoin+" transaction test passed: 2 signatures, txid "+service.testSignedTxid)
   console_log("Local zero-change transaction test passed: change output omitted")
   console_log("Local tiered transaction test passed: 7 signatures, 2 fee tiers")
+  if (p2wpkhDestinationCoins.includes(coin)){console_log(service.responseCoin+" P2WPKH destination test passed: legacy inputs and change retained")}
+}
+function verifyDestinationAddressValidation(){
+  var witnessProgram=Buffer.from("00112233445566778899aabbccddeeff00112233","hex")
+  var witnessScriptProgram=Buffer.from("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff","hex")
+  var addresses={
+    aur:bitcoin.address.toBech32(witnessProgram,0,"aur"),
+    cdn:bitcoin.address.toBech32(witnessProgram,0,"cdn")
+  }
+  ;["aur","cdn"].forEach(function(coin){
+    if (validateCoinAddress(addresses[coin],coin)!==addresses[coin]){throw new Error("P2WPKH destination validation failed")}
+    var upperCaseAddress=addresses[coin].toUpperCase()
+    if (validateCoinAddress(upperCaseAddress,coin)!==upperCaseAddress){throw new Error("Upper-case P2WPKH destination validation failed")}
+    var otherCoin=coin==="aur"?"cdn":"aur"
+    var rejected=0
+    try{validateCoinAddress(addresses[otherCoin],coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    try{validateCoinAddress(addresses[coin].substring(0,4).toUpperCase()+addresses[coin].substring(4),coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    var lastCharacter=addresses[coin].slice(-1)
+    var invalidChecksum=addresses[coin].slice(0,-1)+(lastCharacter==="q"?"p":"q")
+    try{validateCoinAddress(invalidChecksum,coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    var p2wsh=bitcoin.address.toBech32(witnessScriptProgram,0,coin)
+    try{validateCoinAddress(p2wsh,coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    if (rejected!==4){throw new Error(coin.toUpperCase()+" destination rejection test failed")}
+  })
+  ;["efl","dem"].forEach(function(coin){
+    Object.keys(addresses).forEach(function(addressCoin){
+      var rejected=false
+      try{validateCoinAddress(addresses[addressCoin],coin)}catch(error){rejected=error.code==="INVALID_ADDRESS"}
+      if (!rejected){throw new Error(coin.toUpperCase()+" accepted an unsupported P2WPKH destination")}
+    })
+  })
+  console_log("Destination address tests passed: AUR/CDN P2WPKH enabled; HRP, checksum, mixed case, P2WSH and legacy-only boundaries enforced")
+  return true
 }
 function verifyBroadcastParsing(coin=stateCoin){
   var service=getStateService(coin)
@@ -6384,6 +6431,7 @@ function verifyOperationalDerivations(){
 function runWalletDiagnostics(){
   var started=performance.now()
   verifyOperationalDerivations()
+  verifyDestinationAddressValidation()
   var service=getStateService(stateCoin)
   var receiveRequest=getReceiveRequest(service.testMnemonic,"1.25",stateCoin,service.receiveIndex,"")
   if ((receiveRequest.index!=service.receiveIndex)||(receiveRequest.address!=service.testAddresses[service.receiveIndex])||(receiveRequest.amount!=="1.25")||(receiveRequest.uri!=service.uriScheme+service.testAddresses[service.receiveIndex]+"?amount=1.25")){

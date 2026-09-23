@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<!-- [CC-WALLET-031]
-Clarify send fees and correct transaction, Help-version and balance-privacy presentation.
-Base: - Derived from CC-WALLET-030
+<!-- [CC-WALLET-V2-013]
+Refresh the wallet code for approved native SegWit destinations.
+Base: - Derived from CC-WALLET-031
 Changes:
+- [CC-WALLET-V2-013] Refresh BitcoinJS and rooty.js for AUR and CDN P2WPKH destinations
 - [CC-WALLET-031] Place the balance privacy control in the heading row above the full-width balance
 - Stack Version 1.0 below the Wallet Help product name
 - Refresh JavaScript and CSS for the cross-coin reset and calculated-fee message
@@ -860,7 +861,7 @@ Changes:
 
 <div class="hidden T" id=txtUnavailable>Unavailable</div>
 <script src="js/buffer-polyfill.js"></script>
-<script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js"></script>
+<script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js?v=CC-WALLET-V2-013"></script>
 <script src="js/bitcoinjs-lib-6-1-5.js"></script>
 <script src="js/bitcoinjsMessage.js"></script>
 <!--script>
@@ -873,7 +874,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=CC-WALLET-031'></script>
+<script src='rooty.js?v=CC-WALLET-V2-013'></script>
 
 </body>
 </html>
