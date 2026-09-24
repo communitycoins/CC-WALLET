@@ -18137,7 +18137,6 @@ module.exports = {
   },
   auroracoin: {
     messagePrefix: '\x18AuroraCoin Signed Message:\n',
-    bech32: 'aur',
     bip32: {
       public: 0x0488b21e,
       private: 0x0488ade4,

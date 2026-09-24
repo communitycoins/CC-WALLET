@@ -1,58 +1,12 @@
-/* [CC-WALLET-V2-013]
-Accept approved native SegWit destinations while retaining legacy wallet ownership.
-Base: - Derived from CC-WALLET-031
+/* [CC-WALLET-V2-002]
+Refine transaction context and restrict native SegWit destinations to deployed networks.
+Base: - Derived from CC-WALLET-V2-001
 Changes:
-- [CC-WALLET-V2-013] Accept P2WPKH destinations for AUR and CDN while keeping EFL and DEM legacy-only
-- Verify Bech32 HRP isolation, checksum handling, witness-program size and legacy-input transaction construction
-- [CC-WALLET-031] Clear a retained Receive or Send view before the Balance dialog changes coin
-- Append the calculated tiered fee and coin ticker to insufficient-balance messages
-- Move balance privacy and Wallet Help layout through the matching HTML and CSS release
-- [CC-WALLET-030] Publish the language roadmap, enable only installed packages and load completed Portuguese and Russian tables
-- [CC-WALLET-029] Load the completed Dutch and German interface tables under a fresh cache identity
-- [CC-WALLET-028] Load the restored reviewed Dutch and German translations under a fresh cache identity
-- [CC-WALLET-027] Give JavaScript, CSS and selected language tables one new cache identity
-- Resolve duplicate translation keys from newest to oldest so later corrections take precedence
-- [CC-WALLET-023] Stop five-second zero-confirmation polling as soon as any ROT reports SEEN
-- Let the normal state cycle discover the later blockchain confirmation
-- [CC-WALLET-022] Add accessible visibility toggles for PIN entry and the displayed balance
-- Keep a hidden balance blank across state refreshes and reset the calculator wallet amount to zero
-- Complete translatable PIN guidance and expose Version 1.0 only in Wallet help
-- [CC-WALLET-021] Preserve fiat preferences while partial price feeds arrive
-- Keep wallet contents hidden until the startup PIN has been validated
-- Accept an exact six-digit wallet color and offer a white reset control
-- Select the first available browser language for previously unseen wallet storage
-- Complete the Icelandic balance, invitation and PIN presentation
-- [CC-WALLET-020] Select practical fiat defaults for a new EFL, DEM, AUR or CDN wallet
-- Translate modal titles and late-created wallet identity controls through the active language table
-- Complete the Icelandic strings used by wallet settings, management, Help, Receive and payment flows
-- [CC-WALLET-018] Remove the obsolete contact-card settings, payment presentation and long motivation help
-- Report the proxy's bounded directory failure reason without changing silent cached discovery behavior
-- [CC-WALLET-017] Try at most two approved external proxies after a technical local failure, preferring bootstrap second
-- Select the proxy-reported primary coin only for a wallet without a stored coin choice or URL override
-- Record request latency passively and expose inspectCoinDirectory() without generating measurement traffic
-- Canonicalize currency choices, add explicit backup copying and clean up modal focus before hiding it
-- [CC-WALLET-016] Retry state, history, broadcast, transaction status and zero-confirmation through one approved external proxy after technical local failure
-- Preserve compatible delta-state across local and external proxy changes
-- Reject state-height regression independently of the serving proxy
-- Rotate later recovery attempts across eligible external proxies without fanning one request out to the network
-- Keep nontechnical transaction and observation outcomes final
-- [CC-WALLET-015] Recognize the proxy's required or invalid operator-configuration response
-- Cover the wallet with a specific installation notice while leaving ordinary failures quiet
-- Accept up to three zero-confirmation observers for every operational coin
-- [CC-WALLET-014] Keep ./proxy.php primary and retry one directory-eligible external proxy only after technical read failure
-- Request a fresh full state snapshot when changing back to the local proxy and for every external recovery
-- Keep broadcast, transaction status and zero-confirmation traffic strictly on ./proxy.php
-- [CC-WALLET-011] Request proxyDirectory once in the background at every wallet startup
-- Store only a validated ten-proxy public view in a separate origin-wide IndexedDB database
-- Preserve the last view across reloads and expose console-only support diagnostics
-- Keep discovery failure invisible to wallet operation and leave every transaction on ./proxy.php
-- [CC-WALLET-001] Route EFL, CDN, AUR and DEM through ./proxy.php
-- Send the selected coin with every state, history, broadcast, status and zero-confirmation request
-- [MULTI-COIN-019] The newest wallet instance becomes leading and broadcasts CLOSE to older same-origin wallet instances
-- Keep one non-secret localStorage session marker as the hard guard when BroadcastChannel delivery is delayed or missed
-- Permanently disable older sessions instead of synchronizing or reloading their DOM/state
-- Keep wallet ID as an independent integrity guard; never use mnemonic or BIP39 passphrase as session identity
-- Retain IndexedDB identity guards, protected PIN/wallet management, Help routing and startup PIN focus
+- [CC-WALLET-V2-002] Disable AUR P2WPKH after its failed SegWit deployment and retain CDN only
+- Remove the Calculator heading and distinguish Receive and Pay amount context
+- Preserve uppercase wallet names and use calm success feedback
+- Present unrecognized QR content exactly and inertly for inspection or copying
+- [CC-WALLET-V2-001] Add outbound P2WPKH validation and construction for experimental AUR and CDN
 */
 
 const screenWidth = window.innerWidth;
@@ -543,7 +497,7 @@ $$$("#splashScreen").addEventListener("transitionend", () => {
 var networks={}
 var supportedCoins={}
 const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem"])
-const p2wpkhDestinationCoins=Object.freeze(["aur","cdn"])
+const p2wpkhDestinationCoins=Object.freeze(["cdn"])
 const walletFiatDefaults=Object.freeze({
   efl:Object.freeze(["eur","usd"]),
   dem:Object.freeze(["eur","usd"]),
@@ -2314,10 +2268,9 @@ function setOwner(){
 }
 async function setLocalWalletName(){
   var field=$$$('#idOwner')
-  var status=$$$('#claimAlert')
   var name=field.value.trim().replace(/\s+/g," ")
   if ((name.length>32)||(!/^[0-9A-Za-z@. ]*$/.test(name))){
-    status.textContent="Use at most 32 letters, numbers, spaces, @ or ."
+    setWalletNameStatus("Use at most 32 letters, numbers, spaces, @ or .","error")
     return false
   }
   field.value=name
@@ -2326,13 +2279,21 @@ async function setLocalWalletName(){
   setOwner()
   try{
     await updateDb()
-    status.textContent="Wallet name saved locally"
+    setWalletNameStatus(translateValue("Wallet name saved locally"),"success")
     return true
   }catch(error){
-    status.textContent="Unable to save wallet name"
+    setWalletNameStatus("Unable to save wallet name","error")
     return false
   }
 }
+
+function setWalletNameStatus(message,status=""){
+  var line=$$$('#claimAlert')
+  if (line==null){return}
+  line.textContent=message
+  line.className="wallet-name-status"+(status===""?"":" "+status)
+}
+function clearWalletNameStatus(){setWalletNameStatus("")}
 
 async function fetchdata(url, timeoutDuration, type) {
   try {
@@ -2642,7 +2603,7 @@ function calc(e){
   return true
 }
 function validName(e,f) {
-    $$$('#claimAlert').innerHTML='&nbsp';
+    clearWalletNameStatus()
     var valid="0123456789 abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ@."+String.fromCharCode(8)
     var c=""
     var key = window.event ? event.keyCode : e.which;
@@ -3032,7 +2993,7 @@ async function dial(diaLog,help,save) {
   if (help==$$$("#buttonHelp").classList.contains("invisible")) {$$$("#buttonHelp").classList.toggle("invisible")}
   if (save==$$$("#save").classList.contains("invisible")) {$$$("#save").classList.toggle("invisible")}
   if (diaLog=="setupOwner"){ 
-    $$$("#claimAlert").innerHTML="&nbsp;"
+    clearWalletNameStatus()
     $$$("#nameClaim").style.display="block"
     $$$("#nameClaim").textContent=translateValue("SET")
     $$$("#claimLoading").style.display="none"
@@ -3117,7 +3078,7 @@ function submit() {  // Modal OK-button
   if (modalContext=="setupOwner"){
     var name=$$$("#idOwner").value.trim().replace(/\s+/g," ")
     if ((name.length>32)||(!/^[0-9A-Za-z@. ]*$/.test(name))){
-      $$$('#claimAlert').textContent="Use at most 32 letters, numbers, spaces, @ or ."
+      setWalletNameStatus("Use at most 32 letters, numbers, spaces, @ or .","error")
       return false
     }
     var walletColor=normalizeWalletColor(resultBox.value)
@@ -3682,15 +3643,45 @@ function payQR(){
   }
   if ((purpose==="send")||(purpose==="universal")){
     try{
+      if (purpose==="universal"){parsePaymentRequest(QR,stateCoin)}
       if ((purpose==="universal")&&(showSendView()===false)){return}
       applyScannedSendRequest(QR)
     }catch(error){
-      if ((purpose==="universal")&&(showSendView()===false)){return}
+      if (purpose==="universal"){
+        showScannedQrContent(QR)
+        return
+      }
       setSendStatus(error.message,"error")
     }
     return
   }
   setMemo(QR)
+}
+function showScannedQrContent(content){
+  dial("qrcontent",0,0)
+  var field=$$$('#id_modalbody #idQrContent')
+  if (field!=null){field.value=String(content)}
+  var status=$$$('#id_modalbody #idCopyQrContentStatus')
+  if (status!=null){status.textContent=""}
+}
+async function copyScannedQrContent(){
+  var field=$$$('#id_modalbody #idQrContent')
+  var status=$$$('#id_modalbody #idCopyQrContentStatus')
+  if (field==null){return false}
+  var copied=false
+  try{
+    if ((navigator.clipboard!=null)&&(typeof navigator.clipboard.writeText==="function")){
+      await navigator.clipboard.writeText(field.value)
+      copied=true
+    }
+  }catch(error){}
+  if (!copied){
+    field.focus()
+    field.select()
+    try{copied=document.execCommand("copy")===true}catch(error){copied=false}
+  }
+  if (status!=null){status.textContent=copied?translateValue("QR content copied"):translateValue("Copy failed; select the QR content manually.")}
+  return copied
 }
 function setMemo(txt){skipMemoChange=true;$$$("#idMemo").value=txt}
 function scan(){
@@ -5203,6 +5194,8 @@ function setTransactionPresentation(mode){
   $$$('#idBroadcastConfirmation').classList.toggle('hidden',mode!=="sendConfirm")
   $$$('#idBroadcastTracking').classList.toggle('hidden',mode!=="sendSubmitted")
   $$$('#panel-calc').classList.toggle('hidden',['receiveObservation','sendConfirm','sendSubmitted'].includes(mode))
+  $$$('#panel-calc').classList.toggle('calculator-context-receive',mode==="receiveRequest")
+  $$$('#panel-calc').classList.toggle('calculator-context-send',mode==="sendEdit")
   $$$('#wallet').classList.toggle('transaction-active',open)
   return mode
 }
@@ -6054,13 +6047,12 @@ function verifyDestinationAddressValidation(){
     aur:bitcoin.address.toBech32(witnessProgram,0,"aur"),
     cdn:bitcoin.address.toBech32(witnessProgram,0,"cdn")
   }
-  ;["aur","cdn"].forEach(function(coin){
+  ;["cdn"].forEach(function(coin){
     if (validateCoinAddress(addresses[coin],coin)!==addresses[coin]){throw new Error("P2WPKH destination validation failed")}
     var upperCaseAddress=addresses[coin].toUpperCase()
     if (validateCoinAddress(upperCaseAddress,coin)!==upperCaseAddress){throw new Error("Upper-case P2WPKH destination validation failed")}
-    var otherCoin=coin==="aur"?"cdn":"aur"
     var rejected=0
-    try{validateCoinAddress(addresses[otherCoin],coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    try{validateCoinAddress(addresses.aur,coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
     try{validateCoinAddress(addresses[coin].substring(0,4).toUpperCase()+addresses[coin].substring(4),coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
     var lastCharacter=addresses[coin].slice(-1)
     var invalidChecksum=addresses[coin].slice(0,-1)+(lastCharacter==="q"?"p":"q")
@@ -6069,14 +6061,14 @@ function verifyDestinationAddressValidation(){
     try{validateCoinAddress(p2wsh,coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
     if (rejected!==4){throw new Error(coin.toUpperCase()+" destination rejection test failed")}
   })
-  ;["efl","dem"].forEach(function(coin){
+  ;["aur","efl","dem"].forEach(function(coin){
     Object.keys(addresses).forEach(function(addressCoin){
       var rejected=false
       try{validateCoinAddress(addresses[addressCoin],coin)}catch(error){rejected=error.code==="INVALID_ADDRESS"}
       if (!rejected){throw new Error(coin.toUpperCase()+" accepted an unsupported P2WPKH destination")}
     })
   })
-  console_log("Destination address tests passed: AUR/CDN P2WPKH enabled; HRP, checksum, mixed case, P2WSH and legacy-only boundaries enforced")
+  console_log("Destination address tests passed: CDN P2WPKH enabled; AUR/EFL/DEM legacy-only; HRP, checksum, mixed case and P2WSH boundaries enforced")
   return true
 }
 function verifyBroadcastParsing(coin=stateCoin){

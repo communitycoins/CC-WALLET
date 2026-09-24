@@ -1,38 +1,13 @@
 <!DOCTYPE html>
-<!-- [CC-WALLET-V2-013]
-Refresh the wallet code for approved native SegWit destinations.
-Base: - Derived from CC-WALLET-031
+<!-- [CC-WALLET-V2-002]
+Refresh the minimal wallet interface and CDN-only destination support.
+Base: - Derived from CC-WALLET-V2-001
 Changes:
-- [CC-WALLET-V2-013] Refresh BitcoinJS and rooty.js for AUR and CDN P2WPKH destinations
-- [CC-WALLET-031] Place the balance privacy control in the heading row above the full-width balance
-- Stack Version 1.0 below the Wallet Help product name
-- Refresh JavaScript and CSS for the cross-coin reset and calculated-fee message
-- [CC-WALLET-030] Show the release version on its own line and refresh the language-roadmap assets
-- [CC-WALLET-029] Refresh browser assets for the completed Dutch and German interface tables
-- [CC-WALLET-028] Refresh browser assets for the restored Dutch and German translations
-- [CC-WALLET-027] Refresh JavaScript, CSS and selected language tables with one new cache identity
-- Keep the balance privacy button transparent in pointer and touch interaction states
-- [CC-WALLET-023] Refresh rooty.js for terminal SEEN handling and proxy telemetry release alignment
-- [CC-WALLET-022] Add separate PIN-visibility and balance-privacy controls
-- Present the complete PIN guidance as individually translatable text
-- Show Version 1.0 only in Wallet help
-- [CC-WALLET-021] Refresh wallet, style and language assets for final first-contact fixes
-- Make the startup PIN identity translatable
-- [CC-WALLET-020] Refresh wallet and language assets for fiat defaults and Icelandic dialog completion
-- Make the wallet-name label an exact translatable string
-- [CC-WALLET-018] Remove the obsolete contact-card controls, payment fragment and motivation essays
-- Refresh the release-wide JavaScript and CSS cache key
-- [CC-WALLET-017] Use local interface libraries, a portable manifest and one release-wide cache key
-- Add explicit backup copying, a generic destination hint and form semantics for recovery credentials
-- [CC-WALLET-016] Refresh rooty.js for state, history, broadcast, transaction-status and zero-confirmation failover
-- Preserve delta-state across serving-proxy changes and reject state-height regression
-- [CC-WALLET-015] Refresh rooty.js for operator-configuration installation state and a global three-observer limit
-- [CC-WALLET-014] Refresh rooty.js for technical-only state and history recovery through one approved external proxy
-- [CC-WALLET-011] Refresh rooty.js for background proxyDirectory discovery and origin-wide caching
-- [CC-WALLET-001] Refresh rooty.js for the ./proxy.php routing contract
-- [MULTI-COIN-019] New wallet instances claim the shared storage session and broadcast CLOSE to older instances
-- Older tabs/windows are permanently disabled instead of synchronized or reloaded
-- Retain wallet-ID and IndexedDB identity guards, Help routing, PIN protection and startup PIN focus
+- [CC-WALLET-V2-002] Remove the Calculator heading and add Receive/Pay amount context
+- Preserve uppercase wallet-name presentation and use neutral save feedback
+- Add a safe, selectable fallback dialog for unrecognized QR content
+- Disable AUR P2WPKH and refresh all touched browser assets
+- [CC-WALLET-V2-001] Refresh BitcoinJS and rooty.js for experimental AUR and CDN P2WPKH destinations
 -->
 <html lang="en">
 <head>
@@ -62,7 +37,7 @@ Changes:
 <script type="text/javascript" src="js/pako.1.0.3.min.js"></script>
 
 <title class=T>Community coins wallet</title>
-<link rel='stylesheet' href='rooty.css?v=CC-WALLET-031'>
+<link rel='stylesheet' href='rooty.css?v=CC-WALLET-V2-002'>
 </head>
 <body>
   <div class="splash-screen" id="splashScreen">
@@ -115,10 +90,7 @@ Changes:
       </div>
     </div><!-- #panel-header -->
     <div class="panel" id="panel-calc">
-      <div class=calculator-heading>
-        <img id=idPaymentIcon class=hidden src=img/rooty.png alt="">
-        <div class="div-center"><label class="label T">Calculator</label></div>
-      </div>
+      <img id=idPaymentIcon class=hidden src=img/rooty.png alt="">
       <div class=calculator-rows>
         <section class="calculator-row calculator-row-wallet">
           <div class=calculator-row-heading><label class=T for=comboSupported>Wallet</label><button class=calculator-settings id=menuCurrenciesSupported type=button aria-label="Wallet coin information"><span class="bi bi-gear" aria-hidden=true></span><span class="visually-hidden T">Wallet coin information</span></button></div>
@@ -468,6 +440,16 @@ Changes:
   </div>
 </div>
 
+<div class="hidden" id=en_qrcontent title="Scanned QR content">
+  <div class="qr-content-warning T">This QR code does not contain a valid payment address.</div>
+  <label class="label T" for=idQrContent>Decoded content</label>
+  <textarea id=idQrContent class=qr-content-value readonly spellcheck=false></textarea>
+  <div class=qr-content-actions>
+    <button type=button class="btn btn-secondary T" onclick="copyScannedQrContent()">Copy</button>
+    <span id=idCopyQrContentStatus role=status aria-live=polite></span>
+  </div>
+</div>
+
 <div class="hidden T" id=en_communitycoins>
   We think communitycoins are a special class of cryptocoins that are/should be driven by a community and are typical grassroots organisations, as opposed to centralised ICO's and institutional initiatives.
 </div>
@@ -692,18 +674,18 @@ Changes:
   <div class="panel panel-default">
     <table class=table>
       <tr><td colspan=2>
-        <table cellspacing=0 cellpadding=0><tr>
-        <td valign=top><label for="idOwner" class="label"><span class=T>Wallet name:</span>&nbsp;</label></td>
-        <td width=100%>
-        <input type="text" id="idOwner" style="width:100%;box-sizing:border-box" onkeypress="return validName(event,this)" class="walletName">
-        <div id=claimAlert style="color:red">&nbsp;</div>
-        </td>
-        <td valign=top>
+        <div class=wallet-name-row>
+        <label for="idOwner" class="label T">Wallet name:</label>
+        <div class=wallet-name-field>
+        <input type="text" id="idOwner" oninput="clearWalletNameStatus()" onkeypress="return validName(event,this)" class="walletName">
+        <div id=claimAlert class=wallet-name-status role=status aria-live=polite></div>
+        </div>
+        <div>
           <button id=nameClaim>SET</button>
           <div id="claimLoading" style="display:none">
             <img src="img/ZKZg.gif" height=20px>
           </div>
-        </td></tr></table>
+        </div></div>
         <div id=idNameTips class="small T">The name is stored only in this wallet. It may be changed again and does not need to be unique.</div>
       </td></tr>
       <tr><td colspan=2>
@@ -861,7 +843,7 @@ Changes:
 
 <div class="hidden T" id=txtUnavailable>Unavailable</div>
 <script src="js/buffer-polyfill.js"></script>
-<script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js?v=CC-WALLET-V2-013"></script>
+<script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js?v=CC-WALLET-V2-002"></script>
 <script src="js/bitcoinjs-lib-6-1-5.js"></script>
 <script src="js/bitcoinjsMessage.js"></script>
 <!--script>
@@ -874,7 +856,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=CC-WALLET-V2-013'></script>
+<script src='rooty.js?v=CC-WALLET-V2-002'></script>
 
 </body>
 </html>
