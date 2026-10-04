@@ -1,8 +1,13 @@
 <?php
-/* [CC-WALLET-V2-002]
-Accept CDN native-SegWit destinations only where recipient validation is required.
-Base: - Derived from CC-WALLET-V2-001
+/* [CC-WALLET-V2-004]
+Let approved proxies update their advertised coin coverage.
+Base: - Derived from CC-WALLET-V2-003
 Changes:
+- [CC-WALLET-V2-004] Accept the complete validated coverage report from an approved proxy
+- Preserve the existing proxy-directory protocol for ROT, wallet and monitor consumers
+- [CC-WALLET-V2-003] Register legacy-only PAK protocol parameters and its height-1000000 chain anchor
+- Separate known coin protocols from operator-accepted coins so PAK requires explicit activation
+- Recognize Pakcoin domains only when PAK is included in acceptedCoins
 - [CC-WALLET-V2-002] Validate canonical CDN P2WPKH recipients in zero-confirmation and history responses
 - Keep wallet-owned state addresses legacy-only and keep AUR native SegWit disabled
 */
@@ -28,7 +33,8 @@ $coinProtocols=[
     'EFL'=>['p2pkhVersion'=>48,'anchorHeight'=>3280000,'anchorHash'=>'b03d18130e7e32f988db22ac9e68d3c8e3871566d0c1e08af7d0b12c35b8ca94'],
     'AUR'=>['p2pkhVersion'=>23,'anchorHeight'=>5830000,'anchorHash'=>'dcbf0168d678c0ec57d834475920d4e19cc99d68e7fa5148fb692570a549b090'],
     'CDN'=>['p2pkhVersion'=>28,'bech32Hrp'=>'cdn','anchorHeight'=>600000,'anchorHash'=>'26e6c26b9a5eed6e85867dfd48cf6a6f276686dd40d91bdc07f5056103011b31'],
-    'DEM'=>['p2pkhVersion'=>53,'anchorHeight'=>1390000,'anchorHash'=>'000000000000032ea2e46fcd5b6f99773cfd1f104a9203eedc195f3820526cfe']
+    'DEM'=>['p2pkhVersion'=>53,'anchorHeight'=>1390000,'anchorHash'=>'000000000000032ea2e46fcd5b6f99773cfd1f104a9203eedc195f3820526cfe'],
+    'PAK'=>['p2pkhVersion'=>55,'anchorHeight'=>1000000,'anchorHash'=>'c80d12187a4a7b241b9fc4bd3a0f03f98a2ad5fc70a7efcd57d88bf1d1027eb3']
 ];
 
 function configurationList($value) {
@@ -49,6 +55,17 @@ function configurationTicker($value) {
     return preg_match('/^[A-Z0-9]{2,10}$/',$ticker)?$ticker:false;
 }
 
+function configurationAcceptedCoins($value,array $protocols) {
+    if (!configurationList($value) || count($value)<1 || count($value)>count($protocols)) {return false;}
+    $accepted=[];
+    foreach ($value as $ticker) {
+        $coin=configurationTicker($ticker);
+        if ($coin===false || !isset($protocols[$coin]) || isset($accepted[$coin])) {return false;}
+        $accepted[$coin]=true;
+    }
+    return $accepted;
+}
+
 function validatedServerName($value) {
     $serverName=is_string($value)?strtolower(trim($value)):'';
     return preg_match('/^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',$serverName)?$serverName:false;
@@ -67,7 +84,9 @@ function primaryCoinForServerName($serverName,array $protocols) {
         'auroracoin.is'=>'AUR',
         'canadaecoin.ca'=>'CDN',
         'ourcoin.ca'=>'CDN',
-        'deutsche-emark.org'=>'DEM'
+        'deutsche-emark.org'=>'DEM',
+        'pakcoin.io'=>'PAK',
+        'pakcoin.org'=>'PAK'
     ];
     foreach ($domains as $domain=>$coin) {
         if (isset($protocols[$coin]) && serverNameMatchesDomain($serverName,$domain)) {return $coin;}
@@ -93,11 +112,14 @@ function loadOperatorConfiguration($path,array &$protocols,$serverName,&$error) 
         $value=['schemaVersion'=>1];
     }
     $required=['schemaVersion'];
-    $optional=['bootstrapUrl','primaryCoin','publicUrl','acceptsRegistrations','registrationCapacity','primaryReserve','pinnedLegacyRots'];
+    $optional=['bootstrapUrl','primaryCoin','publicUrl','acceptedCoins','acceptsRegistrations','registrationCapacity','primaryReserve','pinnedLegacyRots'];
     if (!$jsonValid || !is_array($value) || !configurationKeys($value,$required,$optional) || $value['schemaVersion']!==1) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
 
-    $accepted=array_fill_keys(array_keys($protocols),true);
-    $primary=array_key_exists('primaryCoin',$value)?configurationTicker($value['primaryCoin']):primaryCoinForServerName($serverName,$protocols);
+    $acceptedInput=array_key_exists('acceptedCoins',$value)?$value['acceptedCoins']:['EFL','AUR','CDN','DEM'];
+    $accepted=configurationAcceptedCoins($acceptedInput,$protocols);
+    if ($accepted===false) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+    $acceptedProtocols=array_intersect_key($protocols,$accepted);
+    $primary=array_key_exists('primaryCoin',$value)?configurationTicker($value['primaryCoin']):primaryCoinForServerName($serverName,$acceptedProtocols);
     $acceptsRegistrations=isset($value['acceptsRegistrations'])?$value['acceptsRegistrations']:true;
     $registrationCapacity=isset($value['registrationCapacity'])?$value['registrationCapacity']:100;
     $primaryReserve=isset($value['primaryReserve'])?$value['primaryReserve']:20;
@@ -1686,9 +1708,7 @@ function updateBootstrapDirectory(array $input,&$error) {
         if (isset($directory['proxies'][$url])) {
             $status=$directory['proxies'][$url]['status'];
             if ($status==='OK') {
-                $approved=[];
-                foreach (array_keys($directory['proxies'][$url]['registeredRots']) as $coin) {$approved[$coin]=isset($counts[$coin])?$counts[$coin]:0;}
-                $directory['proxies'][$url]['registeredRots']=$approved;
+                $directory['proxies'][$url]['registeredRots']=$counts;
             } elseif ($status==='PROSPECT') {
                 $okCount=0;
                 foreach ($directory['proxies'] as $entry) {if ($entry['status']==='OK') {$okCount++;}}
