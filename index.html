@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<!-- [CC-WALLET-V2-002]
-Refresh the minimal wallet interface and CDN-only destination support.
-Base: - Derived from CC-WALLET-V2-001
+<!-- [CC-WALLET-V2-003]
+Load the opt-in Pakcoin acceptance-branch assets.
+Base: - Derived from CC-WALLET-V2-002
 Changes:
+- [CC-WALLET-V2-003] Refresh BitcoinJS and rooty.js for legacy-only PAK acceptance testing
 - [CC-WALLET-V2-002] Remove the Calculator heading and add Receive/Pay amount context
 - Preserve uppercase wallet-name presentation and use neutral save feedback
 - Add a safe, selectable fallback dialog for unrecognized QR content
@@ -164,7 +165,7 @@ Changes:
           <button class="button button-color-red send-review T" id=idBuildSendPlan type=button>REVIEW TRANSACTION</button>
           <div class=send-status id=idSendStatus aria-live=polite></div>
           <section class="send-plan expert-only hidden" id=idSendPlan>
-            <div class="send-local-warning T" id=idPlanLocalWarning>LOCAL ONLY · NOT SIGNED · NOT BROADCAST</div>
+            <div class="send-local-warning T" id=idPlanLocalWarning>LOCAL ONLY Â· NOT SIGNED Â· NOT BROADCAST</div>
             <dl class=send-plan-details>
               <dt class=T>Checkpoint</dt><dd id=idPlanCheckpoint></dd>
               <dt class=T>Destination</dt><dd class=monospace id=idPlanDestination></dd>
@@ -184,7 +185,7 @@ Changes:
             <button class="button button-color-red send-build T" id=idBuildSignedTransaction type=button>BUILD AND SIGN LOCALLY</button>
           </section>
           <section class="signed-transaction expert-only hidden" id=idSignedTransaction>
-            <div class="signed-local-warning T">LOCAL ONLY — NOT BROADCAST</div>
+            <div class="signed-local-warning T">LOCAL ONLY â€” NOT BROADCAST</div>
             <dl class=send-plan-details>
               <dt class=T>Transaction ID</dt><dd class=monospace id=idSignedTxid></dd>
               <dt class=T>Serialized size</dt><dd id=idSignedSize></dd>
@@ -703,7 +704,7 @@ Changes:
 <div class="hidden T" id=txtBalanceOverviewNote>Balances are the last confirmed values observed for this wallet. A dash means that coin has not been checked yet.</div>
 <div class="hidden T" id=txtWalletLocked>This wallet is locked</div>
 <div class="hidden T" id=txtUnlockWallet>Unlock wallet</div>
-<div class="hidden T" id=txtSynchronizingWallet>Synchronizing wallet…</div>
+<div class="hidden T" id=txtSynchronizingWallet>Synchronizing walletâ€¦</div>
 <div class="hidden T" id=txtWalletLockedSend>This wallet is locked. Unlock it in Settings before making a payment.</div>
 <div class="hidden T" id=txtWalletChangedOtherWindow>Wallet session disabled. Another tab or app window opened this wallet storage. This session has been stopped to prevent outdated wallet information from being used. Close this tab or window and continue there.</div>
 <div class="hidden T" id=txtUnexpectedSpendLock>This wallet was used on another device to spend and therefore has been locked. You can unlock it with the Settings button.</div>
@@ -730,9 +731,9 @@ Changes:
 <div class="hidden T" id=txtActivity>Activity</div>
 <div class="hidden T" id=txtBalanceServiceNotConnected>Balance service not connected</div>
 <div class="hidden T" id=txtConfirmedAtBlock>Confirmed {time} (block {height})</div>
-<div class="hidden T" id=txtUpdatingLastConfirmedAtBlock>Updating · last confirmed {time} (block {height})</div>
+<div class="hidden T" id=txtUpdatingLastConfirmedAtBlock>Updating Â· last confirmed {time} (block {height})</div>
 <div class="hidden T" id=txtRefreshingConfirmedBalance>Refreshing confirmed balance</div>
-<div class="hidden T" id=txtLastConfirmedAtBlockRefreshRequired>Last confirmed {time} (block {height}) · refresh required</div>
+<div class="hidden T" id=txtLastConfirmedAtBlockRefreshRequired>Last confirmed {time} (block {height}) Â· refresh required</div>
 <div class="hidden T" id=txtConfirmedBalanceUnavailable>Confirmed balance unavailable</div>
 <div class="hidden T" id=txtLiveConfirmedBalance>Live confirmed balance</div>
 <div class="hidden T" id=txtLastObservedNotSpendable>Last observed balance; not currently spendable</div>
@@ -753,22 +754,22 @@ Changes:
 <div class="hidden T" id=txtChangeAddressUnavailable>The change address is unavailable</div>
 <div class="hidden T" id=txtIndexNumber>index {index}</div>
 <div class="hidden T" id=txtPlanReady>Transaction ready at a fresh checkpoint</div>
-<div class="hidden T" id=txtRefreshingInputs>Checking payment information…</div>
+<div class="hidden T" id=txtRefreshingInputs>Checking payment informationâ€¦</div>
 <div class="hidden T" id=txtRequest>REQUEST</div>
 <div class="hidden T" id=txtTransaction>TRANSACTION</div>
 <div class="hidden T" id=txtReceiveCoin>Receive {coin}</div>
 <div class="hidden T" id=txtReceiveAmountCoin>Receive {amount} {coin}</div>
 <div class="hidden T" id=txtSendCoin>Send {coin}</div>
 <div class="hidden T" id=txtSendAmountCoin>Send {amount} {coin}</div>
-<div class="hidden T" id=txtRefreshingCachedConfirmedAtBlock>Last confirmed {time} (block {height}) · refreshing…</div>
+<div class="hidden T" id=txtRefreshingCachedConfirmedAtBlock>Last confirmed {time} (block {height}) Â· refreshingâ€¦</div>
 <div class="hidden T" id=txtEnterScanDestination>Enter or scan a destination, then review the transaction</div>
 <div class="hidden T" id=txtDestinationUnlocked>Destination unlocked for editing</div>
 <div class="hidden T" id=txtScannedDestinationAccepted>Scanned destination accepted</div>
 <div class="hidden T" id=txtDestinationChanged>Destination changed</div>
 <div class="hidden T" id=txtSendPlaceholder>Address or payment request</div>
 <div class="hidden T" id=txtTransactionReview>Transaction review</div>
-<div class="hidden T" id=txtUnsignedLocalWarning>LOCAL ONLY · NOT SIGNED · NOT BROADCAST</div>
-<div class="hidden T" id=txtReviewedInputsSignedBelow>REVIEWED INPUTS · SIGNED RESULT BELOW</div>
+<div class="hidden T" id=txtUnsignedLocalWarning>LOCAL ONLY Â· NOT SIGNED Â· NOT BROADCAST</div>
+<div class="hidden T" id=txtReviewedInputsSignedBelow>REVIEWED INPUTS Â· SIGNED RESULT BELOW</div>
 <div class="hidden T" id=txtNoChangeOutput>No change output</div>
 <div class="hidden T" id=txtInvalidDerivationIndex>Invalid derivation index</div>
 <div class="hidden T" id=txtPlanChanged>The transaction details changed; review again</div>
@@ -789,11 +790,11 @@ Changes:
 <div class="hidden T" id=txtRecipient>Recipient</div>
 <div class="hidden T" id=txtChange>Change</div>
 <div class="hidden T" id=txtTransactionBuiltVerified>Transaction built, signed and verified locally</div>
-<div class="hidden T" id=txtBuildingSigningTransaction>Building and signing the transaction locally…</div>
+<div class="hidden T" id=txtBuildingSigningTransaction>Building and signing the transaction locallyâ€¦</div>
 <div class="hidden T" id=txtActiveMnemonicUnavailable>The active wallet seed is unavailable</div>
 <div class="hidden T" id=txtUnableBuildTransaction>Unable to build the transaction: {reason}</div>
 <div class="hidden T" id=txtBroadcastReady>The verified transaction is ready for final broadcast confirmation</div>
-<div class="hidden T" id=txtBroadcastSubmitting>Submitting the signed transaction…</div>
+<div class="hidden T" id=txtBroadcastSubmitting>Submitting the signed transactionâ€¦</div>
 <div class="hidden T" id=txtBroadcastAccepted>Broadcast accepted by the network</div>
 <div class="hidden T" id=txtBroadcastKnown>The transaction was already known by the network</div>
 <div class="hidden T" id=txtBroadcastConfirmed>Transaction confirmed at block {height} with {confirmations} confirmation(s)</div>
@@ -805,9 +806,9 @@ Changes:
 <div class="hidden T" id=txtNoSignedTransaction>No locally verified signed transaction is available</div>
 <div class="hidden T" id=txtPendingTransaction>The previous payment is still being processed</div>
 <div class="hidden T" id=txtPriorSubmissionUncertain>An earlier ROT may have received the transaction; inputs remain locked while status is checked</div>
-<div class="hidden T" id=txtBroadcastTiming>total {client} ms · relay {relay} ms · ROT roundtrip {rotRoundTrip} ms · ROT {rot} ms · Core {core} ms · attempt {attempt}</div>
-<div class="hidden T" id=txtStateTiming>state total {client} ms · relay {relay} ms · ROT roundtrip {rotRoundTrip} ms · attempt {attempt}</div>
-<div class="hidden T" id=txtTransactionStatusChecking>Checking transaction status…</div>
+<div class="hidden T" id=txtBroadcastTiming>total {client} ms Â· relay {relay} ms Â· ROT roundtrip {rotRoundTrip} ms Â· ROT {rot} ms Â· Core {core} ms Â· attempt {attempt}</div>
+<div class="hidden T" id=txtStateTiming>state total {client} ms Â· relay {relay} ms Â· ROT roundtrip {rotRoundTrip} ms Â· attempt {attempt}</div>
+<div class="hidden T" id=txtTransactionStatusChecking>Checking transaction statusâ€¦</div>
 <div class="hidden T" id=txtTransactionSubmitting>TRANSACTION SUBMITTING...</div>
 <div class="hidden T" id=txtTransactionSubmitted>TRANSACTION SUBMITTED</div>
 <div class="hidden T" id=txtTransactionConfirmed>TRANSACTION CONFIRMED</div>
@@ -843,7 +844,7 @@ Changes:
 
 <div class="hidden T" id=txtUnavailable>Unavailable</div>
 <script src="js/buffer-polyfill.js"></script>
-<script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js?v=CC-WALLET-V2-002"></script>
+<script src="js/bitcoinjs-lib-3.3.2-POS-DEM.js?v=CC-WALLET-V2-003"></script>
 <script src="js/bitcoinjs-lib-6-1-5.js"></script>
 <script src="js/bitcoinjsMessage.js"></script>
 <!--script>
@@ -856,7 +857,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=CC-WALLET-V2-002'></script>
+<script src='rooty.js?v=CC-WALLET-V2-003'></script>
 
 </body>
 </html>
