@@ -1,7 +1,8 @@
-/* [CC-WALLET-030]
-Complete German settings, Help, management and dialog translations.
-Base: - Derived from CC-WALLET-028
+/* [CC-WALLET-V2-006]
+Update German text for coin-neutral broadcasts, coin precision and calculator actions.
+Base: - Derived from CC-WALLET-V2-005
 Changes:
+- [CC-WALLET-V2-006] Translate generic broadcast warnings, decimal limits and SAVE/CANCEL/CLOSE
 - [CC-WALLET-030] Translate the unavailable-package status used by the language roadmap
 - [CC-WALLET-029] Apply the later Icelandic completion scope to all 167 current interface keys
 - Translate the 62 missing German interface strings
@@ -104,7 +105,7 @@ Changes:
   {original:"A new checkpoint is being requested",translation:"Ein neuer Checkpoint wird angefordert"},
   {original:"Payment information is temporarily unavailable",translation:"Zahlungsinformationen sind vor\u00fcbergehend nicht verf\u00fcgbar"},
   {original:"Fresh {coin} state unavailable",translation:"Aktueller {coin}-Status nicht verf\u00fcgbar"},
-  {original:"Enter a positive amount with no more than eight decimals",translation:"Gib einen positiven Betrag mit h\u00f6chstens acht Nachkommastellen ein"},
+  {original:"Enter a positive amount with no more than {decimals} decimals",translation:"Gib einen positiven Betrag mit h\u00f6chstens {decimals} Nachkommastellen ein"},
   {original:"The amount is outside the safe transaction range",translation:"Der Betrag liegt au\u00dferhalb des sicheren Transaktionsbereichs"},
   {original:"Enter a valid {coin} address",translation:"Gib eine g\u00fcltige {coin}-Adresse ein"},
   {original:"The payment request contains unsupported fields",translation:"Die Zahlungsanforderung enth\u00e4lt nicht unterst\u00fctzte Felder"},
@@ -209,10 +210,10 @@ Changes:
   {original:"Expert mode",translation:"Expertenmodus"},
   {original:"Broadcast roundtrip",translation:"Broadcast-Roundtrip"},
   {original:"Last status roundtrip",translation:"Letzter Status-Roundtrip"},
-  {original:"Broadcasting submits this transaction to the EFL network. It cannot be recalled.",translation:"Durch den Broadcast wird diese Transaktion an das EFL-Netzwerk \u00fcbermittelt. Sie kann nicht zur\u00fcckgerufen werden."},
+  {original:"Broadcasting submits this transaction to the network. It cannot be recalled.",translation:"Durch den Broadcast wird diese Transaktion an das Netzwerk \u00fcbermittelt. Sie kann nicht zur\u00fcckgerufen werden."},
   {original:"state total {client} ms \u00b7 relay {relay} ms \u00b7 ROT roundtrip {rotRoundTrip} ms \u00b7 attempt {attempt}",translation:"Status gesamt {client} ms \u00b7 Relay {relay} ms \u00b7 ROT-Roundtrip {rotRoundTrip} ms \u00b7 Versuch {attempt}"},
   {original:"CONTINUE TO BROADCAST",translation:"WEITER ZUM BROADCAST"},
-  {original:"Broadcasting submits this exact signed transaction to the EFL network. It cannot be recalled.",translation:"Durch den Broadcast wird genau diese signierte Transaktion an das EFL-Netzwerk \u00fcbermittelt. Sie kann nicht zur\u00fcckgerufen werden."},
+  {original:"Broadcasting submits this exact signed transaction to the network. It cannot be recalled.",translation:"Durch den Broadcast wird genau diese signierte Transaktion an das Netzwerk \u00fcbermittelt. Sie kann nicht zur\u00fcckgerufen werden."},
   {original:"BROADCAST NOW",translation:"JETZT BROADCASTEN"},
   {original:"Roundtrip",translation:"Roundtrip"},
   {original:"CHECK TRANSACTION STATUS",translation:"TRANSAKTIONSSTATUS PR\u00dcFEN"},
@@ -273,6 +274,11 @@ Changes:
   {original:"Can you help us improve?",translation:"Hilfst du uns, besser zu werden?"},
   {original:"A wallet like this is never really finished. Below you will find answers to common questions, but we would much rather hear from you. If something is confusing, missing or worth improving, tell us. Useful feedback may even earn a small coin reward.",translation:"Eine Wallet wie diese ist eigentlich nie ganz fertig. Unten findest du Antworten auf h\u00e4ufige Fragen, aber noch lieber h\u00f6ren wir direkt von dir. Ist etwas unklar, fehlt etwas oder k\u00f6nnte etwas besser sein? Sag es uns. Hilfreiches Feedback kann dir sogar eine kleine Belohnung in Coins einbringen."},
   {original:"Ask a question or share an idea",translation:"Stell eine Frage oder teile eine Idee"}
+].forEach(function(entry){translation.push(entry)})
+;[
+  {original:"SAVE",translation:"SPEICHERN"},
+  {original:"CANCEL",translation:"ABBRECHEN"},
+  {original:"CLOSE",translation:"SCHLIESSEN"}
 ].forEach(function(entry){translation.push(entry)})
 translation.push({original:"not available yet",translation:"noch nicht verfügbar"})
 ;[

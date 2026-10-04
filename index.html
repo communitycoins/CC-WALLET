@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<!-- [CC-WALLET-V2-005]
-Repair transferred Unicode and refresh corrected browser assets.
-Base: - Derived from CC-WALLET-V2-003
+<!-- [CC-WALLET-V2-006]
+Correct coin-neutral transaction text, amount precision and calculator dialogs.
+Base: - Derived from CC-WALLET-V2-005
 Changes:
+- [CC-WALLET-V2-006] Make broadcast warnings coin-neutral and amount precision coin-specific
+- Prevent invalid Receive amounts and simplify calculator currency dialogs
 - [CC-WALLET-V2-005] Restore intended Unicode and refresh corrected JavaScript assets
 - [CC-WALLET-V2-003] Refresh BitcoinJS and rooty.js for legacy-only PAK acceptance testing
 - [CC-WALLET-V2-002] Remove the Calculator heading and add Receive/Pay amount context
@@ -206,7 +208,7 @@ Changes:
           </section>
         </div>
         <div class="broadcast-confirmation hidden" id=idBroadcastConfirmation>
-          <div class="broadcast-warning T">Broadcasting submits this transaction to the EFL network. It cannot be recalled.</div>
+          <div class="broadcast-warning T">Broadcasting submits this transaction to the network. It cannot be recalled.</div>
           <dl class=compact-transaction-table>
             <dt class=T>Coin</dt><dd id=idBroadcastConfirmCoin></dd>
             <dt class=T>Amount</dt><dd id=idBroadcastConfirmAmount></dd>
@@ -744,7 +746,7 @@ Changes:
 <div class="hidden T" id=txtNewCheckpointRequested>A new checkpoint is being requested</div>
 <div class="hidden T" id=txtConfirmedInputsUnavailable>Payment information is temporarily unavailable</div>
 <div class="hidden T" id=txtFreshStateUnavailable>Fresh {coin} state unavailable</div>
-<div class="hidden T" id=txtInvalidAmountPrecision>Enter a positive amount with no more than eight decimals</div>
+<div class="hidden T" id=txtInvalidAmountPrecision>Enter a positive amount with no more than {decimals} decimals</div>
 <div class="hidden T" id=txtAmountOutsideSafeRange>The amount is outside the safe transaction range</div>
 <div class="hidden T" id=txtInvalidCoinAddress>Enter a valid {coin} address</div>
 <div class="hidden T" id=txtUnsupportedPaymentRequestFields>The payment request contains unsupported fields</div>
@@ -858,7 +860,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=CC-WALLET-V2-005'></script>
+<script src='rooty.js?v=CC-WALLET-V2-006'></script>
 
 </body>
 </html>

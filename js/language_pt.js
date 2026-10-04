@@ -1,5 +1,8 @@
-/* [CC-WALLET-030]
-Portuguese interface completion for the current wallet, Help, settings and transaction-dialog scope.
+/* [CC-WALLET-V2-006]
+Update Portuguese text for coin-neutral broadcasts, coin precision and calculator actions.
+Base: - Derived from CC-WALLET-V2-005
+Changes:
+- [CC-WALLET-V2-006] Translate generic broadcast warnings, decimal limits and SAVE/CANCEL/CLOSE
 */
 translation.push
  ({original:"Internet Portemonnee",
@@ -257,8 +260,8 @@ translation.push
  ({original:"Fresh {coin} state unavailable",
 translation:"Fresh {coin} state unavailable"})
 translation.push
- ({original:"Enter a positive amount with no more than eight decimals",
-translation:"Enter a positive amount with no more than eight decimals"})
+ ({original:"Enter a positive amount with no more than {decimals} decimals",
+translation:"Introduza um montante positivo com no máximo {decimals} casas decimais"})
 translation.push
  ({original:"The amount is outside the safe transaction range",
 translation:"The amount is outside the safe transaction range"})
@@ -806,8 +809,8 @@ translation.push
  ({original:"Last status roundtrip",
 translation:"Last status roundtrip"})
 translation.push
- ({original:"Broadcasting submits this transaction to the EFL network. It cannot be recalled.",
-translation:"Broadcasting submits this transaction to the EFL network. It cannot be recalled."})
+ ({original:"Broadcasting submits this transaction to the network. It cannot be recalled.",
+translation:"A transmissão envia esta transação para a rede. Não pode ser anulada."})
 translation.push
  ({original:"state total {client} ms · relay {relay} ms · ROT roundtrip {rotRoundTrip} ms · attempt {attempt}",
 translation:"state total {client} ms · relay {relay} ms · ROT roundtrip {rotRoundTrip} ms · attempt {attempt}"})
@@ -815,8 +818,8 @@ translation.push
  ({original:"CONTINUE TO BROADCAST",
 translation:"CONTINUAR PARA DIFUSÃO"})
 translation.push
- ({original:"Broadcasting submits this exact signed transaction to the EFL network. It cannot be recalled.",
-translation:"Broadcasting submits this exact signed transaction to the EFL network. It cannot be recalled."})
+ ({original:"Broadcasting submits this exact signed transaction to the network. It cannot be recalled.",
+translation:"A transmissão envia esta transação assinada exata para a rede. Não pode ser anulada."})
 translation.push
  ({original:"BROADCAST NOW",
 translation:"DIFUNDIR AGORA"})
@@ -1001,3 +1004,8 @@ translation.push
  ({original:"Wallet changed in another window. Another tab or app window changed the active wallet. This window has been stopped to protect your wallet data and will reload.",
 translation:"Wallet changed in another window. Another tab or app window changed the active wallet. This window has been stopped to protect your wallet data and will reload."})
 translation.push({original:"not available yet",translation:"ainda não disponível"})
+;[
+  {original:"SAVE",translation:"GUARDAR"},
+  {original:"CANCEL",translation:"CANCELAR"},
+  {original:"CLOSE",translation:"FECHAR"}
+].forEach(function(entry){translation.push(entry)})

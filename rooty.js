@@ -1,7 +1,9 @@
-/* [CC-WALLET-V2-005]
-Restore intended Unicode after the release-candidate transfer.
-Base: - Derived from CC-WALLET-V2-003
+/* [CC-WALLET-V2-006]
+Correct coin-neutral transaction text, amount precision and calculator dialogs.
+Base: - Derived from CC-WALLET-V2-005
 Changes:
+- [CC-WALLET-V2-006] Use coin-specific precision and canonical Receive amounts
+- Make broadcast warnings coin-neutral and require explicit calculator-dialog actions
 - [CC-WALLET-V2-005] Repair language names, Icelandic country names and the unavailable-language separator
 - [CC-WALLET-V2-003] Add legacy-only PAK derivation, state, signing and deterministic regression vectors
 - Keep PAK hidden unless the wallet is opened with testCoin=pak
@@ -423,7 +425,6 @@ modal.addEventListener('hidden.bs.modal', function () {
   document.querySelectorAll('#walletSeedContent,#walletMnemonicInput,#walletMnemonicPassphrase,#walletMnemonicPassphraseRepeat').forEach(function(field){field.value=""})
   document.querySelectorAll('#walletMnemonicPassphraseShow').forEach(function(control){control.checked=false})
   if (rewindObject=="setupOwner") {setTimeout('dial("setupOwner",0,1)',1)}  
-  if (rewindObject.substr(0,14)=="menuCurrencies"){setTimeout('dial("helpCalculator",0,1)',1)}
   if (rewindObject=="paymentRequest") {setTimeout('dial("paymentRequest",0,0)',1)}
   if (rewindObject=="sendRequest") {setTimeout('dial("sendRequest",0,0)',1)}
   rewindObject=""
@@ -929,7 +930,7 @@ var translationReady
 if (language!=defaultLanguage) {
   translationReady=new Promise(function(resolve){
   const scriptLanguage = document.createElement('script');
-  scriptLanguage.src = `js/language_${language}.js?v=CC-WALLET-031`;
+  scriptLanguage.src = `js/language_${language}.js?v=CC-WALLET-V2-006`;
   scriptLanguage.defer=true
   scriptLanguage.onload=function(){translate();resolve()}
   scriptLanguage.onerror=function(){
@@ -2211,7 +2212,7 @@ function handleClick(event) {
   if (clickedId == "idRequestShort") {}
   if ((clickedId=="owner")||(clickedId=="ownerLabel")||(clickedId=="menuOwner")) {dial("setupOwner",0,1);}
   if (clickedId=="menuPin") {openPinSettings();}
-  if (clickedId.substr(0,14)=="menuCurrencies") {rewindObject=clickedId;dial(clickedId,0,1);}
+  if (clickedId.substr(0,14)=="menuCurrencies") {dial(clickedId,0,1);}
   if (clickedId=="id_setting") {dial("setup",0,0)}
   if (clickedId=="id_question") {dial("helpMain",0,0)}
   if ((clickedId=="id_helpCalculator")||(clickedId=="menuCalculator")) {dial("helpCalculator",0,0)}
@@ -2384,8 +2385,7 @@ function flash(e,color) {
     var currency=combo==null?"":combo.value
     var numericValue=Number(e.value)
     if (Number.isFinite(numericValue)){
-      e.value=numericValue.toFixed(8)
-      if ((rates!=null)&&(rates[currency]!=undefined)&&(rates[currency].type==="fiat")){e.value=numericValue.toFixed(2)}
+      e.value=numericValue.toFixed(referenceDecimals(currency))
       e.value=trim0(e.value)
     }
   }
@@ -2947,10 +2947,44 @@ function showWalletSeed(){
   seedField.value=seed
   return true
 }
+function enforceCurrencyDialogSelection(menu){
+  var controls=Array.from(document.querySelectorAll('#id_modalbody [name="currencies"]'))
+  if ((menu==="Supported")||(controls.length===0)){return false}
+  var checked=controls.filter(function(control){return control.checked})
+  if (checked.length===0){
+    var active=String(combos[menu].active||"").replace(/\|/g,"")
+    var fallback=controls.find(function(control){return control.value===active})||controls[0]
+    fallback.checked=true
+    checked=[fallback]
+  }
+  controls.forEach(function(control){control.disabled=(checked.length===1)&&control.checked})
+  return true
+}
+function configureCurrencyDialog(menu){
+  var closeTop=$$$("#exit0")
+  var saveButton=$$$("#save")
+  var cancelButton=$$$("#exit1")
+  closeTop.classList.add("invisible")
+  if (menu==="Supported"){
+    saveButton.classList.add("invisible")
+    cancelButton.textContent=translateValue("CLOSE")
+    return
+  }
+  saveButton.classList.remove("invisible")
+  saveButton.textContent=translateValue("SAVE")
+  cancelButton.textContent=translateValue("CANCEL")
+  var controls=Array.from(document.querySelectorAll('#id_modalbody [name="currencies"]'))
+  controls.forEach(function(control){
+    control.addEventListener("change",function(){enforceCurrencyDialogSelection(menu)})
+  })
+  enforceCurrencyDialogSelection(menu)
+}
 async function dial(diaLog,help,save) {
   if (!modal.classList.contains("show")){dialogReturnFocus=document.activeElement}
   if ($$$("#exit0").classList.contains("invisible")) {$$$("#exit0").classList.toggle("invisible")}
   if ($$$("#exit1").classList.contains("invisible")) {$$$("#exit1").classList.toggle("invisible")}
+  $$$("#save").textContent=translateValue("OK")
+  $$$("#exit1").textContent=translateValue("Quit")
   dialogContext=diaLog
   var title
 
@@ -3100,6 +3134,7 @@ async function dial(diaLog,help,save) {
       old=currencies[i]
     }
     $$$("#id_selectCurrencies").innerHTML=currencyButtons
+    configureCurrencyDialog(menu)
   }
   if (diaLog=="balance") {
     $$$('#ModalTitle').textContent=T("txtWalletBalance")
@@ -3147,6 +3182,10 @@ function submit() {  // Modal OK-button
     const currencies = document.querySelectorAll('[name="currencies"]');
     var selected="|"
     currencies.forEach(currency => {if (currency.checked){selected+=currency.value+"|"}})
+    if ((menu!=="Supported")&&(selected==="|")){
+      enforceCurrencyDialogSelection(menu)
+      return false
+    }
     combos[menu].selected=selected
     localStorage.setItem("combos",JSON.stringify(combos))
     refreshCombos()
@@ -5102,7 +5141,7 @@ function parseCoinAmount(amount,coin=stateCoin){
   var text=String(amount==null?"":amount).trim()
   var amountPattern=new RegExp("^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,"+service.decimals+"})?$")
   if (!amountPattern.test(text)){
-    throw sendPlanError("INVALID_AMOUNT",T("txtInvalidAmountPrecision"))
+    throw sendPlanError("INVALID_AMOUNT",T("txtInvalidAmountPrecision",{decimals:service.decimals}))
   }
   var parts=text.split(".")
   var whole=Number(parts[0])
@@ -5129,6 +5168,11 @@ function validateCoinAddress(address,coin=stateCoin){
 }
 function normalizePaymentAmount(value){
   return String(value==null?"":value).replace(/\s+/g,"")
+}
+function canonicalPaymentAmount(value,coin=stateCoin){
+  var normalized=normalizePaymentAmount(value)
+  if (normalized===""){return ""}
+  return formatSats(parseCoinAmount(normalized,coin),coin)
 }
 function parsePaymentRequest(value,coin=stateCoin){
   var text=String(value==null?"":value).trim()
@@ -6222,14 +6266,14 @@ function verifyStateParser(coin=stateCoin){
 }
 function buildPaymentUri(address,amount,coin=stateCoin){
   var paymentUri=getStateService(coin).uriScheme+address
-  var receiveAmount=normalizePaymentAmount(amount)
+  var receiveAmount=canonicalPaymentAmount(amount,coin)
   if (receiveAmount!=""){paymentUri+="?amount="+encodeURIComponent(receiveAmount)}
   return paymentUri
 }
 function getReceiveRequest(mnemonicString,amount,coin=stateCoin,index=null,passphrase=null){
   if (index==null){index=getStateService(coin).receiveIndex}
   var address=deriveCoinAddress(mnemonicString,index,coin,passphrase)
-  var receiveAmount=normalizePaymentAmount(amount)
+  var receiveAmount=canonicalPaymentAmount(amount,coin)
   return {coin:coin,index:index,address:address,amount:receiveAmount,uri:buildPaymentUri(address,receiveAmount,coin)}
 }
 function beginReceiveRequest(coin=stateCoin){
@@ -6268,8 +6312,18 @@ function updateReceiveView(){
   var transactionPanel=$$$('#panel-transaction')
   var receiveView=$$$('#idReceiveView')
   if ((transactionPanel==null)||transactionPanel.classList.contains('hidden')||(receiveView==null)||receiveView.classList.contains('hidden')){return false}
-  if (currentReceiveRequest==undefined){beginReceiveRequest(stateCoin)}
-  currentReceiveRequest=getReceiveRequest(localStorage.getItem("bip39"),$$$('#inputSupported').value,stateCoin,currentReceiveRequest.index)
+  try{
+    if (currentReceiveRequest==undefined){beginReceiveRequest(stateCoin)}
+    currentReceiveRequest=getReceiveRequest(localStorage.getItem("bip39"),$$$('#inputSupported').value,stateCoin,currentReceiveRequest.index)
+  }catch(error){
+    currentReceiveRequest=undefined
+    $$$('#idReceiveAddressMain').textContent=""
+    $$$('#idReceiveUriMain').textContent=""
+    $$$('#idReceiveQrMain').innerHTML=""
+    paymentMail=""
+    markCalculatorUnavailable($$$('#inputSupported'))
+    return false
+  }
   updateReceiveTitle()
   $$$('#idReceiveAddressMain').textContent=currentReceiveRequest.address
   $$$('#idReceiveUriMain').textContent=currentReceiveRequest.uri
@@ -6348,7 +6402,13 @@ function showReceiveView(){
   currentPaymentReceiptHistoryStatus=undefined
   currentPaymentReceiptSeenAt=undefined
   clearAutomaticCalculatorBalance()
-  beginReceiveRequest(stateCoin)
+  try{
+    beginReceiveRequest(stateCoin)
+  }catch(error){
+    markCalculatorUnavailable($$$('#inputSupported'))
+    alert(error.message)
+    return false
+  }
   wakeState("receive",true)
   $$$('#idTransactionKicker').textContent=T("txtRequest")
   $$$('#idTransactionTitle').textContent=T("txtReceiveCoin",{coin:supportedCoins[stateCoin].name})
