@@ -1,7 +1,8 @@
-/* [CC-WALLET-V2-003]
-Add opt-in Pakcoin integration for the PAK acceptance branch.
-Base: - Derived from CC-WALLET-V2-002
+/* [CC-WALLET-V2-005]
+Restore intended Unicode after the release-candidate transfer.
+Base: - Derived from CC-WALLET-V2-003
 Changes:
+- [CC-WALLET-V2-005] Repair language names, Icelandic country names and the unavailable-language separator
 - [CC-WALLET-V2-003] Add legacy-only PAK derivation, state, signing and deterministic regression vectors
 - Keep PAK hidden unless the wallet is opened with testCoin=pak
 - Run derivation canaries for the active coin on startup and defer other coin canaries until selection
@@ -848,8 +849,8 @@ var clickedIt=Date.now()
 const languageCandidates=Object.freeze(["en","nl","is","de","pt","ru","es","ja","pl","fr","ur"])
 const bundledLanguages=Object.freeze(["en","nl","is","de","pt","ru"])
 const languageNames=Object.freeze({
-  en:"English",nl:"Nederlands",is:"Ãslenska",de:"Deutsch",pt:"PortuguÃªs",ru:"Ð ÑƒÑÑÐºÐ¸Ð¹",
-  es:"EspaÃ±ol",ja:"æ—¥æœ¬èªž",pl:"Polski",fr:"FranÃ§ais",ur:"Ø§Ø±Ø¯Ùˆ"
+  en:"English",nl:"Nederlands",is:"Íslenska",de:"Deutsch",pt:"Português",ru:"Русский",
+  es:"Español",ja:"日本語",pl:"Polski",fr:"Français",ur:"اردو"
 })
 const availableLanguages=new Set(bundledLanguages)
 const translation=[]

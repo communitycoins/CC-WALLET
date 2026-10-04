@@ -1,3 +1,9 @@
+/* [CC-WALLET-V2-005]
+Restore intended Unicode in the Community Coins BitcoinJS bundle.
+Base: - Derived from CC-WALLET-V2-003
+Changes:
+- [CC-WALLET-V2-005] Repair transferred punctuation without changing executable coin logic
+*/
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.bitcoin = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 (function (global){(function (){
 'use strict';
@@ -5782,7 +5788,7 @@ CipherBase.prototype._toString = function (value, enc, fin) {
 	}
 
 	if (this._encoding !== enc) {
-		throw new Error('canâ€™t switch encodings');
+		throw new Error('can’t switch encodings');
 	}
 
 	var out = this._decoder.write(value);
@@ -17440,7 +17446,7 @@ function verify (hash, signature, Q) {
   var r = signature.r
   var s = signature.s
 
-  // 1.4.1 Enforce r and s are both integers in the interval [1, n âˆ’ 1]
+  // 1.4.1 Enforce r and s are both integers in the interval [1, n − 1]
   if (r.signum() <= 0 || r.compareTo(n) >= 0) return false
   if (s.signum() <= 0 || s.compareTo(n) >= 0) return false
 
@@ -17451,8 +17457,8 @@ function verify (hash, signature, Q) {
   // Compute s^-1
   var sInv = s.modInverse(n)
 
-  // 1.4.4 Compute u1 = es^âˆ’1 mod n
-  //               u2 = rs^âˆ’1 mod n
+  // 1.4.4 Compute u1 = es^−1 mod n
+  //               u2 = rs^−1 mod n
   var u1 = e.multiply(sInv).mod(n)
   var u2 = r.multiply(sInv).mod(n)
 
