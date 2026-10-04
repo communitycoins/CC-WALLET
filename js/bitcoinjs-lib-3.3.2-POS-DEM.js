@@ -5782,7 +5782,7 @@ CipherBase.prototype._toString = function (value, enc, fin) {
 	}
 
 	if (this._encoding !== enc) {
-		throw new Error('can’t switch encodings');
+		throw new Error('canâ€™t switch encodings');
 	}
 
 	var out = this._decoder.write(value);
@@ -17440,7 +17440,7 @@ function verify (hash, signature, Q) {
   var r = signature.r
   var s = signature.s
 
-  // 1.4.1 Enforce r and s are both integers in the interval [1, n − 1]
+  // 1.4.1 Enforce r and s are both integers in the interval [1, n âˆ’ 1]
   if (r.signum() <= 0 || r.compareTo(n) >= 0) return false
   if (s.signum() <= 0 || s.compareTo(n) >= 0) return false
 
@@ -17451,8 +17451,8 @@ function verify (hash, signature, Q) {
   // Compute s^-1
   var sInv = s.modInverse(n)
 
-  // 1.4.4 Compute u1 = es^−1 mod n
-  //               u2 = rs^−1 mod n
+  // 1.4.4 Compute u1 = es^âˆ’1 mod n
+  //               u2 = rs^âˆ’1 mod n
   var u1 = e.multiply(sInv).mod(n)
   var u2 = r.multiply(sInv).mod(n)
 
@@ -18122,6 +18122,18 @@ module.exports = {
     wif: 0xD5,
     HD: 278,
     isPoS: false
+  },
+  pakcoin: {
+    messagePrefix: '\x18Pakcoin Signed Message:\n',
+    bip32: {
+      public: 0x0488b21e,
+      private: 0x0488ade4
+    },
+    pubKeyHash: 0x37,
+    scriptHash: 0x05,
+    wif: 0xb0,
+    HD: 1503,
+    isPoS: true
   },
   fujicoin: {
     messagePrefix: '\x19FujiCoin Signed Message:\n',
