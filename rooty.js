@@ -1,7 +1,10 @@
-/* [CC-WALLET-V2-002]
-Refine transaction context and restrict native SegWit destinations to deployed networks.
-Base: - Derived from CC-WALLET-V2-001
+/* [CC-WALLET-V2-003]
+Add opt-in Pakcoin integration for the PAK acceptance branch.
+Base: - Derived from CC-WALLET-V2-002
 Changes:
+- [CC-WALLET-V2-003] Add legacy-only PAK derivation, state, signing and deterministic regression vectors
+- Keep PAK hidden unless the wallet is opened with testCoin=pak
+- Run derivation canaries for the active coin on startup and defer other coin canaries until selection
 - [CC-WALLET-V2-002] Disable AUR P2WPKH after its failed SegWit deployment and retain CDN only
 - Remove the Calculator heading and distinguish Receive and Pay amount context
 - Preserve uppercase wallet names and use calm success feedback
@@ -496,13 +499,15 @@ $$$("#splashScreen").addEventListener("transitionend", () => {
 
 var networks={}
 var supportedCoins={}
-const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem"])
+const requestedTestCoin=String(new URLSearchParams(window.location.search).get("testCoin")||"").trim().toLowerCase()
+const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem"].concat(requestedTestCoin==="pak"?["pak"]:[]))
 const p2wpkhDestinationCoins=Object.freeze(["cdn"])
 const walletFiatDefaults=Object.freeze({
   efl:Object.freeze(["eur","usd"]),
   dem:Object.freeze(["eur","usd"]),
   aur:Object.freeze(["isk","eur","usd"]),
-  cdn:Object.freeze(["cad","usd"])
+  cdn:Object.freeze(["cad","usd"]),
+  pak:Object.freeze(["pkr","usd"])
 })
 combos={
   Balance:{available:"|",selected:"|",active:"|",old:"|"},
@@ -683,6 +688,43 @@ supportedCoins["dem"].stateService={
 }
 supportedCoins["dem"].balance="0"
 supportedCoins["dem"].connections=0
+supportedCoins["pak"].stateService={
+  url:"./proxy.php",
+  responseCoin:"PAK",
+  uriScheme:"pakcoin:",
+  unitsPerCoin:100000000,
+  decimals:8,
+  changeIndex:0,
+  receiveIndex:1,
+  initialReceiveCount:10,
+  maximumReceiveIndex:50,
+  receiveBatchSize:10,
+  reuseResetRemaining:20,
+  focusDuration:10*60*1000,
+  focusInterval:60*1000,
+  requestTimeout:8000,
+  spendableAge:60*1000+8000,
+  feeTierInputs:6,
+  minimumFeeSats:100000,
+  maximumRawTransactionHex:65000,
+  broadcastTimeout:30000,
+  maximumZeroConfirmationObservers:3,
+  historyTimeout:45000,
+  broadcastStatusInterval:60000,
+  testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  testAddresses:{
+    0:"PNikKnFtqUEo3ELoqf2UbkvoZqsm41PRcy",
+    1:"PGU4q581VsZnMchpQpRecdpagsfQ7YmU6R",
+    10:"PHaULQLqr2v2kGtK4N8wjrkyT1e6YT85BZ"
+  },
+  testPassphrase:"TREZOR",
+  testPassphraseAddress:"PJQsSXooxHQgSUGNmX4y6UpLo216Dwsnq2",
+  testTransactionTime:1700000000,
+  testSignedTxid:"9da88f9463418b75e90893a311843f7bf2a8b077ec090f67a66b633df8898698",
+  testSignedByteLength:378
+}
+supportedCoins["pak"].balance="0"
+supportedCoins["pak"].connections=0
 if (change) {
   endorsed="aur|cdn|efl|cesc|dem|slg|pak|rubtc|boli|btc|ltc"
   testCombos()
@@ -806,8 +848,8 @@ var clickedIt=Date.now()
 const languageCandidates=Object.freeze(["en","nl","is","de","pt","ru","es","ja","pl","fr","ur"])
 const bundledLanguages=Object.freeze(["en","nl","is","de","pt","ru"])
 const languageNames=Object.freeze({
-  en:"English",nl:"Nederlands",is:"Íslenska",de:"Deutsch",pt:"Português",ru:"Русский",
-  es:"Español",ja:"日本語",pl:"Polski",fr:"Français",ur:"اردو"
+  en:"English",nl:"Nederlands",is:"Ãslenska",de:"Deutsch",pt:"PortuguÃªs",ru:"Ð ÑƒÑÑÐºÐ¸Ð¹",
+  es:"EspaÃ±ol",ja:"æ—¥æœ¬èªž",pl:"Polski",fr:"FranÃ§ais",ur:"Ø§Ø±Ø¯Ùˆ"
 })
 const availableLanguages=new Set(bundledLanguages)
 const translation=[]
@@ -2776,7 +2818,7 @@ function promotionCountry(coin){
   const countriesByLanguage={
     en:{efl:"the Netherlands",aur:"Iceland",cdn:"Canada",dem:"Germany",pak:"Pakistan",slg:"the United Kingdom",cesc:"Portugal",fjc:"Japan",rubtc:"Russia"},
     nl:{efl:"Nederland",aur:"IJsland",cdn:"Canada",dem:"Duitsland",pak:"Pakistan",slg:"het Verenigd Koninkrijk",cesc:"Portugal",fjc:"Japan",rubtc:"Rusland"},
-    is:{efl:"Hollandi",aur:"Íslandi",cdn:"Kanada",dem:"Þýskalandi",pak:"Pakistan",slg:"Bretlandi",cesc:"Portúgal",fjc:"Japan",rubtc:"Rússlandi"}
+    is:{efl:"Hollandi",aur:"Ãslandi",cdn:"Kanada",dem:"ÃžÃ½skalandi",pak:"Pakistan",slg:"Bretlandi",cesc:"PortÃºgal",fjc:"Japan",rubtc:"RÃºsslandi"}
   }
   var names=countriesByLanguage[language]||countriesByLanguage.en
   return names[coin]||T("txtPromotionHomeCommunity")
@@ -3016,7 +3058,7 @@ async function dial(diaLog,help,save) {
       const isAvailable=availableLanguages.has(option)
       if (option==language){checked=' checked'} else {checked=''}
       const disabled=isAvailable?'':' disabled'
-      const unavailable=isAvailable?'':` <span class="language-status">— ${translateValue("not available yet")}</span>`
+      const unavailable=isAvailable?'':` <span class="language-status">â€” ${translateValue("not available yet")}</span>`
       languageButtons+=`<div class="radio-option language-option${isAvailable?'':' language-unavailable'}"><input id="language-option-${option}" type="radio" class="radio-button" name="languages" `
       languageButtons+=`value="${option}"${checked}${disabled}>`
       languageButtons+=`<label class="radio-label" for="language-option-${option}">${languageNames[option]} <span class="language-code">(${option})</span>${unavailable}</label></div>`;
@@ -4711,6 +4753,7 @@ function resetWalletState(reason="wallet-change",coin=stateCoin){
 }
 function switchStateCoin(coin,reason="coin-selection",wake=true){
   if (!operationalWalletCoins().includes(coin)){throw new Error("State service unavailable for "+coin)}
+  verifyCoinDerivation(coin)
   if (coin===stateCoin){
     updateCoinPresentation(coin)
     return wake?wakeState(reason,true):Promise.resolve(walletState.snapshot||true)
@@ -6416,8 +6459,16 @@ function verifyMnemonicPassphrase(coin=stateCoin){
   }
   return true
 }
+var verifiedCoinDerivations={}
+function verifyCoinDerivation(coin=stateCoin){
+  if (verifiedCoinDerivations[coin]===true){return true}
+  verifyMnemonicDerivation(coin)
+  verifyMnemonicPassphrase(coin)
+  verifiedCoinDerivations[coin]=true
+  return true
+}
 function verifyOperationalDerivations(){
-  operationalWalletCoins().forEach(function(coin){verifyMnemonicDerivation(coin);verifyMnemonicPassphrase(coin)})
+  operationalWalletCoins().forEach(function(coin){verifyCoinDerivation(coin)})
   return true
 }
 function runWalletDiagnostics(){
@@ -7026,10 +7077,10 @@ async function cc(){
   loadHelpTweetConfig().catch(function(error){console.error("Unable to load Help tweet configuration:",error)})
   applyExpertMode()
   updateWalletSpendLockPresentation()
-  verifyOperationalDerivations()
-  markWalletBoot("derivation-canary-ready")
   await recoverInterruptedWalletReplacement()
   await applyInitialProxyCoin()
+  verifyCoinDerivation(stateCoin)
+  markWalletBoot("derivation-canary-ready")
   if (localStorage.getItem("ids")!=null){ids=JSON.parse(localStorage.getItem("ids"))}
   setEntropy()
   initializeWalletContext()
