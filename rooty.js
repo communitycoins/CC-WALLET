@@ -1,12 +1,13 @@
-/* [CC-WALLET-V2-006]
-Correct coin-neutral transaction text, amount precision and calculator dialogs.
-Base: - Derived from CC-WALLET-V2-005
+/* [CC-WALLET-V2-007]
+Promote validated PAK support for Community Coins Wallet 1.1.
+Base: - Derived from CC-WALLET-V2-006
 Changes:
+- [CC-WALLET-V2-007] Make PAK a normal operational wallet coin without a test query
 - [CC-WALLET-V2-006] Use coin-specific precision and canonical Receive amounts
 - Make broadcast warnings coin-neutral and require explicit calculator-dialog actions
 - [CC-WALLET-V2-005] Repair language names, Icelandic country names and the unavailable-language separator
 - [CC-WALLET-V2-003] Add legacy-only PAK derivation, state, signing and deterministic regression vectors
-- Keep PAK hidden unless the wallet is opened with testCoin=pak
+- Keep PAK legacy-only and subject to the same runtime checks as the other operational coins
 - Run derivation canaries for the active coin on startup and defer other coin canaries until selection
 - [CC-WALLET-V2-002] Disable AUR P2WPKH after its failed SegWit deployment and retain CDN only
 - Remove the Calculator heading and distinguish Receive and Pay amount context
@@ -501,8 +502,7 @@ $$$("#splashScreen").addEventListener("transitionend", () => {
 
 var networks={}
 var supportedCoins={}
-const requestedTestCoin=String(new URLSearchParams(window.location.search).get("testCoin")||"").trim().toLowerCase()
-const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem"].concat(requestedTestCoin==="pak"?["pak"]:[]))
+const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem","pak"])
 const p2wpkhDestinationCoins=Object.freeze(["cdn"])
 const walletFiatDefaults=Object.freeze({
   efl:Object.freeze(["eur","usd"]),
@@ -930,7 +930,7 @@ var translationReady
 if (language!=defaultLanguage) {
   translationReady=new Promise(function(resolve){
   const scriptLanguage = document.createElement('script');
-  scriptLanguage.src = `js/language_${language}.js?v=CC-WALLET-V2-006`;
+  scriptLanguage.src = `js/language_${language}.js?v=CC-WALLET-V2-007`;
   scriptLanguage.defer=true
   scriptLanguage.onload=function(){translate();resolve()}
   scriptLanguage.onerror=function(){

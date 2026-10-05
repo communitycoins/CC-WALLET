@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<!-- [CC-WALLET-V2-006]
-Correct coin-neutral transaction text, amount precision and calculator dialogs.
-Base: - Derived from CC-WALLET-V2-005
+<!-- [CC-WALLET-V2-007]
+Promote validated PAK support for Community Coins Wallet 1.1.
+Base: - Derived from CC-WALLET-V2-006
 Changes:
+- [CC-WALLET-V2-007] Expose PAK as a production wallet coin and identify Wallet 1.1
 - [CC-WALLET-V2-006] Make broadcast warnings coin-neutral and amount precision coin-specific
 - Prevent invalid Receive amounts and simplify calculator currency dialogs
 - [CC-WALLET-V2-005] Restore intended Unicode and refresh corrected JavaScript assets
@@ -276,7 +277,7 @@ Changes:
       </div>
       <div class="div-center wallet-help-product">
         <p class=T>Community Coins wallet</p>
-        <p class=wallet-version>Version 1.0</p>
+        <p class=wallet-version>Version 1.1</p>
       </div>
     </div>
     <div class="panel">
@@ -860,7 +861,7 @@ const bitcoin2.ECPair = window.ECPair;
 <script src="js/wordlist_english.js"></script>
 <script src="js/jsbip39.js"></script>
 <script src="js/entropy.js"></script>
-<script src='rooty.js?v=CC-WALLET-V2-006'></script>
+<script src='rooty.js?v=CC-WALLET-V2-007'></script>
 
 </body>
 </html>

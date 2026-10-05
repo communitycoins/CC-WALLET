@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
   "bootstrapUrl": "https://wallet.communitycoins.org/proxy.php",
+  "acceptedCoins": ["EFL", "AUR", "CDN", "DEM", "PAK"],
   "primaryCoin": "AUR"
 }
