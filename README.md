@@ -58,9 +58,9 @@ published to wallets and accepted for CORS; the status does not alter ROT.php
 or invalidate ROT registrations that a proxy already holds.
 
 The browser bundle includes Bootstrap 5.3.2 and Bootstrap Icons 1.11.2 locally.
-There is deliberately no service worker in this release; upgrades use the
-`CC-WALLET-031` query key on the wallet JavaScript, CSS and selected language
-table.
+There is deliberately no service worker in this release. Versioned browser
+asset query keys refresh changed JavaScript, CSS and language files without
+introducing a separate service-worker cache.
 
 ### Hourly network metrics and seven-day detail
 
@@ -125,13 +125,15 @@ synchronous central hello. When that attempt fails, the older validated copy
 remains the availability fallback. Bootstrap-local requests never perform an
 external directory fetch.
 
-## Release number and language roadmap — 19 September 2026
+## Release number and language roadmap — 5 October 2026
 
-CC-WALLET-031 shows `Version 1.0` on a separate centered line below the product
-name in Wallet Help. The corresponding first Git release tag is `v1.0.0`.
-Git tags follow `vMAJOR.MINOR.PATCH`; the wallet deliberately shows only
-`MAJOR.MINOR` so an operational bug-fix build does not turn the Help screen
-into release engineering information.
+CC-WALLET-V2-007 shows `Version 1.1` on a separate centered line below the
+product name in Wallet Help. Version 1.1 promotes PAK after its complete
+acceptance gate; the corresponding Git release tag is `v1.1.0`. Git tags follow
+`vMAJOR.MINOR.PATCH`; the wallet deliberately shows only `MAJOR.MINOR` so an
+operational bug-fix build does not turn the Help screen into release
+engineering information. The first production release remains tagged
+`v1.0.0`.
 
 This compatible patch also closes an open Receive or Send panel before the
 Balance dialog changes coin, reports the calculated tiered fee beside an
@@ -161,21 +163,21 @@ privacy controls. Native speakers should still review tone and terminology
 before the release tag is signed; package completeness is not a substitute for
 language review.
 
-## Status — 29 August 2026
+## Status — 5 October 2026
 
 - **EFL (eGulden)** is the first complete end-to-end wallet slice. Wallet
   creation and recovery, Receive, confirmed state, history, local transaction
   construction and signing, broadcast, transaction status, and optional
   zero-confirmation observation are connected and covered by regression tests.
-- **DEM (Deutsche eMark)** is the first multicoin extension. ROT 0.8.2 is
-  operational; state, history, and transaction-status responses have been
-  verified. The bitcoinjs fork now supports DEM's timestamped transaction
-  format and its CompactSize transaction comment. The DEM gateway,
-  `stateService` activation, and a small real Send/Receive cycle are still to be
-  completed before DEM appears as an operational wallet coin.
-- **AUR and CDN** are the next intended wallet targets. Their presence in the
-  prototype or calculator does not yet mean that the complete current wallet
-  path is enabled.
+- **AUR, CDN and DEM** are operational wallet coins. CDN accepts native P2WPKH
+  destinations for outgoing payments; wallet-owned addresses remain legacy.
+  AUR remains legacy-only because its SegWit deployment did not activate. DEM
+  uses six-decimal amounts and its timestamped transaction format.
+- **PAK (Pakcoin)** passed deterministic recovery, state, history, Receive,
+  Send, invalid-address, insufficient-balance, proxy-failover, restart,
+  zero-confirmation, confirmed-balance and multiple-input/change tests. Its ROT
+  is registered at the three project-operated proxies, and Wallet 1.1 exposes
+  PAK as a normal legacy-only wallet coin.
 - Other coin definitions and earlier ROT experiments remain useful research,
   but they are not a support claim. A coin is exposed by the wallet selector
   only after its complete derivation, state, history, fee, signing, broadcast,
@@ -434,9 +436,9 @@ and add redundancy or adjust limits where the evidence requires it.
 
 ## Known boundaries
 
-- The 1.0 interface exposes EFL, AUR, CDN and DEM. PAK remains hidden until its
-  full derivation, state, history, payment and restart path has passed the same
-  end-to-end acceptance gate.
+- The 1.1 interface exposes EFL, AUR, CDN, DEM and PAK. New coins remain hidden
+  until their complete derivation, state, history, payment, restart and recovery
+  path passes the same end-to-end acceptance gate.
 - Legacy P2PKH is a deliberate compatibility boundary, not a temporary claim
   of support for every output type.
 - Address discovery is presently bounded at index 50.
@@ -454,11 +456,11 @@ and add redundancy or adjust limits where the evidence requires it.
 
 ## Near-term route
 
-1. Bring PAK online behind the existing interface and keep it hidden until its
-   derivation, state, history, Send, Receive, restart and recovery path passes.
-2. Upgrade one PAK ROT first, observe registration and health, then add further
-   ROTs individually without changing the 1.0 user interface.
-3. Review the new Portuguese and Russian tables with their coin teams and
+1. Add deployment-version inventory so the monitor can compare the installed
+   public-file checksums of each proxy with known release manifests.
+2. Integrate remaining coins one at a time behind the same acceptance gate,
+   without expanding the frozen minimal interface prematurely.
+3. Review the Portuguese and Russian tables with their coin teams and
    prepare complete `es`, `fr`, `pl`, `ur` and `ja` language tables. All five
    commitments are already visible but disabled in the selector. Urdu also
    requires right-to-left layout tests; Japanese requires font, line-breaking

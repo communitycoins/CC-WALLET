@@ -1,7 +1,8 @@
-/* [CC-WALLET-030]
-Complete Dutch settings, Help, management and dialog translations.
-Base: - Derived from CC-WALLET-028
+/* [CC-WALLET-V2-006]
+Update Dutch text for coin-neutral broadcasts, coin precision and calculator actions.
+Base: - Derived from CC-WALLET-V2-005
 Changes:
+- [CC-WALLET-V2-006] Translate generic broadcast warnings, decimal limits and SAVE/CANCEL/CLOSE
 - [CC-WALLET-030] Translate the unavailable-package status used by the language roadmap
 - [CC-WALLET-029] Apply the later Icelandic completion scope to all 167 current interface keys
 - Translate the 62 missing Dutch interface strings and replace two remaining English settings values
@@ -251,7 +252,7 @@ translation:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Port
   {original:"A new checkpoint is being requested",translation:"Een nieuw checkpoint wordt opgevraagd"},
   {original:"Payment information is temporarily unavailable",translation:"Betalingsinformatie is tijdelijk niet beschikbaar"},
   {original:"Fresh {coin} state unavailable",translation:"Actuele {coin}-status niet beschikbaar"},
-  {original:"Enter a positive amount with no more than eight decimals",translation:"Vul een positief bedrag in met maximaal acht decimalen"},
+  {original:"Enter a positive amount with no more than {decimals} decimals",translation:"Voer een positief bedrag in met maximaal {decimals} decimalen"},
   {original:"The amount is outside the safe transaction range",translation:"Het bedrag valt buiten het veilige transactiebereik"},
   {original:"Enter a valid {coin} address",translation:"Vul een geldig {coin}-adres in"},
   {original:"The payment request contains unsupported fields",translation:"Het betaalverzoek bevat niet-ondersteunde velden"},
@@ -277,6 +278,11 @@ translation:'Canada|Iceland|The Netherlands|Pakistan|United Kingdom|Germany|Port
   {original:"EFL address or e-gulden: request",translation:"EFL-adres of e-gulden:-verzoek"},
   {original:"Local transaction plan",translation:"Lokaal transactieplan"},
   {original:"Back to wallet",translation:"Terug naar wallet"}
+].forEach(function(entry){translation.push(entry)})
+;[
+  {original:"SAVE",translation:"OPSLAAN"},
+  {original:"CANCEL",translation:"ANNULEREN"},
+  {original:"CLOSE",translation:"SLUITEN"}
 ].forEach(function(entry){translation.push(entry)})
 translation.push({original:"not available yet",translation:"nog niet beschikbaar"})
 ;[
@@ -466,13 +472,13 @@ translation.push({original:"not available yet",translation:"nog niet beschikbaar
   {original:"Expert mode",translation:"Expertmodus"},
   {original:"Broadcast roundtrip",translation:"Uitzend-retourduur"},
   {original:"Last status roundtrip",translation:"Laatste status-retourduur"},
-  {original:"Broadcasting submits this transaction to the EFL network. It cannot be recalled.",translation:"Uitzenden dient deze transactie in bij het EFL-netwerk. Dit kan niet worden teruggedraaid."},
+  {original:"Broadcasting submits this transaction to the network. It cannot be recalled.",translation:"Uitzenden dient deze transactie in bij het netwerk. Dit kan niet worden teruggedraaid."},
   {original:"state total {client} ms · relay {relay} ms · ROT roundtrip {rotRoundTrip} ms · attempt {attempt}",translation:"status totaal {client} ms · relay {relay} ms · ROT-retour {rotRoundTrip} ms · poging {attempt}"}
 ].forEach(function(entry){translation.push(entry)})
 
 ;[
   {original:"CONTINUE TO BROADCAST",translation:"DOORGAAN NAAR UITZENDEN"},
-  {original:"Broadcasting submits this exact signed transaction to the EFL network. It cannot be recalled.",translation:"Uitzenden dient exact deze ondertekende transactie in bij het EFL-netwerk. Dit kan niet worden teruggedraaid."},
+  {original:"Broadcasting submits this exact signed transaction to the network. It cannot be recalled.",translation:"Uitzenden dient exact deze ondertekende transactie in bij het netwerk. Dit kan niet worden teruggedraaid."},
   {original:"BROADCAST NOW",translation:"NU UITZENDEN"},
   {original:"Roundtrip",translation:"Retourduur"},
   {original:"CHECK TRANSACTION STATUS",translation:"TRANSACTIESTATUS CONTROLEREN"},

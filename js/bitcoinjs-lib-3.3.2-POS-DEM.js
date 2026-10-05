@@ -1,3 +1,9 @@
+/* [CC-WALLET-V2-005]
+Restore intended Unicode in the Community Coins BitcoinJS bundle.
+Base: - Derived from CC-WALLET-V2-003
+Changes:
+- [CC-WALLET-V2-005] Repair transferred punctuation without changing executable coin logic
+*/
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.bitcoin = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 (function (global){(function (){
 'use strict';
@@ -18123,6 +18129,18 @@ module.exports = {
     HD: 278,
     isPoS: false
   },
+  pakcoin: {
+    messagePrefix: '\x18Pakcoin Signed Message:\n',
+    bip32: {
+      public: 0x0488b21e,
+      private: 0x0488ade4
+    },
+    pubKeyHash: 0x37,
+    scriptHash: 0x05,
+    wif: 0xb0,
+    HD: 1503,
+    isPoS: true
+  },
   fujicoin: {
     messagePrefix: '\x19FujiCoin Signed Message:\n',
     bip32: {
@@ -18149,6 +18167,7 @@ module.exports = {
   },
   canadaecoin: {
     messagePrefix: '\x18Canada eCoin Signed Message:\n',
+    bech32: 'cdn',
     bip32: {
       public: 0x0488b21e,
       private: 0x0488ade4,

@@ -1,95 +1,15 @@
 <?php
-/* [CC-WALLET-026]
-Collect changed wallet X-help configurations by wallet-installation hostname.
-Base: - Derived from CC-WALLET-025
+/* [CC-WALLET-V2-004]
+Let approved proxies update their advertised coin coverage.
+Base: - Derived from CC-WALLET-V2-003
 Changes:
-- [CC-WALLET-026] Key X-help storage by proxyId instead of primaryCoin
-- Store normalized content as xhelp/<proxyId>/tweets.json without a team envelope
-- [CC-WALLET-025] Report a validated tweets.json only after its normalized content changes
-- Archive reports without blocking wallet traffic
-- [CC-WALLET-024] Make detailed logs, hourly aggregates and the sender watch fail open
-- Keep version.1 immutable and report a conflicting installed definition without replacing it
-- Record bounded daily bootstrap rejection sidecars for monitor-visible rejected uploads
-- Document that the SHA-256 digest provides integrity and idempotence, not sender authentication
-- [CC-WALLET-023] Rotate detailed network logs by UTC date and retain seven calendar days
-- Aggregate wallet, directory, registration, ROT and central traffic into versioned hourly records
-- Store shared metric definitions under network-inbox/versions and plain proxy-hour records by proxy ID
-- Serve a locally cached proxy directory for one hour before synchronously refreshing it
-- [CC-WALLET-019] Publish routeable ROT coverage through the existing directory count field
-- Report changed coverage after the client response and retry missed reports on later requests
-- Bound directory hellos with a private digest watch and serialize directory read-modify-write updates
-- [CC-WALLET-018] Normalize legacy, transitional status and schema-2 proxy directories without a bootstrap outage
-- Allow an empty pending prospect and return a bounded directory failure reason for operator diagnosis
-- Submit bounded new network.log segments after ordinary responses and archive them centrally for later aggregation
-- [CC-WALLET-017] Store OK, PROSPECT and CANDIDATE entries together in proxy-directory.json schema 2
-- Migrate every legacy directory proxy to OK and import legacy candidates without deleting their source file
-- Publish and authorize only OK proxies while prospect hello promotes automatically and candidate hello remains pending
-- Publish the operator-selected primary coin and recognize auroracoin.is as the AUR root domain
-- [CC-WALLET-016] Permit approved external wallet origins to use state, history, broadcast, transaction status and zero-confirmation
-- Start safely without operator-config.json by deriving the primary coin from a bounded domain catalogue and otherwise choosing AUR
-- Let an explicit valid operator configuration override standard bootstrap, primary-coin and capacity policy
-- Reject an invalid present configuration instead of silently falling back to standard policy
-- [CC-WALLET-015] Require CC-PROXY/operator-config.json before initializing any proxy storage
-- Separate fixed coin protocol facts and global safety policy from local operator choices
-- Keep accepted proxy coins in the centrally maintained protocol catalogue
-- Seed fresh coin state with a deep centrally reviewed checkpoint instead of trusting a configured ROT address
-- Keep newly reported proxy coins as candidates until the bootstrap approves their directory keys
-- Present a specific installation state without changing ordinary discovery or recovery failures
-- [CC-WALLET-013] Allow exact external wallet origins found in the locally cached approved proxy directory
-- Answer bounded JSON POST preflights without contacting the bootstrap
-- Permit cross-origin state and history only; keep broadcast and all other operations same-origin
-- [CC-WALLET-010] Let proxies announce their URL and registered-ROT counts with proxyHello
-- Keep unapproved announcements pending for manual operator promotion
-- Cache the approved proxy directory indefinitely when the bootstrap is unavailable
-- Keep directory storage free of schedules, observation lifetimes, approval machinery and extra locks
-- Initialize discovery files when upgrading existing CC-WALLET-009 storage and compare coin lists without order sensitivity
-- [CC-WALLET-009] Replace the monolithic ROT registry with one directory per coin and one JSON file per ROT
-- Initialize a fresh registry.json, network.log, locks, coin state and IP-failure storage automatically
-- Serialize same-coin mutations while allowing independent coins to proceed concurrently
-- Isolate malformed ROT records and reconstruct invalid coin leadership from valid records
-- Let a known-format ROT identity re-register after fresh storage without poisoning its source-IP cooldown
-- [CC-WALLET-007] Bound registration capacity with a primary-coin reserve
-- Preserve ROT nicknames and identify registrations only by coin and rotId
-- Sign status acknowledgements and bounded operator-message delivery
-- Record first failure, recovery and registration-state transitions in network.health
-- Add passive proxyPing, proxyInfo and self-only proxyDirectory operations
-- Keep wallet routing and same-origin browser behavior unchanged
-- [CC-WALLET-005] Derive empty proxy ID and origin constants from validated SERVER_NAME
-- Default the private data directory to the CC-PROXY sibling of the wallet directory
-- Keep the private registry tree, network.log and the reserved network.hour path together
-- [CC-WALLET-004] Replace environment variables with four explicit source constants
-- Normalize and validate proxy ID, absolute data directory and HTTPS wallet origin
-- Fail closed on invalid configured values while retaining legacy server-to-server routing
-- [CC-WALLET-003] Read the registry under a shared lock without rewriting it
-- Write the registry only for actual registration, trust or health mutations
-- Prevent client-controlled delta rejection from poisoning ROT backoff
-- Mark stale registered ROTs RECOVERING and index-integrity failures QUARANTINED
-- Clear accumulated transient failure state after a later successful exchange
-- [CC-WALLET-002] Fix IPv6 routing, concurrent re-registration and ROT response projection
-- Require stable control-plane configuration and keep registry secrets outside the webroot
-- Anchor initial checkpoints to configured ROT endpoints and count one checkpoint vote per source IP
-- Stabilize observer positions independently of nicknames and retain trusted membership for one hour
-- Demote stale or lagging ROTs, add absolute request deadlines and apply technical-failure backoff
-- Enforce same-origin browser requests while leaving public statistics to a separate service
-- [CC-WALLET-001] Route EFL, AUR, CDN and DEM through one same-origin proxy.php
-- Keep every hard-coded ROT available during the migration to registered ROTs
-- Add a server-side ROT registry with CANDIDATE, READY, LEADING, RECOVERING, QUARANTINED and ENDED states
-- Add HTTPS registration, registration verification, HMAC-SHA256 ROT messages and timestamp tolerance
-- Keep ROT addresses, ports, authentication tokens and internal identifiers out of wallet responses
-- Add proxy, coin, ROT nickname, ROT status and latency fields to technical logging
-- [EFL-SLICE-048] Let the wallet query anonymous ROT positions independently for progressive observations
-- Preserve the existing aggregate zero-confirmation route for backward compatibility
-- [EFL-SLICE-044] Route one bounded address-history bootstrap through technical ROT failover
-- Validate IN and OUT events, block timestamps, wallet ownership and unique transaction outputs
-- Keep history separate from spendable state and zero-confirmation fan-out
-- [EFL-SLICE-034] Reject duplicate outpoints within or across ROT address records
-- Treat ROT index-integrity errors as technical and continue with the next ROT
-- [EFL-SLICE-033] Fan zeroConfirmation requests out to every configured ROT and aggregate exact-output observations
-- [EFL-SLICE-032] Raise raw-transaction and request limits for multi-tier legacy-input transactions
-- [EFL-SLICE-031] Accept change index 0 plus Receive indices 1 through 50 in one atomic state request
-- [EFL-SLICE-030] Route state, broadcast and transactionStatus through one PHP file
-- Share ROT selection, request intake, socket transport, timing and byte logging
-- Preserve operation-specific validation, technical retry behavior and wallet-visible outcomes
+- [CC-WALLET-V2-004] Accept the complete validated coverage report from an approved proxy
+- Preserve the existing proxy-directory protocol for ROT, wallet and monitor consumers
+- [CC-WALLET-V2-003] Register legacy-only PAK protocol parameters and its height-1000000 chain anchor
+- Separate known coin protocols from operator-accepted coins so PAK requires explicit activation
+- Recognize Pakcoin domains only when PAK is included in acceptedCoins
+- [CC-WALLET-V2-002] Validate canonical CDN P2WPKH recipients in zero-confirmation and history responses
+- Keep wallet-owned state addresses legacy-only and keep AUR native SegWit disabled
 */
 
 /* The configuration path itself remains fixed because it cannot be configured from inside that file. */
@@ -112,8 +32,9 @@ $maxZeroConfirmationObservers=3;
 $coinProtocols=[
     'EFL'=>['p2pkhVersion'=>48,'anchorHeight'=>3280000,'anchorHash'=>'b03d18130e7e32f988db22ac9e68d3c8e3871566d0c1e08af7d0b12c35b8ca94'],
     'AUR'=>['p2pkhVersion'=>23,'anchorHeight'=>5830000,'anchorHash'=>'dcbf0168d678c0ec57d834475920d4e19cc99d68e7fa5148fb692570a549b090'],
-    'CDN'=>['p2pkhVersion'=>28,'anchorHeight'=>600000,'anchorHash'=>'26e6c26b9a5eed6e85867dfd48cf6a6f276686dd40d91bdc07f5056103011b31'],
-    'DEM'=>['p2pkhVersion'=>53,'anchorHeight'=>1390000,'anchorHash'=>'000000000000032ea2e46fcd5b6f99773cfd1f104a9203eedc195f3820526cfe']
+    'CDN'=>['p2pkhVersion'=>28,'bech32Hrp'=>'cdn','anchorHeight'=>600000,'anchorHash'=>'26e6c26b9a5eed6e85867dfd48cf6a6f276686dd40d91bdc07f5056103011b31'],
+    'DEM'=>['p2pkhVersion'=>53,'anchorHeight'=>1390000,'anchorHash'=>'000000000000032ea2e46fcd5b6f99773cfd1f104a9203eedc195f3820526cfe'],
+    'PAK'=>['p2pkhVersion'=>55,'anchorHeight'=>1000000,'anchorHash'=>'c80d12187a4a7b241b9fc4bd3a0f03f98a2ad5fc70a7efcd57d88bf1d1027eb3']
 ];
 
 function configurationList($value) {
@@ -134,6 +55,17 @@ function configurationTicker($value) {
     return preg_match('/^[A-Z0-9]{2,10}$/',$ticker)?$ticker:false;
 }
 
+function configurationAcceptedCoins($value,array $protocols) {
+    if (!configurationList($value) || count($value)<1 || count($value)>count($protocols)) {return false;}
+    $accepted=[];
+    foreach ($value as $ticker) {
+        $coin=configurationTicker($ticker);
+        if ($coin===false || !isset($protocols[$coin]) || isset($accepted[$coin])) {return false;}
+        $accepted[$coin]=true;
+    }
+    return $accepted;
+}
+
 function validatedServerName($value) {
     $serverName=is_string($value)?strtolower(trim($value)):'';
     return preg_match('/^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',$serverName)?$serverName:false;
@@ -152,7 +84,9 @@ function primaryCoinForServerName($serverName,array $protocols) {
         'auroracoin.is'=>'AUR',
         'canadaecoin.ca'=>'CDN',
         'ourcoin.ca'=>'CDN',
-        'deutsche-emark.org'=>'DEM'
+        'deutsche-emark.org'=>'DEM',
+        'pakcoin.io'=>'PAK',
+        'pakcoin.org'=>'PAK'
     ];
     foreach ($domains as $domain=>$coin) {
         if (isset($protocols[$coin]) && serverNameMatchesDomain($serverName,$domain)) {return $coin;}
@@ -178,11 +112,14 @@ function loadOperatorConfiguration($path,array &$protocols,$serverName,&$error) 
         $value=['schemaVersion'=>1];
     }
     $required=['schemaVersion'];
-    $optional=['bootstrapUrl','primaryCoin','publicUrl','acceptsRegistrations','registrationCapacity','primaryReserve','pinnedLegacyRots'];
+    $optional=['bootstrapUrl','primaryCoin','publicUrl','acceptedCoins','acceptsRegistrations','registrationCapacity','primaryReserve','pinnedLegacyRots'];
     if (!$jsonValid || !is_array($value) || !configurationKeys($value,$required,$optional) || $value['schemaVersion']!==1) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
 
-    $accepted=array_fill_keys(array_keys($protocols),true);
-    $primary=array_key_exists('primaryCoin',$value)?configurationTicker($value['primaryCoin']):primaryCoinForServerName($serverName,$protocols);
+    $acceptedInput=array_key_exists('acceptedCoins',$value)?$value['acceptedCoins']:['EFL','AUR','CDN','DEM'];
+    $accepted=configurationAcceptedCoins($acceptedInput,$protocols);
+    if ($accepted===false) {$error='OPERATOR_CONFIGURATION_INVALID';return false;}
+    $acceptedProtocols=array_intersect_key($protocols,$accepted);
+    $primary=array_key_exists('primaryCoin',$value)?configurationTicker($value['primaryCoin']):primaryCoinForServerName($serverName,$acceptedProtocols);
     $acceptsRegistrations=isset($value['acceptsRegistrations'])?$value['acceptsRegistrations']:true;
     $registrationCapacity=isset($value['registrationCapacity'])?$value['registrationCapacity']:100;
     $primaryReserve=isset($value['primaryReserve'])?$value['primaryReserve']:20;
@@ -232,7 +169,7 @@ $operatorConfiguration=loadOperatorConfiguration(CC_PROXY_DATA_DIR.'/operator-co
 $coinConfiguration=[];
 if (is_array($operatorConfiguration)) {
     foreach ($operatorConfiguration['acceptedCoins'] as $coin) {
-        $coinConfiguration[$coin]=['versionByte'=>$coinProtocols[$coin]['p2pkhVersion'],'legacyRots'=>$operatorConfiguration['pinnedLegacyRots'][$coin]];
+        $coinConfiguration[$coin]=['versionByte'=>$coinProtocols[$coin]['p2pkhVersion'],'bech32Hrp'=>isset($coinProtocols[$coin]['bech32Hrp'])?$coinProtocols[$coin]['bech32Hrp']:null,'legacyRots'=>$operatorConfiguration['pinnedLegacyRots'][$coin]];
     }
 }
 
@@ -254,12 +191,14 @@ $configuredBootstrapId=is_array($operatorConfiguration)?$operatorConfiguration['
 $configuredBootstrapUrl=is_array($operatorConfiguration)?$operatorConfiguration['bootstrapUrl']:false;
 $configuredInitialCoin=$configuredPrimaryCoin===false?'EFL':$configuredPrimaryCoin;
 $configuredInitialVersion=isset($coinProtocols[$configuredInitialCoin])?$coinProtocols[$configuredInitialCoin]['p2pkhVersion']:48;
+$configuredInitialBech32Hrp=isset($coinProtocols[$configuredInitialCoin]['bech32Hrp'])?$coinProtocols[$configuredInitialCoin]['bech32Hrp']:null;
 
 $rots=[];
 $gateway=[
     'proxyId'=>$configuredProxyId,
     'coin'=>$configuredInitialCoin,
     'versionByte'=>$configuredInitialVersion,
+    'bech32Hrp'=>$configuredInitialBech32Hrp,
     'maxAddresses'=>51,
     'maxZeroConfirmationObservers'=>$maxZeroConfirmationObservers,
     'maxRequestBytes'=>65536,
@@ -1483,6 +1422,7 @@ function configureCoin($coin) {
     if (!isset($coinConfiguration[$coin])) {return false;}
     $gateway['coin']=$coin;
     $gateway['versionByte']=$coinConfiguration[$coin]['versionByte'];
+    $gateway['bech32Hrp']=$coinConfiguration[$coin]['bech32Hrp'];
     $rots=rotsForCoin($coin);
     return true;
 }
@@ -1768,9 +1708,7 @@ function updateBootstrapDirectory(array $input,&$error) {
         if (isset($directory['proxies'][$url])) {
             $status=$directory['proxies'][$url]['status'];
             if ($status==='OK') {
-                $approved=[];
-                foreach (array_keys($directory['proxies'][$url]['registeredRots']) as $coin) {$approved[$coin]=isset($counts[$coin])?$counts[$coin]:0;}
-                $directory['proxies'][$url]['registeredRots']=$approved;
+                $directory['proxies'][$url]['registeredRots']=$counts;
             } elseif ($status==='PROSPECT') {
                 $okCount=0;
                 foreach ($directory['proxies'] as $entry) {if ($entry['status']==='OK') {$okCount++;}}
@@ -3063,6 +3001,67 @@ function decodeBase58Check($base58) {
     return $payload;
 }
 
+function bech32Polymod(array $values) {
+    $generators=[0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3];
+    $checksum=1;
+    foreach ($values as $value) {
+        if (!is_int($value) || $value<0 || $value>31) {return false;}
+        $top=$checksum>>25;
+        $checksum=(($checksum&0x1ffffff)<<5)^$value;
+        for ($index=0;$index<5;$index++) {
+            if ((($top>>$index)&1)===1) {$checksum^=$generators[$index];}
+        }
+    }
+    return $checksum;
+}
+
+function decodeBech32P2wpkh($address,$expectedHrp) {
+    if (!is_string($address) || !is_string($expectedHrp) || $expectedHrp==='' || strlen($address)>90 || strlen($address)<14) {return false;}
+    if (preg_match('/[a-z]/',$address) && preg_match('/[A-Z]/',$address)) {return false;}
+    $normalized=strtolower($address);
+    $separator=strrpos($normalized,'1');
+    if ($separator===false || $separator<1 || $separator+7>strlen($normalized)) {return false;}
+    $hrp=substr($normalized,0,$separator);
+    if ($hrp!==$expectedHrp) {return false;}
+    $charset='qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+    $words=[];
+    $encoded=substr($normalized,$separator+1);
+    for ($index=0;$index<strlen($encoded);$index++) {
+        $value=strpos($charset,$encoded[$index]);
+        if ($value===false) {return false;}
+        $words[]=$value;
+    }
+    $checksumValues=[];
+    for ($index=0;$index<strlen($hrp);$index++) {$checksumValues[]=ord($hrp[$index])>>5;}
+    $checksumValues[]=0;
+    for ($index=0;$index<strlen($hrp);$index++) {$checksumValues[]=ord($hrp[$index])&31;}
+    if (bech32Polymod(array_merge($checksumValues,$words))!==1) {return false;}
+    $payload=array_slice($words,0,-6);
+    if (count($payload)<2 || $payload[0]!==0) {return false;}
+    $accumulator=0;
+    $bits=0;
+    $program='';
+    foreach (array_slice($payload,1) as $value) {
+        $accumulator=(($accumulator<<5)|$value)&4095;
+        $bits+=5;
+        while ($bits>=8) {
+            $bits-=8;
+            $program.=chr(($accumulator>>$bits)&255);
+        }
+    }
+    if ($bits>=5 || (($accumulator<<(8-$bits))&255)!==0 || strlen($program)!==20) {return false;}
+    return $program;
+}
+
+function validRecipientAddress($address) {
+    global $gateway;
+
+    if (!is_string($address) || $address==='') {return false;}
+    $payload=decodeBase58Check($address);
+    if ($payload!==false && strlen($payload)===21 && ord($payload[0])===$gateway['versionByte']) {return true;}
+    return $gateway['bech32Hrp']!==null && decodeBech32P2wpkh($address,$gateway['bech32Hrp'])!==false;
+}
+
 function validateAddresses($input,&$error) {
     global $gateway;
 
@@ -3312,8 +3311,7 @@ function validateRotHistory(array $response,$requestId,array $addresses) {
         if (!isset($event['txid']) || !is_string($event['txid']) || !preg_match('/^[0-9a-f]{64}$/',$event['txid'])) {return false;}
         if (!isset($event['vout']) || !isNonNegativeInteger($event['vout']) || !isset($event['value']) || !is_int($event['value']) || $event['value']<=0) {return false;}
         if (!isset($event['address']) || !is_string($event['address'])) {return false;}
-        $payload=decodeBase58Check($event['address']);
-        if ($payload===false || strlen($payload)!==21 || ord($payload[0])!==$gateway['versionByte']) {return false;}
+        if (!validRecipientAddress($event['address'])) {return false;}
         $walletAddress=in_array($event['address'],$addresses,true);
         if (($event['direction']==='IN' && !$walletAddress) || ($event['direction']==='OUT' && $walletAddress)) {return false;}
         if (!isset($event['height']) || !is_int($event['height']) || $event['height']<1 || $event['height']>$response['height'] || $event['height']<$lastHeight) {return false;}
@@ -3393,8 +3391,7 @@ function validateTransactionRequest(array $input,$operation,&$error) {
             $error='INVALID_PAYMENT_RECEIPT';
             return false;
         }
-        $payload=decodeBase58Check($input['address']);
-        if ($payload===false || strlen($payload)!==21 || ord($payload[0])!==$gateway['versionByte']) {
+        if (!validRecipientAddress($input['address'])) {
             $error='INVALID_PAYMENT_RECEIPT';
             return false;
         }

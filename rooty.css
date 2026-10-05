@@ -1,74 +1,10 @@
-/* [CC-WALLET-031]
-Give the balance its full width and stack the Wallet Help release line.
-Base: - Derived from CC-WALLET-030
+/* [CC-WALLET-V2-002]
+Refine the minimal wallet presentation.
+Base: - Derived from CC-WALLET-V2-001
 Changes:
-- [CC-WALLET-031] Move the balance privacy control into the heading row above the amount
-- Remove the reserved eye-button padding from the balance value
-- Make the Wallet Help product and Version 1.0 a vertical centered group
-- [CC-WALLET-030] Style unavailable language commitments and put Version 1.0 on its own centered line
-- [CC-WALLET-029] Keep presentation unchanged under the completed-language cache identity
-- [CC-WALLET-028] Keep presentation unchanged under the release-wide cache identity
-- [CC-WALLET-027] Remove the opaque hover fill from the balance eye while retaining keyboard focus
-- [CC-WALLET-023] Keep styling byte-compatible apart from the release source header
-- [CC-WALLET-022] Place unobtrusive visibility controls inside PIN and balance fields
-- Keep PIN guidance readable and neutral inside the global list styling
-- Add the restrained Wallet help version line
-- [CC-WALLET-021] Present the six-digit color input with a compact red white-reset control
-- [CC-WALLET-020] Refresh the release-wide cache identity without changing layout
-- [CC-WALLET-018] Remove obsolete contact-card presentation dependencies
-- [CC-WALLET-017] Keep backup-copy feedback legible and move the QR target inside the camera area
-- [MULTI-COIN-010] Give the first Wallet calculator row restrained light-green emphasis
-- Show the same-origin promotion destination without increasing QR prominence
-- [MULTI-COIN-007] Enlarge the calculator gears inside their existing fixed-height controls
-- Identify Balance rows by icon and ticker only and reserve more width for numeric columns
-- Prevent native and reference balances from wrapping on narrow screens
-- [MULTI-COIN-004] Place the wallet lock status beside Balance without disturbing mobile geometry
-- Present the Settings unlock action and final Help warning in sober red, normal-weight text
-- Keep locked Send discoverable so selecting it can explain how to unlock
-- Keep the explicit unlock action stable while full state and history are synchronized
-- [MULTI-COIN-003] Bound Balance-table content and strengthen narrow-screen coin geometry
-- Keep compact native-select results readable without shortening expanded choices
-- [MULTI-COIN-002] Present a compact three-column coin, balance and reference table
-- [MULTI-COIN-002] Present a compact three-column coin, balance and reference table
-- Keep the reference selector usable in the table header on narrow screens
-- [MULTI-COIN-001] Preserve the EFL and DEM multi-coin wallet presentation
-- [EFL-SLICE-054] Top-align wallet name and status above the wallet tools
-- Place calculator role, settings action, selector and amount on one compact row
-- [EFL-SLICE-053] Enlarge ROOTY and the wallet name while isolating connection status
-- Present three modern native calculator selectors with direct settings controls
-- Bind green and red to Receive and Send instead of the wallet-coin selector
-- Add a sober disclaimer presentation under Help
-- [EFL-SLICE-052] Give Settings, Help and Invite complete 48px touch targets
-- Present connection as status and invitation as the visually emphasized action
-- Remove the obsolete video overlay and animation presentation
-- [EFL-SLICE-051] Keep optional recovery-passphrase fields compact and touch friendly
-- [EFL-SLICE-050] Preserve the established layout while calculator and recovery fixes remain behavioral
-- [EFL-SLICE-049] Present ROOTY as a borderless in-wallet promotion action
-- Add a concise scan-first Community Coins promotion layout
-- Remove the obsolete Send amount-note styling
-- [EFL-SLICE-048] Add a readable payment-confirmation title, summary and receiver instruction
-- Remove the visible compact receipt payload from the sender overlay
-- [EFL-SLICE-047] Keep transient and confirmed history rows visually identical and compact
-- [EFL-SLICE-045] Preserve the existing visual contract while scan and amount fixes remain behavior-only
-- [EFL-SLICE-044] Add a touch and pointer draggable history drawer with a one-row automatic peek
-- Keep coin-filtered history rows compact through date, signed amount and outbound address
-- Mark IN green and OUT red while preserving the sign as a non-color direction cue
-- [EFL-SLICE-039] Add compact human-readable transaction tables and stable phase titles
-- Remove visual transaction identifiers and inline sender receipt content after broadcast
-- [EFL-SLICE-038] Add receipt enlargement, amount emphasis and a non-alarming temporary observer state
-- [EFL-SLICE-037] Reserve state-status space and hide the diagnostic line outside Expert mode
-- Add a high-contrast screen-wide Receive QR presentation
-- [EFL-SLICE-036] Restore expert-only visibility, setup control and state timing styles
-- [EFL-SLICE-033] Add sender receipt QR and receiver observation states
-- [EFL-SLICE-026] Add inline broadcast confirmation, outcome and timing styles
-- [EFL-SLICE-025] Reuse the existing plan warning style for signed-result guidance
-- [EFL-SLICE-024] Remove the no-longer-used Send fee-note style
-- [EFL-SLICE-023] Add compact signed-result, raw-transaction and local-only warning styles
-- [EFL-SLICE-022] Retain the established layout while translated labels vary in length
-- Add compact destination, plan status, checkpoint, outputs and input review
-- Keep long addresses and outpoints usable on narrow screens
-- Restore Balance as a compact action above a larger adaptive balance
-- Enlarge ROOTY and the coin identity while reducing Receive height on mobile
+- [CC-WALLET-V2-002] Remove the Calculator heading and tint the wallet amount by Receive/Pay context
+- Keep wallet names case-sensitive and make local-save feedback calm
+- Present arbitrary QR content safely and readably
 */
 
   body {margin:0; padding:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background-color:#f0f0f0; }
@@ -145,6 +81,13 @@ Changes:
   .small {padding:4px}
   .left-icon {margin-right:10px;}
   .walletName {text-transform:lowercase}
+	#idOwner {width:100%;box-sizing:border-box;text-transform:none;}
+	.wallet-name-row {display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.55rem;align-items:start;}
+	.wallet-name-row>.label {margin:.35rem 0 0;white-space:nowrap;}
+	.wallet-name-field {min-width:0;}
+	.wallet-name-status {min-height:1.25rem;margin-top:.2rem;color:#67716b;font-size:.82rem;text-align:left;}
+	.wallet-name-status.success {color:#267044;}
+	.wallet-name-status.error {color:#b00020;}
 	.wallet-identity {display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;align-items:start;margin:0 10px 6px;padding:4px 8px 0;}
   .brand-link {display:flex;align-items:flex-start;justify-content:center;align-self:start;background:none;border:0;padding:0;}
   .brand-logo {width:88px;max-height:92px;object-fit:contain;transform:scale(1.08);transform-origin:center;}
@@ -205,12 +148,18 @@ Changes:
   .balance-native,.balance-reference,.balance-total {font-weight:700;white-space:nowrap;overflow-wrap:normal;}
   .balance-reference-select {max-width:100%;min-height:34px;padding:3px 5px;border:1px solid #aebbb2;border-radius:5px;background:#fff;font-weight:700;}
   .balance-overview-note {margin:10px 0 0;color:#67716b;font-size:.78rem;text-align:left;}
-  .calculator-heading {display:flex;justify-content:center;align-items:center;margin-bottom:4px;}
-  .calculator-heading .label {margin-bottom:0;font-size:1rem;}
   .calculator-rows {display:grid;gap:6px;}
   .calculator-row {display:grid;grid-template-columns:76px minmax(0,1.05fr) minmax(0,1fr);gap:8px;align-items:center;padding:6px 8px;border:1px solid #d7dfda;border-radius:7px;background:#fff;text-align:left;}
   .calculator-row-wallet {border-color:#acd0b8;background:#edf7f0;}
   .calculator-row-wallet select,.calculator-row-wallet input {border-color:#9fc7ad;background:#f3faf5;}
+  .calculator-context-receive .calculator-row-wallet {border-color:#61a978;background:#def2e4;box-shadow:inset 3px 0 #27824a;}
+  .calculator-context-receive .calculator-row-wallet select,.calculator-context-receive .calculator-row-wallet input {border-color:#78b78c;background:#f1faf4;}
+  .calculator-context-send .calculator-row-wallet {border-color:#cb8e89;background:#fae9e7;box-shadow:inset 3px 0 #b54a42;}
+  .calculator-context-send .calculator-row-wallet select,.calculator-context-send .calculator-row-wallet input {border-color:#d3a29e;background:#fff7f6;}
+  .qr-content-warning {margin-bottom:.75rem;padding:.65rem .75rem;border-left:4px solid #b78321;background:#fff8e8;color:#59430f;text-align:left;}
+  .qr-content-value {display:block;width:100%;min-height:8rem;box-sizing:border-box;padding:.65rem;border:1px solid #adb5bd;border-radius:.3rem;background:#fff;color:#17211b;font-family:monospace;overflow-wrap:normal;white-space:pre;}
+  .qr-content-actions {display:flex;align-items:center;gap:.6rem;margin-top:.6rem;flex-wrap:wrap;}
+  #idCopyQrContentStatus {font-size:.8rem;overflow-wrap:anywhere;}
   .calculator-row-heading {display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;color:#52645a;font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
   .calculator-row-heading label {max-width:100%;overflow:hidden;text-overflow:ellipsis;}
   .calculator-settings {display:flex;align-items:center;justify-content:center;width:32px;height:28px;margin-top:1px;padding:0;border:0;border-radius:6px;background:transparent;color:#286341;cursor:pointer;}

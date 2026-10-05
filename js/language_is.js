@@ -1,7 +1,8 @@
-/* [CC-WALLET-030]
-Complete Icelandic translations for first contact and wallet operation.
-Base: - Derived from CC-WALLET-021
+/* [CC-WALLET-V2-006]
+Update Icelandic text for coin-neutral broadcasts, coin precision and calculator actions.
+Base: - Derived from CC-WALLET-V2-005
 Changes:
+- [CC-WALLET-V2-006] Translate generic broadcast warnings, decimal limits and SAVE/CANCEL/CLOSE
 - [CC-WALLET-030] Translate the unavailable-package status used by the language roadmap
 - [CC-WALLET-022] Translate PIN guidance and privacy-control labels
 - [CC-WALLET-021] Translate balance, invitation, PIN identity and color validation
@@ -505,6 +506,14 @@ translation:'Breyta eignarmerki'}
 ].forEach(function(entry){
   if (!translation.some(function(current){return current.original===entry.original})){translation.push(entry)}
 })
+;[
+  {original:"Enter a positive amount with no more than {decimals} decimals",translation:"Sláðu inn jákvæða upphæð með mest {decimals} aukastöfum"},
+  {original:"Broadcasting submits this transaction to the network. It cannot be recalled.",translation:"Útsending sendir þessa færslu til netsins. Ekki er hægt að afturkalla hana."},
+  {original:"Broadcasting submits this exact signed transaction to the network. It cannot be recalled.",translation:"Útsending sendir þessa nákvæmlega undirrituðu færslu til netsins. Ekki er hægt að afturkalla hana."},
+  {original:"SAVE",translation:"VISTA"},
+  {original:"CANCEL",translation:"HÆTTA VIÐ"},
+  {original:"CLOSE",translation:"LOKA"}
+].forEach(function(entry){translation.push(entry)})
 translation.push({original:"not available yet",translation:"ekki enn í boði"})
 ;[
   {original:"PIN:",translation:"PIN-númer:"},

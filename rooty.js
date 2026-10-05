@@ -1,56 +1,19 @@
-/* [CC-WALLET-031]
-Close cross-coin transaction views and clarify the calculated send fee.
-Base: - Derived from CC-WALLET-030
+/* [CC-WALLET-V2-007]
+Promote validated PAK support for Community Coins Wallet 1.1.
+Base: - Derived from CC-WALLET-V2-006
 Changes:
-- [CC-WALLET-031] Clear a retained Receive or Send view before the Balance dialog changes coin
-- Append the calculated tiered fee and coin ticker to insufficient-balance messages
-- Move balance privacy and Wallet Help layout through the matching HTML and CSS release
-- [CC-WALLET-030] Publish the language roadmap, enable only installed packages and load completed Portuguese and Russian tables
-- [CC-WALLET-029] Load the completed Dutch and German interface tables under a fresh cache identity
-- [CC-WALLET-028] Load the restored reviewed Dutch and German translations under a fresh cache identity
-- [CC-WALLET-027] Give JavaScript, CSS and selected language tables one new cache identity
-- Resolve duplicate translation keys from newest to oldest so later corrections take precedence
-- [CC-WALLET-023] Stop five-second zero-confirmation polling as soon as any ROT reports SEEN
-- Let the normal state cycle discover the later blockchain confirmation
-- [CC-WALLET-022] Add accessible visibility toggles for PIN entry and the displayed balance
-- Keep a hidden balance blank across state refreshes and reset the calculator wallet amount to zero
-- Complete translatable PIN guidance and expose Version 1.0 only in Wallet help
-- [CC-WALLET-021] Preserve fiat preferences while partial price feeds arrive
-- Keep wallet contents hidden until the startup PIN has been validated
-- Accept an exact six-digit wallet color and offer a white reset control
-- Select the first available browser language for previously unseen wallet storage
-- Complete the Icelandic balance, invitation and PIN presentation
-- [CC-WALLET-020] Select practical fiat defaults for a new EFL, DEM, AUR or CDN wallet
-- Translate modal titles and late-created wallet identity controls through the active language table
-- Complete the Icelandic strings used by wallet settings, management, Help, Receive and payment flows
-- [CC-WALLET-018] Remove the obsolete contact-card settings, payment presentation and long motivation help
-- Report the proxy's bounded directory failure reason without changing silent cached discovery behavior
-- [CC-WALLET-017] Try at most two approved external proxies after a technical local failure, preferring bootstrap second
-- Select the proxy-reported primary coin only for a wallet without a stored coin choice or URL override
-- Record request latency passively and expose inspectCoinDirectory() without generating measurement traffic
-- Canonicalize currency choices, add explicit backup copying and clean up modal focus before hiding it
-- [CC-WALLET-016] Retry state, history, broadcast, transaction status and zero-confirmation through one approved external proxy after technical local failure
-- Preserve compatible delta-state across local and external proxy changes
-- Reject state-height regression independently of the serving proxy
-- Rotate later recovery attempts across eligible external proxies without fanning one request out to the network
-- Keep nontechnical transaction and observation outcomes final
-- [CC-WALLET-015] Recognize the proxy's required or invalid operator-configuration response
-- Cover the wallet with a specific installation notice while leaving ordinary failures quiet
-- Accept up to three zero-confirmation observers for every operational coin
-- [CC-WALLET-014] Keep ./proxy.php primary and retry one directory-eligible external proxy only after technical read failure
-- Request a fresh full state snapshot when changing back to the local proxy and for every external recovery
-- Keep broadcast, transaction status and zero-confirmation traffic strictly on ./proxy.php
-- [CC-WALLET-011] Request proxyDirectory once in the background at every wallet startup
-- Store only a validated ten-proxy public view in a separate origin-wide IndexedDB database
-- Preserve the last view across reloads and expose console-only support diagnostics
-- Keep discovery failure invisible to wallet operation and leave every transaction on ./proxy.php
-- [CC-WALLET-001] Route EFL, CDN, AUR and DEM through ./proxy.php
-- Send the selected coin with every state, history, broadcast, status and zero-confirmation request
-- [MULTI-COIN-019] The newest wallet instance becomes leading and broadcasts CLOSE to older same-origin wallet instances
-- Keep one non-secret localStorage session marker as the hard guard when BroadcastChannel delivery is delayed or missed
-- Permanently disable older sessions instead of synchronizing or reloading their DOM/state
-- Keep wallet ID as an independent integrity guard; never use mnemonic or BIP39 passphrase as session identity
-- Retain IndexedDB identity guards, protected PIN/wallet management, Help routing and startup PIN focus
+- [CC-WALLET-V2-007] Make PAK a normal operational wallet coin without a test query
+- [CC-WALLET-V2-006] Use coin-specific precision and canonical Receive amounts
+- Make broadcast warnings coin-neutral and require explicit calculator-dialog actions
+- [CC-WALLET-V2-005] Repair language names, Icelandic country names and the unavailable-language separator
+- [CC-WALLET-V2-003] Add legacy-only PAK derivation, state, signing and deterministic regression vectors
+- Keep PAK legacy-only and subject to the same runtime checks as the other operational coins
+- Run derivation canaries for the active coin on startup and defer other coin canaries until selection
+- [CC-WALLET-V2-002] Disable AUR P2WPKH after its failed SegWit deployment and retain CDN only
+- Remove the Calculator heading and distinguish Receive and Pay amount context
+- Preserve uppercase wallet names and use calm success feedback
+- Present unrecognized QR content exactly and inertly for inspection or copying
+- [CC-WALLET-V2-001] Add outbound P2WPKH validation and construction for experimental AUR and CDN
 */
 
 const screenWidth = window.innerWidth;
@@ -463,7 +426,6 @@ modal.addEventListener('hidden.bs.modal', function () {
   document.querySelectorAll('#walletSeedContent,#walletMnemonicInput,#walletMnemonicPassphrase,#walletMnemonicPassphraseRepeat').forEach(function(field){field.value=""})
   document.querySelectorAll('#walletMnemonicPassphraseShow').forEach(function(control){control.checked=false})
   if (rewindObject=="setupOwner") {setTimeout('dial("setupOwner",0,1)',1)}  
-  if (rewindObject.substr(0,14)=="menuCurrencies"){setTimeout('dial("helpCalculator",0,1)',1)}
   if (rewindObject=="paymentRequest") {setTimeout('dial("paymentRequest",0,0)',1)}
   if (rewindObject=="sendRequest") {setTimeout('dial("sendRequest",0,0)',1)}
   rewindObject=""
@@ -540,12 +502,14 @@ $$$("#splashScreen").addEventListener("transitionend", () => {
 
 var networks={}
 var supportedCoins={}
-const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem"])
+const walletCoinTargets=Object.freeze(["efl","cdn","aur","dem","pak"])
+const p2wpkhDestinationCoins=Object.freeze(["cdn"])
 const walletFiatDefaults=Object.freeze({
   efl:Object.freeze(["eur","usd"]),
   dem:Object.freeze(["eur","usd"]),
   aur:Object.freeze(["isk","eur","usd"]),
-  cdn:Object.freeze(["cad","usd"])
+  cdn:Object.freeze(["cad","usd"]),
+  pak:Object.freeze(["pkr","usd"])
 })
 combos={
   Balance:{available:"|",selected:"|",active:"|",old:"|"},
@@ -726,6 +690,43 @@ supportedCoins["dem"].stateService={
 }
 supportedCoins["dem"].balance="0"
 supportedCoins["dem"].connections=0
+supportedCoins["pak"].stateService={
+  url:"./proxy.php",
+  responseCoin:"PAK",
+  uriScheme:"pakcoin:",
+  unitsPerCoin:100000000,
+  decimals:8,
+  changeIndex:0,
+  receiveIndex:1,
+  initialReceiveCount:10,
+  maximumReceiveIndex:50,
+  receiveBatchSize:10,
+  reuseResetRemaining:20,
+  focusDuration:10*60*1000,
+  focusInterval:60*1000,
+  requestTimeout:8000,
+  spendableAge:60*1000+8000,
+  feeTierInputs:6,
+  minimumFeeSats:100000,
+  maximumRawTransactionHex:65000,
+  broadcastTimeout:30000,
+  maximumZeroConfirmationObservers:3,
+  historyTimeout:45000,
+  broadcastStatusInterval:60000,
+  testMnemonic:"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  testAddresses:{
+    0:"PNikKnFtqUEo3ELoqf2UbkvoZqsm41PRcy",
+    1:"PGU4q581VsZnMchpQpRecdpagsfQ7YmU6R",
+    10:"PHaULQLqr2v2kGtK4N8wjrkyT1e6YT85BZ"
+  },
+  testPassphrase:"TREZOR",
+  testPassphraseAddress:"PJQsSXooxHQgSUGNmX4y6UpLo216Dwsnq2",
+  testTransactionTime:1700000000,
+  testSignedTxid:"9da88f9463418b75e90893a311843f7bf2a8b077ec090f67a66b633df8898698",
+  testSignedByteLength:378
+}
+supportedCoins["pak"].balance="0"
+supportedCoins["pak"].connections=0
 if (change) {
   endorsed="aur|cdn|efl|cesc|dem|slg|pak|rubtc|boli|btc|ltc"
   testCombos()
@@ -929,7 +930,7 @@ var translationReady
 if (language!=defaultLanguage) {
   translationReady=new Promise(function(resolve){
   const scriptLanguage = document.createElement('script');
-  scriptLanguage.src = `js/language_${language}.js?v=CC-WALLET-031`;
+  scriptLanguage.src = `js/language_${language}.js?v=CC-WALLET-V2-007`;
   scriptLanguage.defer=true
   scriptLanguage.onload=function(){translate();resolve()}
   scriptLanguage.onerror=function(){
@@ -2211,7 +2212,7 @@ function handleClick(event) {
   if (clickedId == "idRequestShort") {}
   if ((clickedId=="owner")||(clickedId=="ownerLabel")||(clickedId=="menuOwner")) {dial("setupOwner",0,1);}
   if (clickedId=="menuPin") {openPinSettings();}
-  if (clickedId.substr(0,14)=="menuCurrencies") {rewindObject=clickedId;dial(clickedId,0,1);}
+  if (clickedId.substr(0,14)=="menuCurrencies") {dial(clickedId,0,1);}
   if (clickedId=="id_setting") {dial("setup",0,0)}
   if (clickedId=="id_question") {dial("helpMain",0,0)}
   if ((clickedId=="id_helpCalculator")||(clickedId=="menuCalculator")) {dial("helpCalculator",0,0)}
@@ -2311,10 +2312,9 @@ function setOwner(){
 }
 async function setLocalWalletName(){
   var field=$$$('#idOwner')
-  var status=$$$('#claimAlert')
   var name=field.value.trim().replace(/\s+/g," ")
   if ((name.length>32)||(!/^[0-9A-Za-z@. ]*$/.test(name))){
-    status.textContent="Use at most 32 letters, numbers, spaces, @ or ."
+    setWalletNameStatus("Use at most 32 letters, numbers, spaces, @ or .","error")
     return false
   }
   field.value=name
@@ -2323,13 +2323,21 @@ async function setLocalWalletName(){
   setOwner()
   try{
     await updateDb()
-    status.textContent="Wallet name saved locally"
+    setWalletNameStatus(translateValue("Wallet name saved locally"),"success")
     return true
   }catch(error){
-    status.textContent="Unable to save wallet name"
+    setWalletNameStatus("Unable to save wallet name","error")
     return false
   }
 }
+
+function setWalletNameStatus(message,status=""){
+  var line=$$$('#claimAlert')
+  if (line==null){return}
+  line.textContent=message
+  line.className="wallet-name-status"+(status===""?"":" "+status)
+}
+function clearWalletNameStatus(){setWalletNameStatus("")}
 
 async function fetchdata(url, timeoutDuration, type) {
   try {
@@ -2377,8 +2385,7 @@ function flash(e,color) {
     var currency=combo==null?"":combo.value
     var numericValue=Number(e.value)
     if (Number.isFinite(numericValue)){
-      e.value=numericValue.toFixed(8)
-      if ((rates!=null)&&(rates[currency]!=undefined)&&(rates[currency].type==="fiat")){e.value=numericValue.toFixed(2)}
+      e.value=numericValue.toFixed(referenceDecimals(currency))
       e.value=trim0(e.value)
     }
   }
@@ -2639,7 +2646,7 @@ function calc(e){
   return true
 }
 function validName(e,f) {
-    $$$('#claimAlert').innerHTML='&nbsp';
+    clearWalletNameStatus()
     var valid="0123456789 abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ@."+String.fromCharCode(8)
     var c=""
     var key = window.event ? event.keyCode : e.which;
@@ -2812,7 +2819,7 @@ function promotionCountry(coin){
   const countriesByLanguage={
     en:{efl:"the Netherlands",aur:"Iceland",cdn:"Canada",dem:"Germany",pak:"Pakistan",slg:"the United Kingdom",cesc:"Portugal",fjc:"Japan",rubtc:"Russia"},
     nl:{efl:"Nederland",aur:"IJsland",cdn:"Canada",dem:"Duitsland",pak:"Pakistan",slg:"het Verenigd Koninkrijk",cesc:"Portugal",fjc:"Japan",rubtc:"Rusland"},
-    is:{efl:"Hollandi",aur:"Íslandi",cdn:"Kanada",dem:"Þýskalandi",pak:"Pakistan",slg:"Bretlandi",cesc:"Portúgal",fjc:"Japan",rubtc:"Rússlandi"}
+    is:{efl:"Hollandi",aur:"Ãslandi",cdn:"Kanada",dem:"ÃžÃ½skalandi",pak:"Pakistan",slg:"Bretlandi",cesc:"PortÃºgal",fjc:"Japan",rubtc:"RÃºsslandi"}
   }
   var names=countriesByLanguage[language]||countriesByLanguage.en
   return names[coin]||T("txtPromotionHomeCommunity")
@@ -2940,10 +2947,44 @@ function showWalletSeed(){
   seedField.value=seed
   return true
 }
+function enforceCurrencyDialogSelection(menu){
+  var controls=Array.from(document.querySelectorAll('#id_modalbody [name="currencies"]'))
+  if ((menu==="Supported")||(controls.length===0)){return false}
+  var checked=controls.filter(function(control){return control.checked})
+  if (checked.length===0){
+    var active=String(combos[menu].active||"").replace(/\|/g,"")
+    var fallback=controls.find(function(control){return control.value===active})||controls[0]
+    fallback.checked=true
+    checked=[fallback]
+  }
+  controls.forEach(function(control){control.disabled=(checked.length===1)&&control.checked})
+  return true
+}
+function configureCurrencyDialog(menu){
+  var closeTop=$$$("#exit0")
+  var saveButton=$$$("#save")
+  var cancelButton=$$$("#exit1")
+  closeTop.classList.add("invisible")
+  if (menu==="Supported"){
+    saveButton.classList.add("invisible")
+    cancelButton.textContent=translateValue("CLOSE")
+    return
+  }
+  saveButton.classList.remove("invisible")
+  saveButton.textContent=translateValue("SAVE")
+  cancelButton.textContent=translateValue("CANCEL")
+  var controls=Array.from(document.querySelectorAll('#id_modalbody [name="currencies"]'))
+  controls.forEach(function(control){
+    control.addEventListener("change",function(){enforceCurrencyDialogSelection(menu)})
+  })
+  enforceCurrencyDialogSelection(menu)
+}
 async function dial(diaLog,help,save) {
   if (!modal.classList.contains("show")){dialogReturnFocus=document.activeElement}
   if ($$$("#exit0").classList.contains("invisible")) {$$$("#exit0").classList.toggle("invisible")}
   if ($$$("#exit1").classList.contains("invisible")) {$$$("#exit1").classList.toggle("invisible")}
+  $$$("#save").textContent=translateValue("OK")
+  $$$("#exit1").textContent=translateValue("Quit")
   dialogContext=diaLog
   var title
 
@@ -3029,7 +3070,7 @@ async function dial(diaLog,help,save) {
   if (help==$$$("#buttonHelp").classList.contains("invisible")) {$$$("#buttonHelp").classList.toggle("invisible")}
   if (save==$$$("#save").classList.contains("invisible")) {$$$("#save").classList.toggle("invisible")}
   if (diaLog=="setupOwner"){ 
-    $$$("#claimAlert").innerHTML="&nbsp;"
+    clearWalletNameStatus()
     $$$("#nameClaim").style.display="block"
     $$$("#nameClaim").textContent=translateValue("SET")
     $$$("#claimLoading").style.display="none"
@@ -3052,7 +3093,7 @@ async function dial(diaLog,help,save) {
       const isAvailable=availableLanguages.has(option)
       if (option==language){checked=' checked'} else {checked=''}
       const disabled=isAvailable?'':' disabled'
-      const unavailable=isAvailable?'':` <span class="language-status">— ${translateValue("not available yet")}</span>`
+      const unavailable=isAvailable?'':` <span class="language-status">â€” ${translateValue("not available yet")}</span>`
       languageButtons+=`<div class="radio-option language-option${isAvailable?'':' language-unavailable'}"><input id="language-option-${option}" type="radio" class="radio-button" name="languages" `
       languageButtons+=`value="${option}"${checked}${disabled}>`
       languageButtons+=`<label class="radio-label" for="language-option-${option}">${languageNames[option]} <span class="language-code">(${option})</span>${unavailable}</label></div>`;
@@ -3093,6 +3134,7 @@ async function dial(diaLog,help,save) {
       old=currencies[i]
     }
     $$$("#id_selectCurrencies").innerHTML=currencyButtons
+    configureCurrencyDialog(menu)
   }
   if (diaLog=="balance") {
     $$$('#ModalTitle').textContent=T("txtWalletBalance")
@@ -3114,7 +3156,7 @@ function submit() {  // Modal OK-button
   if (modalContext=="setupOwner"){
     var name=$$$("#idOwner").value.trim().replace(/\s+/g," ")
     if ((name.length>32)||(!/^[0-9A-Za-z@. ]*$/.test(name))){
-      $$$('#claimAlert').textContent="Use at most 32 letters, numbers, spaces, @ or ."
+      setWalletNameStatus("Use at most 32 letters, numbers, spaces, @ or .","error")
       return false
     }
     var walletColor=normalizeWalletColor(resultBox.value)
@@ -3140,6 +3182,10 @@ function submit() {  // Modal OK-button
     const currencies = document.querySelectorAll('[name="currencies"]');
     var selected="|"
     currencies.forEach(currency => {if (currency.checked){selected+=currency.value+"|"}})
+    if ((menu!=="Supported")&&(selected==="|")){
+      enforceCurrencyDialogSelection(menu)
+      return false
+    }
     combos[menu].selected=selected
     localStorage.setItem("combos",JSON.stringify(combos))
     refreshCombos()
@@ -3679,15 +3725,45 @@ function payQR(){
   }
   if ((purpose==="send")||(purpose==="universal")){
     try{
+      if (purpose==="universal"){parsePaymentRequest(QR,stateCoin)}
       if ((purpose==="universal")&&(showSendView()===false)){return}
       applyScannedSendRequest(QR)
     }catch(error){
-      if ((purpose==="universal")&&(showSendView()===false)){return}
+      if (purpose==="universal"){
+        showScannedQrContent(QR)
+        return
+      }
       setSendStatus(error.message,"error")
     }
     return
   }
   setMemo(QR)
+}
+function showScannedQrContent(content){
+  dial("qrcontent",0,0)
+  var field=$$$('#id_modalbody #idQrContent')
+  if (field!=null){field.value=String(content)}
+  var status=$$$('#id_modalbody #idCopyQrContentStatus')
+  if (status!=null){status.textContent=""}
+}
+async function copyScannedQrContent(){
+  var field=$$$('#id_modalbody #idQrContent')
+  var status=$$$('#id_modalbody #idCopyQrContentStatus')
+  if (field==null){return false}
+  var copied=false
+  try{
+    if ((navigator.clipboard!=null)&&(typeof navigator.clipboard.writeText==="function")){
+      await navigator.clipboard.writeText(field.value)
+      copied=true
+    }
+  }catch(error){}
+  if (!copied){
+    field.focus()
+    field.select()
+    try{copied=document.execCommand("copy")===true}catch(error){copied=false}
+  }
+  if (status!=null){status.textContent=copied?translateValue("QR content copied"):translateValue("Copy failed; select the QR content manually.")}
+  return copied
 }
 function setMemo(txt){skipMemoChange=true;$$$("#idMemo").value=txt}
 function scan(){
@@ -4717,6 +4793,7 @@ function resetWalletState(reason="wallet-change",coin=stateCoin){
 }
 function switchStateCoin(coin,reason="coin-selection",wake=true){
   if (!operationalWalletCoins().includes(coin)){throw new Error("State service unavailable for "+coin)}
+  verifyCoinDerivation(coin)
   if (coin===stateCoin){
     updateCoinPresentation(coin)
     return wake?wakeState(reason,true):Promise.resolve(walletState.snapshot||true)
@@ -5064,7 +5141,7 @@ function parseCoinAmount(amount,coin=stateCoin){
   var text=String(amount==null?"":amount).trim()
   var amountPattern=new RegExp("^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,"+service.decimals+"})?$")
   if (!amountPattern.test(text)){
-    throw sendPlanError("INVALID_AMOUNT",T("txtInvalidAmountPrecision"))
+    throw sendPlanError("INVALID_AMOUNT",T("txtInvalidAmountPrecision",{decimals:service.decimals}))
   }
   var parts=text.split(".")
   var whole=Number(parts[0])
@@ -5081,7 +5158,9 @@ function validateCoinAddress(address,coin=stateCoin){
   try{
     var network=bitcoin.networks[networks[coin].index]
     var script=bitcoin.address.toOutputScript(candidate,network).toString("hex")
-    if (!/^76a914[0-9a-f]{40}88ac$/.test(script)){throw new Error("Unsupported address type")}
+    var p2pkh=/^76a914[0-9a-f]{40}88ac$/.test(script)
+    var p2wpkh=p2wpkhDestinationCoins.includes(coin)&&/^0014[0-9a-f]{40}$/.test(script)
+    if ((!p2pkh)&&(!p2wpkh)){throw new Error("Unsupported address type")}
   }catch(error){
     throw sendPlanError("INVALID_ADDRESS",T("txtInvalidCoinAddress",{coin:supportedCoins[coin].name}))
   }
@@ -5089,6 +5168,11 @@ function validateCoinAddress(address,coin=stateCoin){
 }
 function normalizePaymentAmount(value){
   return String(value==null?"":value).replace(/\s+/g,"")
+}
+function canonicalPaymentAmount(value,coin=stateCoin){
+  var normalized=normalizePaymentAmount(value)
+  if (normalized===""){return ""}
+  return formatSats(parseCoinAmount(normalized,coin),coin)
 }
 function parsePaymentRequest(value,coin=stateCoin){
   var text=String(value==null?"":value).trim()
@@ -5198,6 +5282,8 @@ function setTransactionPresentation(mode){
   $$$('#idBroadcastConfirmation').classList.toggle('hidden',mode!=="sendConfirm")
   $$$('#idBroadcastTracking').classList.toggle('hidden',mode!=="sendSubmitted")
   $$$('#panel-calc').classList.toggle('hidden',['receiveObservation','sendConfirm','sendSubmitted'].includes(mode))
+  $$$('#panel-calc').classList.toggle('calculator-context-receive',mode==="receiveRequest")
+  $$$('#panel-calc').classList.toggle('calculator-context-send',mode==="sendEdit")
   $$$('#wallet').classList.toggle('transaction-active',open)
   return mode
 }
@@ -6028,9 +6114,50 @@ function verifyLocalTransactionBuilding(coin=stateCoin){
   if ((tieredResult.inputs.length!==7)||(tieredResult.outputs.length!==1)||(tieredResult.feeSats!==2*service.minimumFeeSats)||(!tieredResult.signaturesVerified)){
     throw new Error("Local tiered transaction test failed")
   }
+  if (p2wpkhDestinationCoins.includes(coin)){
+    var witnessProgram=Buffer.from("00112233445566778899aabbccddeeff00112233","hex")
+    var witnessDestination=bitcoin.address.toBech32(witnessProgram,0,network.bech32)
+    var witnessPlan=createLocalSendPlan(snapshot,witnessDestination,"3.5",coin)
+    var witnessResult=buildSignedTransaction(witnessPlan,service.testMnemonic,coin,"",transactionTime)
+    if ((witnessResult.inputs.length!==2)||(witnessResult.outputs.length!==2)||(witnessResult.outputs[0].address!==witnessDestination)||(!/^0014[0-9a-f]{40}$/.test(witnessResult.outputs[0].scriptPubKey))||(!/^76a914[0-9a-f]{40}88ac$/.test(witnessResult.outputs[1].scriptPubKey))||(!witnessResult.signaturesVerified)){
+      throw new Error("Local P2WPKH destination transaction test failed")
+    }
+  }
   console_log(service.responseCoin+" transaction test passed: 2 signatures, txid "+service.testSignedTxid)
   console_log("Local zero-change transaction test passed: change output omitted")
   console_log("Local tiered transaction test passed: 7 signatures, 2 fee tiers")
+  if (p2wpkhDestinationCoins.includes(coin)){console_log(service.responseCoin+" P2WPKH destination test passed: legacy inputs and change retained")}
+}
+function verifyDestinationAddressValidation(){
+  var witnessProgram=Buffer.from("00112233445566778899aabbccddeeff00112233","hex")
+  var witnessScriptProgram=Buffer.from("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff","hex")
+  var addresses={
+    aur:bitcoin.address.toBech32(witnessProgram,0,"aur"),
+    cdn:bitcoin.address.toBech32(witnessProgram,0,"cdn")
+  }
+  ;["cdn"].forEach(function(coin){
+    if (validateCoinAddress(addresses[coin],coin)!==addresses[coin]){throw new Error("P2WPKH destination validation failed")}
+    var upperCaseAddress=addresses[coin].toUpperCase()
+    if (validateCoinAddress(upperCaseAddress,coin)!==upperCaseAddress){throw new Error("Upper-case P2WPKH destination validation failed")}
+    var rejected=0
+    try{validateCoinAddress(addresses.aur,coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    try{validateCoinAddress(addresses[coin].substring(0,4).toUpperCase()+addresses[coin].substring(4),coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    var lastCharacter=addresses[coin].slice(-1)
+    var invalidChecksum=addresses[coin].slice(0,-1)+(lastCharacter==="q"?"p":"q")
+    try{validateCoinAddress(invalidChecksum,coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    var p2wsh=bitcoin.address.toBech32(witnessScriptProgram,0,coin)
+    try{validateCoinAddress(p2wsh,coin)}catch(error){if (error.code==="INVALID_ADDRESS"){rejected++}}
+    if (rejected!==4){throw new Error(coin.toUpperCase()+" destination rejection test failed")}
+  })
+  ;["aur","efl","dem"].forEach(function(coin){
+    Object.keys(addresses).forEach(function(addressCoin){
+      var rejected=false
+      try{validateCoinAddress(addresses[addressCoin],coin)}catch(error){rejected=error.code==="INVALID_ADDRESS"}
+      if (!rejected){throw new Error(coin.toUpperCase()+" accepted an unsupported P2WPKH destination")}
+    })
+  })
+  console_log("Destination address tests passed: CDN P2WPKH enabled; AUR/EFL/DEM legacy-only; HRP, checksum, mixed case and P2WSH boundaries enforced")
+  return true
 }
 function verifyBroadcastParsing(coin=stateCoin){
   var service=getStateService(coin)
@@ -6139,14 +6266,14 @@ function verifyStateParser(coin=stateCoin){
 }
 function buildPaymentUri(address,amount,coin=stateCoin){
   var paymentUri=getStateService(coin).uriScheme+address
-  var receiveAmount=normalizePaymentAmount(amount)
+  var receiveAmount=canonicalPaymentAmount(amount,coin)
   if (receiveAmount!=""){paymentUri+="?amount="+encodeURIComponent(receiveAmount)}
   return paymentUri
 }
 function getReceiveRequest(mnemonicString,amount,coin=stateCoin,index=null,passphrase=null){
   if (index==null){index=getStateService(coin).receiveIndex}
   var address=deriveCoinAddress(mnemonicString,index,coin,passphrase)
-  var receiveAmount=normalizePaymentAmount(amount)
+  var receiveAmount=canonicalPaymentAmount(amount,coin)
   return {coin:coin,index:index,address:address,amount:receiveAmount,uri:buildPaymentUri(address,receiveAmount,coin)}
 }
 function beginReceiveRequest(coin=stateCoin){
@@ -6185,8 +6312,18 @@ function updateReceiveView(){
   var transactionPanel=$$$('#panel-transaction')
   var receiveView=$$$('#idReceiveView')
   if ((transactionPanel==null)||transactionPanel.classList.contains('hidden')||(receiveView==null)||receiveView.classList.contains('hidden')){return false}
-  if (currentReceiveRequest==undefined){beginReceiveRequest(stateCoin)}
-  currentReceiveRequest=getReceiveRequest(localStorage.getItem("bip39"),$$$('#inputSupported').value,stateCoin,currentReceiveRequest.index)
+  try{
+    if (currentReceiveRequest==undefined){beginReceiveRequest(stateCoin)}
+    currentReceiveRequest=getReceiveRequest(localStorage.getItem("bip39"),$$$('#inputSupported').value,stateCoin,currentReceiveRequest.index)
+  }catch(error){
+    currentReceiveRequest=undefined
+    $$$('#idReceiveAddressMain').textContent=""
+    $$$('#idReceiveUriMain').textContent=""
+    $$$('#idReceiveQrMain').innerHTML=""
+    paymentMail=""
+    markCalculatorUnavailable($$$('#inputSupported'))
+    return false
+  }
   updateReceiveTitle()
   $$$('#idReceiveAddressMain').textContent=currentReceiveRequest.address
   $$$('#idReceiveUriMain').textContent=currentReceiveRequest.uri
@@ -6265,7 +6402,13 @@ function showReceiveView(){
   currentPaymentReceiptHistoryStatus=undefined
   currentPaymentReceiptSeenAt=undefined
   clearAutomaticCalculatorBalance()
-  beginReceiveRequest(stateCoin)
+  try{
+    beginReceiveRequest(stateCoin)
+  }catch(error){
+    markCalculatorUnavailable($$$('#inputSupported'))
+    alert(error.message)
+    return false
+  }
   wakeState("receive",true)
   $$$('#idTransactionKicker').textContent=T("txtRequest")
   $$$('#idTransactionTitle').textContent=T("txtReceiveCoin",{coin:supportedCoins[stateCoin].name})
@@ -6377,13 +6520,22 @@ function verifyMnemonicPassphrase(coin=stateCoin){
   }
   return true
 }
+var verifiedCoinDerivations={}
+function verifyCoinDerivation(coin=stateCoin){
+  if (verifiedCoinDerivations[coin]===true){return true}
+  verifyMnemonicDerivation(coin)
+  verifyMnemonicPassphrase(coin)
+  verifiedCoinDerivations[coin]=true
+  return true
+}
 function verifyOperationalDerivations(){
-  operationalWalletCoins().forEach(function(coin){verifyMnemonicDerivation(coin);verifyMnemonicPassphrase(coin)})
+  operationalWalletCoins().forEach(function(coin){verifyCoinDerivation(coin)})
   return true
 }
 function runWalletDiagnostics(){
   var started=performance.now()
   verifyOperationalDerivations()
+  verifyDestinationAddressValidation()
   var service=getStateService(stateCoin)
   var receiveRequest=getReceiveRequest(service.testMnemonic,"1.25",stateCoin,service.receiveIndex,"")
   if ((receiveRequest.index!=service.receiveIndex)||(receiveRequest.address!=service.testAddresses[service.receiveIndex])||(receiveRequest.amount!=="1.25")||(receiveRequest.uri!=service.uriScheme+service.testAddresses[service.receiveIndex]+"?amount=1.25")){
@@ -6986,10 +7138,10 @@ async function cc(){
   loadHelpTweetConfig().catch(function(error){console.error("Unable to load Help tweet configuration:",error)})
   applyExpertMode()
   updateWalletSpendLockPresentation()
-  verifyOperationalDerivations()
-  markWalletBoot("derivation-canary-ready")
   await recoverInterruptedWalletReplacement()
   await applyInitialProxyCoin()
+  verifyCoinDerivation(stateCoin)
+  markWalletBoot("derivation-canary-ready")
   if (localStorage.getItem("ids")!=null){ids=JSON.parse(localStorage.getItem("ids"))}
   setEntropy()
   initializeWalletContext()
