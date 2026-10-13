@@ -84,6 +84,13 @@ the completed accumulator and is retried after five minutes. A successful
 submission removes only that already accepted local accumulator; the seven-day
 detailed logs remain available for operator diagnosis.
 
+Bootstrap also acknowledges a self-consistent report that it deliberately
+discards because the proxy is not approved, the hour or record is invalid, or
+the archived hour conflicts with an earlier copy. The rejection remains in the
+bounded rejection log, while the matching digest acknowledgement lets existing
+proxy versions remove that report and continue with later hours. Bootstrap
+storage and configuration failures are not acknowledged and remain retryable.
+
 ### X-help configuration collection
 
 Each proxy validates its public `tweets.json`, normalizes the configured help

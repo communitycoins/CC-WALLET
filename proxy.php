@@ -1,8 +1,11 @@
 <?php
-/* [CC-WALLET-V2-004]
-Let approved proxies update their advertised coin coverage.
-Base: - Derived from CC-WALLET-V2-003
+/* [CC-WALLET-V2-008]
+Prevent permanently rejected hourly reports from blocking proxy telemetry.
+Base: - Derived from CC-WALLET-V2-007
 Changes:
+- [CC-WALLET-V2-008] Acknowledge and discard self-consistent hourly reports that cannot be retained
+- Keep transient bootstrap storage failures retryable and preserve bounded rejection evidence
+- Allow existing proxies to clear blocked queues without requiring a proxy-side upgrade
 - [CC-WALLET-V2-004] Accept the complete validated coverage report from an approved proxy
 - Preserve the existing proxy-directory protocol for ROT, wallet and monitor consumers
 - [CC-WALLET-V2-003] Register legacy-only PAK protocol parameters and its height-1000000 chain anchor
@@ -2123,6 +2126,30 @@ function validateNetworkHourRecord($raw,$hourUTC,&$coinCount) {
     return true;
 }
 
+function discardedNetworkHourResponse(array $input,$reason) {
+    global $gateway;
+
+    $discardable=['INVALID_NETWORK_HOUR','NETWORK_HOUR_PROXY_NOT_OK','INVALID_NETWORK_HOUR_RECORD','NETWORK_HOUR_ARCHIVE_CONFLICT'];
+    if (!is_string($reason) || !in_array($reason,$discardable,true)) {return false;}
+    $required=['protocol','bootstrapId','proxyId','proxyUrl','sentAt','hourUTC','digest','record'];
+    foreach ($required as $key) {if (!array_key_exists($key,$input)) {return false;}}
+    if ($input['protocol']!==2 || !is_string($input['bootstrapId']) || !hash_equals($gateway['bootstrapId'],$input['bootstrapId']) || !is_string($input['proxyId']) || !preg_match('/^[A-Za-z0-9._-]{3,64}$/',$input['proxyId'])) {return false;}
+    $url=normalizeDirectoryProxyUrl($input['proxyUrl']);
+    $urlProxyId=$url===false?false:proxyIdFromDirectoryUrl($url);
+    if ($url===false || $urlProxyId===false || !hash_equals($input['proxyId'],$urlProxyId) || !is_int($input['sentAt']) || !is_string($input['hourUTC']) || !preg_match('/^[0-9]{8}T[0-9]{2}0000Z$/',$input['hourUTC']) || !is_string($input['digest']) || !preg_match('/^[0-9a-f]{64}$/',$input['digest']) || !is_string($input['record']) || strlen($input['record'])>CC_PROXY_NETWORK_HOUR_MAX_BYTES || !hash_equals($input['digest'],hash('sha256',$input['record']))) {return false;}
+    return [
+        'ok'=>true,
+        'protocol'=>2,
+        'version'=>CC_PROXY_NETWORK_METRIC_VERSION,
+        'hourUTC'=>$input['hourUTC'],
+        'digest'=>$input['digest'],
+        'acceptedCoins'=>0,
+        'stored'=>false,
+        'discarded'=>true,
+        'discardReason'=>$reason
+    ];
+}
+
 function storeNetworkHourPayload(array $input,&$error) {
     global $gateway;
 
@@ -2163,6 +2190,12 @@ function runNetworkHourOperation(array $input) {
     if ($result===false) {
         $reason=$error===''?'NETWORK_HOUR_REJECTED':$error;
         writeNetworkHourRejection($input,$reason);
+        $discarded=discardedNetworkHourResponse($input,$reason);
+        if ($discarded!==false) {
+            $networkEvent['outcome']='DISCARDED';
+            sendJson($discarded);
+            return;
+        }
         sendJson(['ok'=>false,'error'=>$reason],422);
         return;
     }
